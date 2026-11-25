@@ -889,7 +889,7 @@ Pending work across the three parts of the app. Grouped by area; detailed items 
   an atom's lifecycle. A late reader must still get the snapshot, which a provider guarantees today.
   Tests that mock `useClusters` or `useModels` would need a store instead.
 
-- **Nothing checks that the Figma designs keep up with the code.** [`design/components.json`](../design/components.json) records each component's source blobs at its last sync ([`design/CLAUDE.md`](../design/CLAUDE.md#drift)), and `make design-status` lists the designs behind their code. Nobody is made to run it. Given `FIGMA_TOKEN`, it reads the design side over Figma's REST API. **Shape:** `tools/designsync` reports the components a pull request's changes left behind. It runs on a pull request touching `src/components/` or `src/index.css`, report-only, like `coverage / Gate`. **Needs:** a Figma access token as a CI secret, read-only.
+- **Nothing checks that the Figma designs keep up with the code.** [`design/components.json`](../design/components.json) records each component's source blobs at its last sync ([`design/CLAUDE.md`](../design/CLAUDE.md#drift)), and `make status-desktop-design` lists the designs behind their code. Nobody is made to run it. Given `FIGMA_TOKEN`, it reads the design side over Figma's REST API. **Shape:** `tools/designsync` reports the components a pull request's changes left behind. It runs on a pull request touching `src/components/` or `src/index.css`, report-only, like `coverage / Gate`. **Needs:** a Figma access token as a CI secret, read-only.
 
 ## Security
 
@@ -1035,7 +1035,7 @@ risk stays distinguishable from an unnoticed one, and is not repeated here.
   [web search](security/2026-09-17-web-search.md).
 
 - **Audit prompt caching (low; chat owner).** [Prompt caching](notes/prompt-caching.md) says how
-  each provider caches. First, run `make test-livecache` with every key, fix each catalog row it
+  each provider caches. First, run `make test-desktop-livecache` with every key, fix each catalog row it
   contradicts (`catalog/providers.go`), and clear the UNVERIFIED cells it settles in the note.
   Three questions ride on it: whether OpenRouter passes `ttl: "1h"` on (without it Claude caches
   for five minutes), whether its top-level mark holds when it serves Claude from Bedrock or
@@ -1050,7 +1050,7 @@ risk stays distinguishable from an unnoticed one, and is not repeated here.
   counts implicit caching as retention. Record each provider that falls outside the line as a
   **By decision** row or drop it from the catalog.
 
-- **Run the live switch check (low; chat owner).** `make test-liveswitch` walks one chat from
+- **Run the live switch check (low; chat owner).** `make test-desktop-liveswitch` walks one chat from
   Anthropic to OpenAI to a Chat Completions vendor (Gemini, else the first keyed) and back, each
   step a real tool round over the steps before it. It has not run with keys. It answers what the
   fixtures cannot: whether the Messages API takes a history `tool_use` naming a tool the request

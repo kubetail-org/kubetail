@@ -117,7 +117,7 @@ internal/llm/
 - **Every wire replays a call under an id it hands out** (`replayIDs`, deterministic over the
   conversation): foreign calls and reused own ids are minted `call%05d`, and a minted call keeping
   a payload has the id written in (`withReplayID`). The record keeps the writer's ids.
-  `make test-liveswitch` walks one chat across the real APIs.
+  `make test-desktop-liveswitch` walks one chat across the real APIs.
   → [ADR: a chat can switch to any model](../../../docs/adr/2026-09-25-a-chat-can-switch-to-any-model.md),
   [security record](../../../docs/security/2026-09-25-a-chat-switches-vendor.md).
 - **A payload never leaves the sidecar.** `agent/chat` applies `WithoutPayloads` in `Progress`
@@ -166,7 +166,7 @@ internal/llm/
   (`cacheHour`). Every entry states `Model.Cache`; Chat Completions marks only `CacheMarks`. A
   request's `AffinityKey` goes where `Provider.AffinityRoute` says. **Append, never edit**: a
   turn's rendering is a prefix of the next's. The cache token counts on the model call's row are
-  the only evidence caching works; `make test-livecache` confirms a row.
+  the only evidence caching works; `make test-desktop-livecache` confirms a row.
   → [ADR: the prompt cache](../../../docs/adr/2026-10-17-the-messages-wire-caches-the-prompt-for-an-hour.md),
   [`docs/notes/prompt-caching.md`](../../../docs/notes/prompt-caching.md).
 - **Messages.** **A call's arguments are read off the deltas** (`messagesToolInputs`): the SDK

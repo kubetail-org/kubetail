@@ -1,0 +1,8 @@
+# Every text file of the desktop app is LF in the working tree on every OS.
+# Its formatters (gofmt, oxfmt, cargo fmt) and bash read a CRLF checkout as
+# broken, so a Windows clone must not take core.autocrlf's default.
+apps/desktop/** text=auto eol=lf
+
+apps/desktop/**/*.ico binary
+apps/desktop/**/*.icns binary
+apps/desktop/**/*.png binary

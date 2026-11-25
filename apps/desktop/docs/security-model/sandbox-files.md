@@ -195,7 +195,7 @@ A command the sandbox confines runs without asking, so the sandbox is the gate b
 - `TestAUnixRootHoldingDotDotIsRefused`, `TestConfigFromArgsRefusesARootHoldingDotDot` — the sidecar refuses a root holding `..`.
 - `TestARootThatCannotBeReadIsAnError`, `TestLinuxReadsHomeOnlyForARootUnderIt` — it refuses a relative `HOME` a root falls back to.
 - `TestConfigFromArgsRefusesARuntimeDirHoldingDotDot`, `TestConfigFromArgsRefusesAnOverrideHoldingDotDot` — it refuses a runtime directory or a debug build's data or cache override holding `..`.
-- Note: `make clean-data` refuses a `HOME`, XDG or `TMPDIR` value holding `..` likewise.
+- Note: `make clean-desktop-data` refuses a `HOME`, XDG or `TMPDIR` value holding `..` likewise.
 
 ### SBX-23
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the bwrap Kubetail's Linux packages carry, from one pinned bubblewrap
 # release, into src-tauri/linux/: bwrap itself and the tarball it was built
-# from, which `make build-embedded-sources` bundles as bwrap's source. It fails when
+# from, which `make build-desktop-embedded-sources` bundles as bwrap's source. It fails when
 # licenses/ is stale for that release (licenses/README.md).
 #
 # Run it on the machine that builds the bundle: bwrap links the glibc and

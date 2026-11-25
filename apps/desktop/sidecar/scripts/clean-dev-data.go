@@ -1,3 +1,17 @@
+// Copyright 2024 The Kubetail Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 //go:build ignore
 
 // Deletes the dev app's data, cache, config and state directories, so the
@@ -6,8 +20,8 @@
 // With -window-state it deletes only the saved window frame, so the next dev
 // launch opens at the default size. Run from the sidecar module:
 //
-//	go -C sidecar run ./scripts/clean-dev-data.go                 # `make clean-data`
-//	go -C sidecar run ./scripts/clean-dev-data.go -window-state   # part of `make clean`
+//	go -C sidecar run ./scripts/clean-dev-data.go                 # `make clean-desktop-data`
+//	go -C sidecar run ./scripts/clean-dev-data.go -window-state   # `make clean-desktop-window`
 //
 // The folders are the sidecar's own layout for a dev build, read from the same
 // roots (internal/app/layout), so this deletes what the app uses. The leaf

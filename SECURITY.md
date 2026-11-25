@@ -11,8 +11,44 @@ currently being supported with security updates.
 
 ## Reporting a Vulnerability
 
-If you find a security vulnerability please send us an email
-(hello@kubetail.com) and we will respond to you ASAP.
+If you find a security vulnerability please report it privately through
+GitHub's [private vulnerability reporting](https://github.com/kubetail-org/kubetail/security/advisories/new),
+or send us an email (hello@kubetail.com), and we will respond to you ASAP.
+Please don't open a public issue for a suspected vulnerability.
+
+Useful in a report: the version or commit, the platform, what an attacker has
+to already hold (a local account, a kubeconfig you can write, a cluster you
+control), and the steps that show the behaviour. A proof of concept helps but
+isn't required.
+
+## Kubetail Desktop
+
+The desktop app's boundaries, and which protections a test actually pins, are
+in [`apps/desktop/docs/security-model.md`](apps/desktop/docs/security-model.md).
+Dated review records are in [`apps/desktop/docs/security/`](apps/desktop/docs/security/)
+and the open findings are tracked in
+[`apps/desktop/docs/TODO.md`](apps/desktop/docs/TODO.md#security).
+
+Some properties are known and recorded rather than unnoticed, so a report
+about one tells us nothing new. The main ones:
+
+- **A kubeconfig is a trust decision.** Enabled contexts are connected
+  automatically and their `exec` credential plugins run local programs, so
+  importing a file an attacker controls is code execution. Use trusted
+  kubeconfigs only.
+- **The cache is plaintext on disk.** It holds full object bodies, may carry
+  credentials outside the redaction table, and survives cloud sign-out. It is
+  protected by file mode and ACL, not encryption:
+  [by decision](apps/desktop/docs/adr/2026-09-02-the-cache-is-ordinary-application-data.md).
+- **Code running in the webview holds the full cluster surface**, because the
+  host forwards GraphQL operations unexamined:
+  [by decision](apps/desktop/docs/adr/2026-09-03-no-graphql-operation-allowlist.md).
+- **Anyone with your OS account inherits the app's access.** The controls here
+  do not isolate the app from a compromised user account or host process.
+
+A finding that defeats one of these *as designed*, such as a way to read the
+cache from another account or to reach the IPC socket without the user's
+privileges, is very much in scope.
 
 ## Verifying a Release
 

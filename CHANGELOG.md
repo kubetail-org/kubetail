@@ -27,3 +27,9 @@ Each list below is a GitHub release search, which matches release notes as well 
 [![Latest Cluster Agent release](https://img.shields.io/github/v/release/kubetail-org/kubetail?filter=cluster-agent%2Fv*&display_name=tag&include_prereleases&label=latest)](https://github.com/kubetail-org/kubetail/releases?q=cluster-agent&expanded=true)
 
 [Cluster Agent releases](https://github.com/kubetail-org/kubetail/releases?q=cluster-agent&expanded=true), newest first.
+
+## Desktop
+
+[![Latest Desktop release](https://img.shields.io/github/v/release/kubetail-org/kubetail?filter=desktop%2Fv*&display_name=tag&include_prereleases&label=latest)](https://github.com/kubetail-org/kubetail/releases?q=desktop&expanded=true)
+
+[Desktop releases](https://github.com/kubetail-org/kubetail/releases?q=desktop&expanded=true), newest first.

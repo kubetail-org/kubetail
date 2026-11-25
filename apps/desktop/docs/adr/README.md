@@ -1,74 +1,17 @@
-# Architecture Decision Records
+# Kubetail Desktop ADRs
 
-An ADR captures **why** a design is the way it is: the forces, the alternatives rejected, and what
-the decision costs us. The `CLAUDE.md` files capture **what is true now** — invariants, conventions,
-commands, traps. Keeping those jobs apart is the whole point: rationale is read once, current state
-is read on every task.
+These ADRs record the desktop app's decisions: the webview, the Tauri host, the Go sidecar and the tooling and jobs only the app has. A decision that holds for the whole repo, the desktop included, goes in the repo's [`docs/adr/`](../../../../docs/adr/README.md), whose README sets the rules both sequences follow: filenames, frontmatter, sections, status and the exemption from "describe the present". [`TEMPLATE.md`](TEMPLATE.md) is this sequence's copy of the template.
 
-Rule of thumb: if a paragraph in a `CLAUDE.md` explains *why* rather than *what*, or lists an option
-we didn't take, it belongs here.
+What differs here:
 
-## Filenames
-
-```
-docs/adr/YYYY-MM-DD-short-slug.md
-```
-
-The date is when the ADR was **written** (for a decision made earlier, that's the day it was written
-down — note the approximate original date in the body). Several ADRs can share a date. There is one
-flat sequence for the whole repo — no per-subsystem directories, because most decisions here are
-contracts *between* subsystems and would otherwise have no natural home. Scope is a frontmatter
-field instead, so the index below is still filterable per area.
-
-## Referencing an ADR
-
-Link by path, name it by slug, never by date alone:
-
-```markdown
-→ [ADR: single-socket h2c from the standard library](docs/adr/2026-10-26-single-socket-h2c-from-the-standard-library.md)
-```
-
-## Status
-
-- **Accepted** — in force. This is the only status a `CLAUDE.md` may link to.
-- **`Superseded by [<slug>](<path>)`** — kept for the record. Nothing outside `docs/adr/` links here.
-
-Superseding is a normal change, not a failure. Write a new ADR, flip the old one's status, and
-**update every `CLAUDE.md` link in the same commit** — a live doc pointing at a superseded ADR is
-the one way this system rots.
-
-**A later ADR may replace part of an accepted one.** The newer names what it replaces, the older
-keeps its status — the rest of it is still in force, so a `CLAUDE.md` may still link it — and gains
-an `amended_by` frontmatter pointer, so a reader of the older one is not left believing a paragraph
-that has been answered. Adding that pointer is a metadata edit, the same class as flipping a status;
-the decision itself is never rewritten. When the whole decision goes, it is an ordinary supersede.
-
-**A torn-out subsystem's ADRs are deleted, not superseded.** Superseding says "we decided
-differently"; a teardown ahead of a rebuild has decided nothing yet, and a Superseded entry with no
-successor to point at is worse than no entry. Remove the files, their index rows, and every inbound
-link in the same commit — git history keeps them — and write the replacements as the new design
-lands. Superseding remains the rule everywhere else.
-
-## Exemption from the "describe the present" rule
-
-The repo rule (root `CLAUDE.md`) is that code comments and docs describe only the current state —
-no "used to", "formerly", "superseded". **`docs/adr/` is the sole exemption.** ADRs are an
-append-only historical log; recording what we rejected, what we replaced, and what we believed at
-the time is their function. Edit an accepted ADR only to fix errors or flip its status — do not
-rewrite its decision to match later reality. Write a new one.
-A path or package name the code has moved from is updated in place: that is a fix, not a rewrite.
-
-## Writing one
-
-Copy [`TEMPLATE.md`](TEMPLATE.md). Keep it to a page. Prose over bullets where the reasoning is a
-chain; the "Alternatives considered" section is not optional — an ADR with no rejected option is
-usually just documentation in the wrong place.
+- **`scope`** is one of `cross-cutting`, `frontend`, `host`, `sidecar`, `proto` or `repo`. Here `repo` means the desktop's own tooling and jobs: its signing, packaging, release files, platform splits and the security model.
+- **Link by a path relative to the linking file**: `docs/adr/…` from `apps/desktop/CLAUDE.md`, `../docs/adr/…` from `apps/desktop/src/CLAUDE.md`.
+- **A torn-out subsystem's ADRs are deleted, not superseded.** A teardown ahead of a rebuild has decided nothing yet, and a Superseded entry with no successor to point at is worse than none. Remove the files, their index rows and every inbound link in the same commit, and write the replacements as the new design lands.
 
 ## Index
 
 | Date | ADR | Scope | Status |
 | --- | --- | --- | --- |
-| 2026-08-09 | [Record architecture decisions](2026-08-09-record-architecture-decisions.md) | repo | Accepted |
 | 2026-08-09 | [Route all webview GraphQL through Tauri IPC](2026-08-09-graphql-over-tauri-ipc.md) | cross-cutting | Accepted |
 | 2026-08-09 | [Stream each kind as its own delta watch, joined client-side](2026-08-09-delta-watch-protocol.md) | cross-cutting | Accepted |
 | 2026-08-09 | [Transport status keyed to the host's open frame](2026-08-09-transport-status-generation.md) | frontend | Accepted |
@@ -169,7 +112,6 @@ usually just documentation in the wrong place.
 | 2026-09-30 | [Leaving the sandbox is the user's switch for a chat, never the model's flag](2026-09-30-leaving-the-sandbox-is-the-users-switch-for-a-chat.md) | cross-cutting | Accepted |
 | 2026-10-02 | [The sandbox's zones are Kubetail's lists, and its environment one table](2026-10-02-the-sandboxs-zones-are-kubetails-lists.md) | sidecar | Accepted |
 | 2026-10-02 | [Bound a sandboxed run's processes with resource limits set inside the run](2026-10-02-process-limits-are-set-inside-the-run.md) | sidecar | Accepted |
-| 2026-10-03 | [A spec never reaches main](2026-10-03-a-spec-never-reaches-main.md) | repo | Accepted |
 | 2026-10-03 | [Authorization is binary, and a prompt is a denial the user may lift](2026-10-03-authorization-is-binary-and-a-prompt-is-a-denial-the-user-may-lift.md) | sidecar | Accepted |
 | 2026-10-04 | [Run the login shell in the sandbox](2026-10-04-the-login-shell-runs-in-the-sandbox.md) | sidecar | Accepted |
 | 2026-10-04 | [A prompt names the action and offers a duration](2026-10-04-a-prompt-names-the-action-and-offers-a-duration.md) | cross-cutting | Accepted |
@@ -208,43 +150,30 @@ usually just documentation in the wrong place.
 | 2026-10-24 | [A bounded log window reads its dropped lines back from a moment](2026-10-24-a-bounded-log-window-reads-dropped-lines-back.md) | cross-cutting | Accepted |
 | 2026-10-25 | [A tool call records its tool's contract beside its stored JSON](2026-10-25-a-tool-call-records-its-tools-contract.md) | sidecar | Accepted |
 | 2026-10-25 | [The sidecar's own mirror statements compile once per file](2026-10-25-the-sidecars-own-mirror-statements-compile-once-per-file.md) | sidecar | Accepted |
-| 2026-10-26 | [Dependabot moves dependencies, and a person merges every update](2026-10-26-dependabot-moves-dependencies-and-a-person-merges-every-update.md) | repo | Accepted |
-| 2026-10-26 | [A pull request fails only for the advisories it brings in](2026-10-26-a-pull-request-fails-only-for-the-advisories-it-brings-in.md) | repo | Accepted |
 | 2026-10-26 | [Serve GraphQL and gRPC over one socket with the standard library's h2c](2026-10-26-single-socket-h2c-from-the-standard-library.md) | cross-cutting | Accepted |
 | 2026-10-28 | [Tauri signs the macOS bundle in the job that installs its dependencies](2026-10-28-tauri-signs-the-macos-bundle-beside-its-dependencies.md) | repo | Accepted |
-| 2026-10-28 | [Share one pnpm store across the sandbox's worktrees, in the global virtual store layout](2026-10-28-share-one-pnpm-store-across-sandbox-worktrees.md) | repo | Accepted |
 | 2026-10-29 | [Each persisted format carries its own version stamp, and a downgrade is refused only where it would break](2026-10-29-each-persisted-format-carries-its-own-version-stamp.md) | cross-cutting | Accepted |
 | 2026-10-29 | [The omnibox is the cluster picker](2026-10-29-the-omnibox-is-the-cluster-picker.md) | frontend | Accepted |
-| 2026-10-30 | [Codecov gates the changed lines, and the total is a backstop](2026-10-30-codecov-gates-the-changed-lines.md) | repo | Accepted |
 | 2026-10-30 | [TypeScript coverage is measured without the React compiler](2026-10-30-typescript-coverage-is-measured-without-the-react-compiler.md) | frontend | Accepted |
-| 2026-10-30 | [The coverage gate runs in CI, on Codecov's merged result](2026-10-30-the-coverage-gate-runs-in-ci-on-codecovs-merged-result.md) | repo | Accepted |
 | 2026-11-02 | [A series is a third kind of stream, and the pool owns its clock](2026-11-02-a-series-is-a-third-kind-of-stream-and-the-pool-owns-its-clock.md) | cross-cutting | Accepted |
 | 2026-11-03 | [Connected carries the probe's class of failure as its reason](2026-11-03-connected-carries-the-probes-class-of-failure.md) | cross-cutting | Accepted |
 | 2026-11-03 | [A failed kind sync carries its class of failure beside its reason](2026-11-03-a-failed-sync-carries-its-class-of-failure.md) | cross-cutting | Accepted |
 | 2026-11-03 | [A kind reads Stale only when its watch stops sending bookmarks](2026-11-03-a-kind-reads-stale-only-when-its-bookmarks-stop.md) | sidecar | Accepted |
 | 2026-11-03 | [A Connecting cache answers KubeQuery from the kinds that have listed](2026-11-03-a-connecting-cache-answers-from-the-kinds-that-have-listed.md) | sidecar | Accepted |
-| 2026-11-04 | [A wip branch's tip gets a coverage report, and a missing base fails the gate at once](2026-11-04-a-wip-branchs-tip-gets-a-coverage-report.md) | repo | Accepted |
-| 2026-11-04 | [Coverage runs on its own triggers, reading the path filters ci.yml reads](2026-11-04-coverage-runs-on-its-own-triggers-from-shared-path-filters.md) | repo | Accepted |
 | 2026-11-04 | [A log window belongs to one app window, and the host keeps the pair](2026-11-04-a-log-window-belongs-to-one-app-window-and-the-host-keeps-the-pair.md) | cross-cutting | Accepted |
 | 2026-11-05 | [Lint the webview with oxlint's categories and a chosen rule list](2026-11-05-lint-the-webview-with-oxlints-categories-and-a-chosen-rule-list.md) | frontend | Accepted |
-| 2026-11-05 | [The coverage gate diffs the commits itself, and reads only Codecov's stored reports](2026-11-05-the-coverage-gate-diffs-the-commits-itself.md) | repo | Accepted |
 | 2026-11-05 | [Lint the React compiler's rules with oxlint's native ports](2026-11-05-lint-the-react-compilers-rules-with-oxlints-native-ports.md) | frontend | Accepted |
-| 2026-11-05 | [Lint Tailwind classes in a run of their own](2026-11-05-lint-tailwind-classes-in-a-run-of-their-own.md) | frontend | Accepted |
-| 2026-11-06 | [GitHub Releases is the changelog, and the releaser writes the notes with a skill over deterministic tooling](2026-11-06-the-releaser-writes-the-notes-with-a-skill-over-deterministic-tooling.md) | repo | Accepted |
 | 2026-11-06 | [Desktop pre-releases are rc.N, mapped to a version per package format](2026-11-06-desktop-pre-releases-are-rc-n-mapped-per-package-format.md) | repo | Accepted |
-| 2026-11-07 | [The agent posts a draft's release notes with gh when the user asks](2026-11-07-the-agent-posts-the-notes-when-the-user-asks.md) | repo | Accepted |
 | 2026-11-07 | [Linux ships only the .deb and the .rpm](2026-11-07-linux-ships-only-the-deb-and-the-rpm.md) | repo | Accepted |
 | 2026-11-08 | [Release files are named kubetail-\<product\>-\<version\>-\<os\>-\<arch\>](2026-11-08-release-files-are-named-kubetail-product-version-os-arch.md) | repo | Accepted |
 | 2026-11-08 | [A shipped schema changes only by a new migration](2026-11-08-a-shipped-schema-changes-only-by-a-new-migration.md) | cross-cutting | Accepted |
 | 2026-11-08 | [The updater trusts a current and a standby key](2026-11-08-the-updater-trusts-a-current-and-a-standby-key.md) | cross-cutting | Accepted |
-| 2026-11-10 | [A pull request runs one leg per OS, and main runs every leg](2026-11-10-a-pull-request-runs-one-leg-per-os.md) | repo | Accepted |
 | 2026-11-10 | [CI checks every platform split the code has on a pull request](2026-11-10-ci-tests-every-platform-split-the-code-has.md) | repo | Accepted |
 | 2026-11-10 | [Main builds and tests the desktop host's release profile on the release runners](2026-11-10-main-builds-and-tests-the-release-profile.md) | repo | Accepted |
 | 2026-11-12 | [A model may override its provider's default dialect](2026-11-12-a-model-may-override-its-providers-default-dialect.md) | sidecar | Accepted |
 | 2026-11-12 | [The dashboard nav groups kinds by scope and API group, and lists every kind flat](2026-11-12-the-dashboard-nav-groups-kinds-by-scope-and-api-group.md) | frontend | Accepted |
 | 2026-11-12 | [The dashboard's namespace scope is a search param](2026-11-12-the-namespace-scope-is-a-search-param.md) | frontend | Accepted |
 | 2026-11-15 | [designsync reads Figma over the REST API](2026-11-15-designsync-reads-figma-over-the-rest-api.md) | repo | Accepted |
-| 2026-11-15 | [Agent guides sit beside the components they describe](2026-11-15-agent-guides-sit-beside-the-components-they-describe.md) | repo | Accepted |
 | 2026-11-17 | [A sandboxed command reaches a cloud platform through a proxy on its run's one relay](2026-11-17-a-sandboxed-command-reaches-a-cloud-platform-through-a-proxy-on-its-runs-one-relay.md) | sidecar | Accepted |
 | 2026-11-17 | [A sandboxed command reaches AWS through a re-signing proxy](2026-11-17-a-sandboxed-command-reaches-aws-through-a-re-signing-proxy.md) | sidecar | Accepted |
 | 2026-11-17 | [A sandboxed command reaches Azure through a token-injecting proxy](2026-11-17-a-sandboxed-command-reaches-azure-through-a-token-injecting-proxy.md) | sidecar | Accepted |
@@ -262,7 +191,6 @@ usually just documentation in the wrong place.
 | 2026-11-19 | [The Kubetail sign-in is a connector on the OAuth engine](2026-11-19-the-kubetail-sign-in-is-a-connector-on-the-oauth-engine.md) | sidecar | Accepted |
 | 2026-11-19 | [The AWS connector is AWS login with a DPoP-bound session](2026-11-19-the-aws-connector-is-aws-login-with-a-dpop-bound-session.md) | sidecar | Accepted |
 | 2026-11-19 | [The GitHub connector signs in with GitHub's device flow](2026-11-19-the-github-connector-signs-in-with-githubs-device-flow.md) | sidecar | Accepted |
-| 2026-11-19 | [Name workflow jobs verb first](2026-11-19-name-workflow-jobs-verb-first.md) | repo | Accepted |
 | 2026-11-19 | [The Google connector signs Vertex AI in the user's project](2026-11-19-the-google-connector-signs-vertex-ai-in-the-users-project.md) | sidecar | Accepted |
 | 2026-11-20 | [A provider's credential follows one order](2026-11-20-a-providers-credential-follows-one-order.md) | cross-cutting | Accepted |
 | 2026-11-20 | [Keep a setting with a cluster scope as rows in app.db](2026-11-20-a-setting-with-scopes-is-rows.md) | sidecar | Accepted |

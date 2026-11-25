@@ -12,6 +12,8 @@ docs/adr/YYYY-MM-DD-short-slug.md
 
 The date is the day the ADR was **written**. For a decision made earlier, the body says roughly when it was made. Several ADRs can share a date. There is one flat sequence for the whole repo, with no per-area directories: the decisions with the most reasoning behind them cross areas and would have no natural home. Scope is a frontmatter field instead.
 
+The desktop app is the exception: its decisions are its own sequence, in [`apps/desktop/docs/adr/`](../../apps/desktop/docs/adr/README.md). A decision about the app goes there; one that holds for the whole repo, the desktop included, goes here.
+
 ## Frontmatter
 
 ```yaml
@@ -59,6 +61,7 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 
 | Date | ADR | Scope | Status |
 | --- | --- | --- | --- |
+| 2026-10-26 | [A pull request fails only for the advisories it brings in](2026-10-26-a-pull-request-fails-only-for-the-advisories-it-brings-in.md) | repo | Accepted |
 | 2026-11-09 | [Record architecture decisions as ADRs](2026-11-09-record-architecture-decisions.md) | repo | Accepted |
 | 2026-11-09 | [Commit generated Go and TypeScript, generate Rust at build time](2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md) | cross-cutting | Accepted |
 | 2026-11-09 | [Embed the UI by a copy step and render from the Vite manifest](2026-11-09-embed-the-ui-by-a-copy-step-and-render-from-the-vite-manifest.md) | cross-cutting | Accepted |
@@ -90,6 +93,7 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-10 | [Test each component on the platforms it ships for, or record why not](2026-11-10-test-each-component-on-the-platforms-it-ships-for.md) | repo | Accepted |
 | 2026-11-09 | [Tests sit beside their files, never sleep, and take seams as parameters](2026-11-09-tests-sit-beside-their-files-never-sleep-and-take-seams-as-parameters.md) | repo | Accepted |
 | 2026-11-10 | [Write release notes with a skill over deterministic tooling](2026-11-10-write-release-notes-with-a-skill-over-deterministic-tooling.md) | repo | Accepted |
+| 2026-11-15 | [Agent guides sit beside the components they describe](2026-11-15-agent-guides-sit-beside-the-components-they-describe.md) | repo | Accepted |
 | 2026-11-17 | [Keep one folder per component](2026-11-17-one-folder-per-component.md) | repo | Accepted |
 | 2026-11-17 | [Define the CI runner matrix in one runners.json file](2026-11-17-define-the-ci-runner-matrix-in-one-runners-json-file.md) | repo | Accepted |
 | 2026-11-17 | [Keep specs off main and build them on a wip branch](2026-11-17-keep-specs-off-main-and-build-them-on-a-wip-branch.md) | repo | Accepted |

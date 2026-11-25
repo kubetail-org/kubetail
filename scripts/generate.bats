@@ -9,7 +9,7 @@ setup() {
   export repo calls
   mkdir -p "$repo/scripts" "$repo/.github/actions/setup-environment" "$repo/tools" \
     "$repo/libs/go-common" "$repo/dashboard" "$repo/cluster/api" "$repo/cli" \
-    "$repo/apps/web" "$bin"
+    "$repo/apps/web" "$repo/apps/desktop/sidecar" "$bin"
   cp "$(dirname "$BATS_TEST_FILENAME")/generate.sh" "$repo/scripts/"
   cat >"$repo/.github/actions/setup-environment/action.yml" <<'YAML'
 inputs:
@@ -34,7 +34,7 @@ SH
 }
 
 generate() {
-  PATH="$bin:$PATH" run bash "$repo/scripts/generate.sh"
+  PATH="$bin:$PATH" run bash "$repo/scripts/generate.sh" "$@"
 }
 
 @test "builds the pinned plugins, then runs every generator in order" {
@@ -48,8 +48,30 @@ go generate ./... in cluster/api
 go generate ./... in cli
 pnpm install --frozen-lockfile in apps/web
 pnpm graphql-codegen in apps/web
+go generate ./... in apps/desktop/sidecar
+pnpm install --frozen-lockfile in apps/desktop
+pnpm codegen in apps/desktop
 OUT
 )" ]
+}
+
+@test "desktop runs the desktop app's generators alone" {
+  generate desktop
+  [ "$status" -eq 0 ]
+  [ "$(cat "$calls")" = "$(cat <<'OUT'
+go build google.golang.org/protobuf/cmd/protoc-gen-go google.golang.org/grpc/cmd/protoc-gen-go-grpc in tools
+go generate ./... in apps/desktop/sidecar
+pnpm install --frozen-lockfile in apps/desktop
+pnpm codegen in apps/desktop
+OUT
+)" ]
+}
+
+@test "an unknown area fails before anything runs" {
+  generate web
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"usage:"* ]]
+  [ ! -e "$calls" ]
 }
 
 @test "another protoc version fails before anything runs" {

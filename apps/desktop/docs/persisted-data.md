@@ -76,7 +76,7 @@ directory give their kinds one `kubetail` folder, and a root set inside another'
 puts its kind inside the other's. Each platform's folders are listed below. The
 leaf is `kubetail` (`kubetail-dev` in debug) on Linux and `Kubetail` (`Kubetail-dev`) elsewhere. The
 caches live under `<cache>` because the OS may reclaim that root; they are still durable, since they
-hold history the cluster no longer has. `make clean-data` clears the dev build's `<data>`, `<cache>`,
+hold history the cluster no longer has. `make clean-desktop-data` clears the dev build's `<data>`, `<cache>`,
 `<config>` and `<state>`, with `<state>` its webview profile on Linux and Windows, on macOS and
 Windows the app folder that holds them, on Windows the `%APPDATA%\Kubetail-dev` folder that holds
 the config, and on macOS the logs.
@@ -85,7 +85,7 @@ A dev build and a release never read each other's keyring entries or webview sto
 entries sit under different services. `localStorage` is per origin: a dev build loads
 `http://localhost:1420` (`devUrl` in `tauri.conf.json`), a release `tauri://localhost`
 (`http://tauri.localhost` on Windows). On macOS the profile folder is shared, but its storage is
-not. `make clean-data` leaves the macOS profile and the `Kubetail-dev` keyring entries alone.
+not. `make clean-desktop-data` leaves the macOS profile and the `Kubetail-dev` keyring entries alone.
 
 ### Every folder, by platform
 
@@ -115,7 +115,7 @@ is the doc comment on `paths` in `sidecar/internal/app/paths.go`.
 | `~/Library/Caches/Kubetail/` | `<cache>` | `kube/`, `logs/` (the log cache), `kubectl/`, `tmp/` |
 | `~/Library/Logs/Kubetail/` | logs | `main.log`, `webview.log`, `sidecar.log` |
 | `$TMPDIR/kubetail-<uid>/` | `<runtime>` | the IPC socket, `shell/`, `runs/` |
-| WKWebView's own, under the bundle id `com.kubetail.desktop` | webview profile | `localStorage`; a dev build and a release share the folder, each origin its own storage, and `make clean-data` leaves it |
+| WKWebView's own, under the bundle id `com.kubetail.desktop` | webview profile | `localStorage`; a dev build and a release share the folder, each origin its own storage, and `make clean-desktop-data` leaves it |
 
 **Windows.**
 
@@ -141,7 +141,7 @@ is the doc comment on `paths` in `sidecar/internal/app/paths.go`.
 | Cluster cache `raw_json` | `kube/*.db` `objects.raw_json` | `kubestore/rawcodec.go` | durable | first byte (zlib `0x78`, JSON `{`) | a `kube/*.db` migration | with `kube/*.db` | `rawcodec_test.go` |
 | Log cache | `<cache>/logs/<cache id>.db` | `logstore` | durable | `sqlitemigrate` | SQL migrations | refused; `OpenOrCreate` returns the error to the caller | `logstore` `TestAShippedMigrationIsNeverEdited`, `TestOpenOrCreateRefusesANewerFile` |
 | Host file | `<config>/host.json` | `src-tauri/src/host_file.rs` | preference | `schemaVersion` 1 | none | read; a write drops unknown fields and stamps 1 (accepted gap, ADR; [#824](https://github.com/kstackhq/kstack/issues/824)) | `update_stamps_current_version` |
-| Window state | `<state>/window-state.json`: the main window's logical frame and `maximized`, and the log windows' last `width` and `height`; `make clean` and `make clean-data` delete the dev build's | `src-tauri/src/window_state.rs` | disposable (windows open at their default sizes) | `schemaVersion` 2 | version 1 is read as is, with no log size | unknown versions and invalid files are ignored, and the next write replaces them; a write keeps the other entry of a file it can read | `the_file_is_stamped_with_its_schema_version`, `a_version_one_main_frame_survives_a_log_size_write`, `each_entry_survives_a_write_of_the_other` |
+| Window state | `<state>/window-state.json`: the main window's logical frame and `maximized`, and the log windows' last `width` and `height`; `make clean-desktop-window` and `make clean-desktop-data` delete the dev build's | `src-tauri/src/window_state.rs` | disposable (windows open at their default sizes) | `schemaVersion` 2 | version 1 is read as is, with no log size | unknown versions and invalid files are ignored, and the next write replaces them; a write keeps the other entry of a file it can read | `the_file_is_stamped_with_its_schema_version`, `a_version_one_main_frame_survives_a_log_size_write`, `each_entry_survives_a_write_of_the_other` |
 | OAuth connections | `app.db` `oauth_connections`, a row per provider signed in to with OAuth: issued client id (NULL for a fixed client), subject, email, name, the session id its keyring entry must name; `provider_data` is one provider's own JSON (ChatGPT: `{"hostID"}`); no token | `internal/appdb`, `services/connectors/internal/oauthconn/registration.go` | durable | rides `app.db`'s | an `app.db` migration | with `app.db` | `TestTheOAuthConnectionsHoldOneRowPerProvider`, `TestARegistrationRoundTrips`, `TestARegistrationLeavesOtherProvidersAlone` |
 | User's variables | `app.db` `env_vars`, a row per variable: name, value, target (sandbox, outside or both) and an optional cluster, in the order added; `tool_calls.env`, the variables a command outside the sandbox was shown | `internal/appdb`, `services/envvars`, `agent/chat` | durable | rides `app.db`'s | an `app.db` migration | with `app.db`; a row the check refuses is listed with its reason and given to no command | `TestTheUsersVariablesHoldOneNamePerScope`, `TestARefusedRowIsListedWithItsReasonAndGivenToNoCommand` |
 | Single-value settings | `app.db` `settings`, a row per setting and scope the user has set: a dotted `key` (`sandbox.<platform>.enabled`, `sandbox.path`, `tools.<name>.enabled`), an optional cluster (NULL for every cluster; a cluster's goes with it), a `value` that is an integer, text, or NULL for the default chosen, and `created_at`, `updated_at`; no row is the default, and a row is never deleted but with its cluster | `internal/appdb`, `services/settings`, `services/toolsettings`, `agent/chat` | durable | rides `app.db`'s | an `app.db` migration for the table; a new setting is an entry in `services/settings` and needs none | with `app.db`; a value Kubetail cannot use reads as its entry's strictest value (a switch or a tool off) or its default, logged by key alone; a `PATH` it cannot use is listed with its refusal and starts no run; a row whose key no entry has is kept and ignored; a failed read is an error | `TestTheSettingsTablesHoldWhatTheirChecksAllow`, `TestASettingKubetailCannotUseReadsItsStrictestOrDefault`, `TestASettingReadThatFailsIsAnError`, `TestASwitchValueKubetailCannotUseIsOff`, `TestARowKubetailCannotUseTurnsItsToolOff`, `TestARefusedPathSettingIsReadWithItsRefusal`, `TestAPathSettingThatIsNotTextIsReadWithItsRefusal`, `TestSetWritesOneRowPerToolAndKeepsIt`, `TestRowsOutsideTheListAreIgnored`, `TestAnAlwaysOnToolStaysOn` |

@@ -13,6 +13,20 @@ rules:
   self-repository:
     disable: true
 
+  # The desktop's release token can publish to every job, and nothing gates the
+  # release job: R-08 (apps/desktop/docs/TODO.md#security).
+  excessive-permissions:
+    ignore:
+      - release-desktop.yml
+
+  # zizmor cannot see which triggers run a composite action, so it flags every
+  # env-file write in one. The desktop's setup writes fixed values, under
+  # workflows with no trigger an outsider's fork controls. An entry names a file
+  # by its name alone, so the line keeps it to the desktop's action.yml.
+  github-env:
+    ignore:
+      - action.yml:228
+
   # The prow action reads the comment only to match /assign and /unassign, runs
   # no code from the repository, and holds `issues: write` alone.
   dangerous-triggers:

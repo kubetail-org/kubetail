@@ -1,8 +1,10 @@
 #!/bin/sh
 # Each toolchain has one exact version, which CI installs and every Dockerfile
 # builds with. Go and Node come from setup-environment's go-version and
-# node-version defaults, Rust from cluster/agent/rust-toolchain.toml. Prints every
-# FROM line whose golang, node or rust image names another version, and fails.
+# node-version defaults, Rust from cluster/agent/rust-toolchain.toml, pnpm from
+# apps/web/package.json's packageManager. Prints every FROM line whose golang,
+# node or rust image names another version, and every other pin of Rust or pnpm
+# that differs, and fails.
 #
 #   sh scripts/check-toolchain-versions.sh
 set -eu
@@ -46,11 +48,34 @@ check() {
   fi
 }
 
+# channel <file>: the channel a rust-toolchain.toml pins.
+channel() {
+  sed -n 's/^channel = "\(.*\)"$/\1/p' "$1"
+}
+
+# package_manager <file>: a package.json's packageManager.
+package_manager() {
+  sed -n 's/^  "packageManager": "\(.*\)",*$/\1/p' "$1"
+}
+
+# same <want> <file> <got>: <file> pins <want>.
+same() {
+  if [ "$3" != "$1" ]; then
+    echo "$2: $3, want $1"
+    status=1
+  fi
+}
+
+rust="$(channel cluster/agent/rust-toolchain.toml)"
 check golang "$(input_default go-version)" go-version
 check node "$(input_default node-version)" node-version
-check rust "$(sed -n 's/^channel = "\(.*\)"$/\1/p' cluster/agent/rust-toolchain.toml)" rust-toolchain.toml
+check rust "$rust" rust-toolchain.toml
+same "$rust" apps/desktop/src-tauri/rust-toolchain.toml \
+  "$(channel apps/desktop/src-tauri/rust-toolchain.toml)"
+same "$(package_manager apps/web/package.json)" apps/desktop/package.json \
+  "$(package_manager apps/desktop/package.json)"
 
 if [ "$status" -ne 0 ]; then
-  echo "the Dockerfiles must build with the toolchain versions CI installs" >&2
+  echo "the Dockerfiles and every toolchain pin must match the versions CI installs" >&2
 fi
 exit "$status"

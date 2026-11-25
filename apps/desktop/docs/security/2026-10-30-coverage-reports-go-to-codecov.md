@@ -4,7 +4,7 @@
 `codecov/project` statuses that gate a pull request. It is the first CI job to send data to a
 third party for its verdict. Reviewed at `88ef33ad`. The living model is
 [security-model.md](../security-model.md); the decision is the
-[ADR](../adr/2026-10-30-codecov-gates-the-changed-lines.md).
+[ADR](../../../../docs/adr/2026-11-09-gate-prs-on-changed-lines-with-codecovs-merged-result.md).
 
 ## What leaves
 

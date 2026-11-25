@@ -24,6 +24,13 @@ Kubetail is organized as a monorepo with one folder per component:
 
 - **`/apps/web`** - React/TypeScript frontend
 
+- **`/apps/desktop`** - Kubetail Desktop, a Tauri app
+  - `src/` - React/TypeScript webview
+  - `src-tauri/` - Rust native host (windows, tray, sidecar lifecycle)
+  - `sidecar/` - Go sidecar (GraphQL API, Kubernetes and cloud logic, AI agents)
+  - `proto/` - gRPC contract between the host and the sidecar
+  - `docs/` - the desktop's design decisions (`adr/`) and security model
+
 - **`/cli`** - CLI tool (Go)
 
 - **`/dashboard`** - Dashboard backend (Go)
@@ -47,6 +54,12 @@ Kubetail is organized as a monorepo with one folder per component:
 | Web UI | `apps/web/` |
 | Backend | `dashboard/` or `cluster/api/` |
 | Agent | `cluster/agent/cluster_agent/` |
+| Desktop pages, components and hooks | `apps/desktop/src/` |
+| Desktop windows, tray, menus | `apps/desktop/src-tauri/src/` |
+| Desktop GraphQL API | `apps/desktop/sidecar/graph/` |
+| Desktop clusters, logs, settings | `apps/desktop/sidecar/internal/services/` |
+| Desktop AI agent, providers and tools | `apps/desktop/sidecar/internal/agent/`, `llm/`, `tools/` |
+| Desktop command sandbox | `apps/desktop/sidecar/internal/run/` |
 
 ## How to Run Tests and Other Checks
 
@@ -59,6 +72,7 @@ Every check is a `make <verb>-<area>` target, run from the repo root. Run the ch
 | `cluster-api` | `cluster/api/` | `lint-cluster-api` | `vet-cluster-api` | `test-cluster-api` | `cover-cluster-api-changed` |
 | `cluster-agent` | `cluster/agent/` | `lint-cluster-agent` | `vet-cluster-agent` | `test-cluster-agent` | `cover-cluster-agent-changed` |
 | `web` | `apps/web/` | `lint-web` | `vet-web` | `test-web` | `cover-web-changed` |
+| `desktop` | `apps/desktop/` | `lint-desktop` | `vet-desktop` | `test-desktop` | `cover-desktop-changed` |
 | `e2e` | `e2e/` | `lint-e2e` | | `test-e2e` | |
 | `repo` | everything else | `lint-repo` | | `test-repo` | |
 
@@ -66,6 +80,7 @@ Every check is a `make <verb>-<area>` target, run from the repo root. Run the ch
 - **`lint-repo`** runs `lint-repo-sh`, `lint-repo-md`, `lint-repo-yaml`, `lint-repo-toolchains` and `lint-repo-digests`, which you can also run alone.
 - **A change can reach another area.** The *Checks* section of the root [README](README.md#checks) lists those cases, and each component's README lists what to run while you work.
 - **The targets need `make` and a POSIX shell.** On Windows, use Git Bash or WSL.
+- **After editing a GraphQL schema or a `.proto` file**, `make generate` regenerates both sides; `make generate-desktop` does the desktop's alone. The desktop's [README](apps/desktop/README.md) has its toolchain and how to run it (`pnpm tauri dev`).
 
 ## Commit Guidelines
 
@@ -144,7 +159,8 @@ The repo's `.claude/settings.json` runs `scripts/writing-standards-hook.sh` on e
 ### Visual Studio Code
 
 Recommended extensions (also listed in `.vscode/extensions.json`):
-- **Oxc**: `oxc.oxc-vscode`, which runs oxlint and oxfmt for the dashboard UI
+- **Oxc**: `oxc.oxc-vscode`, which runs oxlint and oxfmt for the dashboard UI and the desktop webview
+- **Tauri**: `tauri-apps.tauri-vscode`, for the desktop app
 - **Rust**: `rust-lang.rust-analyzer`
 - **Go**: `golang.go`
 
@@ -193,7 +209,7 @@ Where:
 Example:
 
 ```
-git commit -a -s --trailer "Assisted-by: Claude:claude-opus-4.6" -m "<message>"
+git commit -a -s --trailer "Assisted-by: Claude:claude-opus-5-5" -m "<message>"
 ```
 
 ## Community

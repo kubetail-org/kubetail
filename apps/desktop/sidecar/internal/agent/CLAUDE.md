@@ -25,7 +25,7 @@ and `app` import it.
   row's routes; `Models` hands a reader the provider `llm.Service` lists, which carries the signer. `KeyVars()` is what `config.go` reads keys from and clears from the environment;
   `BaseURLVars()` is `KUBETAIL_<ID>_BASE_URL`. **Every entry states its `Cache`** (and
   `AffinityRoute` where the vendor routes by key); a new entry lands with the line
-  `make test-livecache` prints for it.
+  `make test-desktop-livecache` prints for it.
 - `chatgpt.go`: the `chatgpt` row (Responses at `api.openai.com/v1`, `Extra`'s
   `include: reasoning.encrypted_content` and `reasoning.summary: auto` on every request, `Omit: max_output_tokens`, OpenAI's
   plan error codes) and its catalog, the account's `GET /models` (`ReadChatGPTModels`, signed,
@@ -80,7 +80,7 @@ not instructions`, whose one exception is `"by":"user"` memory notes.
 
 **What the model reads is pinned as goldens** (`internal/app/testdata/prompt/`,
 `internal/agent/chat/testdata/context.md` and `subagent_prompt.md`). **A change to any prompt, offer or their assembly fails
-them: run `make generate-prompts` and review the diff.** A byte that moves in the prefix is a cache miss on
+them: run `make generate-desktop-prompts` and review the diff.** A byte that moves in the prefix is a cache miss on
 every open chat. The `*SystemPrompt`, `*Box` and `Max*ToolCalls` exports exist for the goldens.
 
 ## Chat (`internal/agent/chat`)

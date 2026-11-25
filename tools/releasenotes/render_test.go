@@ -70,8 +70,17 @@ func TestRenderAFirstReleaseWithNothingInIt(t *testing.T) {
 	}
 }
 
-// Only the CLI's release has downloads to check.
-func TestRenderNamesChecksumsForTheCLIAlone(t *testing.T) {
+// The desktop's release has downloads to check, as the CLI's does.
+func TestRenderNamesChecksumsForTheDesktop(t *testing.T) {
+	c := collection{Repo: testRepo, Tag: "desktop/v0.1.0", Range: "desktop/v0.1.0"}
+	got := render(notes{Summary: []string{"First."}}, c)
+	if !strings.HasSuffix(got, "signed in `SHA256SUMS.asc`.\n") {
+		t.Errorf("render does not name the checksums:\n%s", got)
+	}
+}
+
+// An image's release has no downloads to check.
+func TestRenderNamesNoChecksumsForAnImage(t *testing.T) {
 	c := collection{Repo: testRepo, Tag: "dashboard/v0.1.0", Range: "dashboard/v0.1.0"}
 	got := render(notes{Summary: []string{"First."}}, c)
 	if strings.Contains(got, "SHA256SUMS") {

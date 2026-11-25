@@ -2,7 +2,7 @@
 
 How each model provider caches a prompt, and what Kubetail sends to get the cache. The vendor
 facts are as their docs stated them on 2026-09-25. A cell marked UNVERIFIED is one the docs
-leave open; `make test-livecache` is what confirms a row.
+leave open; `make test-desktop-livecache` is what confirms a row.
 
 ## Why it matters
 
@@ -178,12 +178,12 @@ beside the uncached remainder in `input_tokens`).
 These counts are the only evidence caching works. A regression is no error, just a higher bill.
 After a change to prompt assembly, check them by hand. The goldens under
 `sidecar/internal/app/testdata/prompt/` and `sidecar/internal/agent/chat/testdata/context.md`
-show the prefix byte for byte, so `make generate-prompts` and the diff say what moved before any call is
+show the prefix byte for byte, so `make generate-desktop-prompts` and the diff say what moved before any call is
 made.
 
 ## Checking a row
 
-`make test-livecache` sends each keyed model two turns with one affinity key and reports whether
+`make test-desktop-livecache` sends each keyed model two turns with one affinity key and reports whether
 the second read from the cache. It reads keys from the environment, skips providers without
 one, and prints one line per model: provider, model, kind, the first and last read counts.
 

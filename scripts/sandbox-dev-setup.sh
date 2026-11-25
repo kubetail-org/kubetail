@@ -7,16 +7,17 @@
 #
 #   1. Configurable output paths (Cargo's target/, the pnpm store) are pointed
 #      at Linux-only directories through environment variables.
-#   2. Fixed paths the tooling can't relocate (apps/web/node_modules and
-#      apps/web/dist) get a sandbox-only bind mount on top of them. A bind
-#      mount is invisible to the host: macOS keeps its own directory
-#      underneath, untouched, while the sandbox sees the Linux one.
+#   2. Fixed paths the tooling can't relocate (the node_modules and dist of
+#      apps/web and apps/desktop) get a sandbox-only bind mount on top of
+#      them. A bind mount is invisible to the host: macOS keeps its own
+#      directory underneath, untouched, while the sandbox sees the Linux one.
 #
 # target/, node_modules and the pnpm store live on the sandbox's own overlay
 # ($OVERLAY_ROOT). The host mount's directory metadata is not coherent under
 # Cargo's dense writes, and node_modules is read thousands of times per test
 # run, which the host mount makes slow. Every worktree shares the one target/
-# and the one pnpm store. pnpm uses its global virtual store there, so each
+# and the one pnpm store. Dev builds keep line tables only, as CI's do, so
+# target/ stays a fraction of the size full debug info takes. pnpm uses its global virtual store there, so each
 # worktree's node_modules holds only symlinks into the store: never edit a file
 # under node_modules, since every worktree shares it.
 #
@@ -28,6 +29,9 @@
 # The image's uv is built for 4 KiB pages and aborts on a 16 KiB-page host, so
 # a uv that does not run is replaced by the PyPI build in ~/.local/bin, which
 # comes first on PATH.
+#
+# Two rustup processes installing llvm-tools at once can leave it
+# half-installed, which breaks cargo-llvm-cov until it is repaired.
 #
 # Idempotent: safe to re-run. Bind mounts do not survive a sandbox restart; the
 # env vars (in /etc/sandbox-persistent.sh) do.
@@ -46,6 +50,7 @@ BUILD_ROOT="${KUBETAIL_SANDBOX_BUILD_ROOT:-$REPO/.sandbox-linux}"
 OVERLAY_ROOT="${KUBETAIL_SANDBOX_OVERLAY_ROOT:-/home/agent/kubetail-build}"
 PERSIST="${KUBETAIL_SANDBOX_PERSIST:-/etc/sandbox-persistent.sh}"
 NODE_MODULES="$OVERLAY_ROOT/worktrees$REPO/apps/web/node_modules"
+DESKTOP_NODE_MODULES="$OVERLAY_ROOT/worktrees$REPO/apps/desktop/node_modules"
 PNPM_STORE="$OVERLAY_ROOT/pnpm-store"
 # CI's astral-sh/setup-uv takes the latest uv, so the pin lives here.
 UV_VERSION="0.13.7"
@@ -53,7 +58,8 @@ MIN_FREE_MB=2048
 
 echo "→ build root: $BUILD_ROOT"
 echo "→ overlay root: $OVERLAY_ROOT"
-mkdir -p "$BUILD_ROOT/dist" "$PNPM_STORE" "$NODE_MODULES" "$OVERLAY_ROOT/target"
+mkdir -p "$BUILD_ROOT/dist" "$BUILD_ROOT/desktop-dist" "$PNPM_STORE" \
+  "$NODE_MODULES" "$DESKTOP_NODE_MODULES" "$OVERLAY_ROOT/target"
 
 free_mb="$(df --output=avail -BM "$OVERLAY_ROOT" | tail -1 | tr -dc 0-9)"
 if [ "$free_mb" -lt "$MIN_FREE_MB" ]; then
@@ -86,6 +92,8 @@ bind() {
 }
 bind "$NODE_MODULES" "$REPO/apps/web/node_modules"
 bind "$BUILD_ROOT/dist" "$REPO/apps/web/dist"
+bind "$DESKTOP_NODE_MODULES" "$REPO/apps/desktop/node_modules"
+bind "$BUILD_ROOT/desktop-dist" "$REPO/apps/desktop/dist"
 
 # --- 2. env vars for the paths that are configurable -----------------------
 # Written to the persistent env file, which is sourced before every command and
@@ -118,6 +126,7 @@ sudo touch "$PERSIST"
 sudo sed -i \
   -e '/KUBETAIL_SANDBOX_ENV/d' \
   -e '/^export CARGO_TARGET_DIR=/d' \
+  -e '/^export CARGO_PROFILE_DEV_DEBUG=/d' \
   -e '/^export PNPM_CONFIG_STORE_DIR=/d' \
   -e '/^export PNPM_CONFIG_ENABLE_GLOBAL_VIRTUAL_STORE=/d' \
   -e '/^export GOTOOLCHAIN=/d' \
@@ -125,6 +134,7 @@ sudo sed -i \
 sudo tee -a "$PERSIST" >/dev/null <<EOF
 # KUBETAIL_SANDBOX_ENV — Linux build outputs kept out of the macOS host's paths, and Go pinned to CI's.
 export CARGO_TARGET_DIR="$OVERLAY_ROOT/target"
+export CARGO_PROFILE_DEV_DEBUG=line-tables-only
 export PNPM_CONFIG_STORE_DIR="$PNPM_STORE"
 export PNPM_CONFIG_ENABLE_GLOBAL_VIRTUAL_STORE=true
 export GOTOOLCHAIN=go$GO_VERSION+auto
@@ -140,7 +150,44 @@ if uv_runs 2>/dev/null; then
   echo "✓ uv runs"
 else
   python3 -m pip install --user --quiet "uv==$UV_VERSION"
+  hash -r
+  if ! uv_runs 2>/dev/null; then
+    echo "✗ uv $UV_VERSION installed in ~/.local/bin but does not run; is ~/.local/bin ahead of /usr/bin on PATH?" >&2
+    exit 1
+  fi
   echo "✓ uv $UV_VERSION installed in ~/.local/bin"
+fi
+
+# --- 4. llvm-tools for cargo-llvm-cov --------------------------------------
+# A half-installed llvm-tools is either listed in the toolchain's components,
+# so `component add` answers "up to date", or left on disk unregistered, so
+# `component add` fails on a conflict. Healthy means llvm-profdata on disk and
+# the component listed. Otherwise the repair deletes what the component ships
+# (rustc's own libLLVM is in the sysroot's lib/, not here), drops its
+# registration and installs it again. cluster/agent/ and apps/desktop/src-tauri/
+# pin the same toolchain, so the calls run from either.
+if command -v rustup >/dev/null 2>&1; then
+  (
+    cd "$REPO/cluster/agent"
+    host="$(rustc -vV | sed -n 's/^host: //p')"
+    rustlib="$(rustc --print sysroot)/lib/rustlib"
+    profdata="$rustlib/$host/bin/llvm-profdata"
+    if [ -x "$profdata" ] && grep -qx "llvm-tools-preview-$host" "$rustlib/components"; then
+      echo "✓ llvm-tools installed"
+    else
+      rm -f "${rustlib:?}/$host"/bin/{llc,opt,llvm-*} \
+        "${rustlib:?}/$host"/lib/libLLVM* \
+        "${rustlib:?}/manifest-llvm-tools-preview-$host"
+      sed -i "/^llvm-tools-preview-$host\$/d" "$rustlib/components"
+      rustup component remove llvm-tools-preview >/dev/null 2>&1 || true
+      rustup component add llvm-tools-preview
+      if [ ! -x "$profdata" ]; then
+        echo "✗ rustup installed llvm-tools but $profdata is missing" >&2
+        exit 1
+      fi
+      echo "✓ llvm-tools installed in $(rustc --print sysroot)"
+    fi
+  )
 fi
 
 echo

@@ -49,7 +49,7 @@ What our jobs run, what a build installs and what a release signs are each pinne
 ### SUPPLY-1
 
 - **Where:** `.github/workflows/`, `.github/actions/`, `.github/ci-config/zizmor.yml`
-- `.github/ci-config/zizmor.yml` — zizmor's `unpinned-uses` audit fails `Lint · YAML` (and `make lint-yaml`) on a tag or branch reference.
+- `.github/ci-config/zizmor.yml` — zizmor's `unpinned-uses` audit fails `Lint · YAML` (and `make lint-repo-yaml`) on a tag or branch reference.
 - Note: in CI the audit checks each SHA and its version comment against the action's repository.
 - Note: `.github/dependabot.yml` moves the pins and their version comments.
 - Note: a `docker://` step's image is not checked. zizmor flags it only under `--persona pedantic`, and no step uses one.
@@ -77,14 +77,14 @@ What our jobs run, what a build installs and what a release signs are each pinne
 ### SUPPLY-5
 
 - **Where:** `.github/workflows/audit.yml`
-- **Records:** [by decision](../adr/2026-10-26-a-pull-request-fails-only-for-the-advisories-it-brings-in.md)
+- **Records:** [by decision](../../../../docs/adr/2026-10-26-a-pull-request-fails-only-for-the-advisories-it-brings-in.md)
 - `.github/workflows/audit.yml` — `Review dependencies · Go + Rust` compares the base and head dependency graphs (Go and Cargo, by version, against GitHub's advisory database).
 - Note: a Go call newly reaching a vulnerable function, and a RustSec-only advisory, wait for `audit.yml`'s full audits.
 
 ### SUPPLY-6
 
 - **Where:** `.github/workflows/audit.yml`, `scripts/audit-npm-diff.sh`
-- **Records:** [by decision](../adr/2026-10-26-a-pull-request-fails-only-for-the-advisories-it-brings-in.md)
+- **Records:** [by decision](../../../../docs/adr/2026-10-26-a-pull-request-fails-only-for-the-advisories-it-brings-in.md)
 - `scripts/audit-npm-diff.sh` — `Review dependencies · TypeScript` compares `pnpm audit` on the base and the head, with the head's ignore list.
 
 ### SUPPLY-7
@@ -120,14 +120,14 @@ What our jobs run, what a build installs and what a release signs are each pinne
 ### SUPPLY-12
 
 - **Where:** `.github/dependabot.yml`
-- **Records:** [Dependabot moves dependencies, and a person merges every update](../adr/2026-10-26-dependabot-moves-dependencies-and-a-person-merges-every-update.md)
+- **Records:** [Dependabot moves dependencies, and a person merges every update](../../../../docs/adr/2026-11-09-dependabot-moves-dependencies-and-a-person-merges-every-update.md)
 - Note: the source also places this in `main`'s ruleset.
 - Note: CI's jobs are not required checks, so nothing short of a review stops a red update.
 
 ### SUPPLY-13
 
 - **Where:** `sidecar/go.mod`, `tools/go.mod`, `.github/actions/setup-environment`, `src-tauri/rust-toolchain.toml`, `package.json`
-- **Records:** [the same ADR](../adr/2026-10-26-dependabot-moves-dependencies-and-a-person-merges-every-update.md)
+- **Records:** [the same ADR](../../../../docs/adr/2026-11-09-dependabot-moves-dependencies-and-a-person-merges-every-update.md)
 - Note: the versions are `sidecar/go.mod` and `tools/go.mod` (`go`), `.github/actions/setup-environment` (`go-version`, `node-version`, `kubectl-version`), `src-tauri/rust-toolchain.toml`, and `package.json` (`packageManager`, and `@types/node`'s major, which tracks Node's).
 - Note: Dependabot moves none of these.
 - Note: Dependabot moves the audit tools. `govulncheck` is a `tool` in `tools/go.mod`, and `cargo-audit` comes from the pinned `taiki-e/install-action`, whose release fixes its version and checksums.
@@ -135,14 +135,14 @@ What our jobs run, what a build installs and what a release signs are each pinne
 ### SUPPLY-14
 
 - **Where:** `src-tauri/Cargo.toml`, `package.json`
-- **Records:** [the same ADR](../adr/2026-10-26-dependabot-moves-dependencies-and-a-person-merges-every-update.md)
+- **Records:** [the same ADR](../../../../docs/adr/2026-11-09-dependabot-moves-dependencies-and-a-person-merges-every-update.md)
 - Note: Tauri and its plugins are in `src-tauri/Cargo.toml`, Tauri in `package.json`.
 - Note: a Tauri advisory reaches us through `audit / Rust` and `audit / TypeScript`, since the ignore holds back security updates too.
 
 ### SUPPLY-15
 
 - **Where:** `.github/workflows/coverage.yml`, `.github/codecov.yml`
-- **Records:** [Codecov gates the changed lines](../adr/2026-10-30-codecov-gates-the-changed-lines.md), [review](../security/2026-10-30-coverage-reports-go-to-codecov.md)
+- **Records:** [Gate PRs on changed lines with Codecov's merged result](../../../../docs/adr/2026-11-09-gate-prs-on-changed-lines-with-codecovs-merged-result.md), [review](../security/2026-10-30-coverage-reports-go-to-codecov.md)
 - Note: each upload names its report file with `disable_search`, so nothing else on the runner is sent.
 - Note: `codecov/codecov-action` is pinned by SHA (zizmor's `unpinned-uses`) and every checkout sets `persist-credentials: false`.
 - Note: Codecov posts no status or check (`.github/codecov.yml`). `coverage / Gate` reads its public API with `contents: read` alone.
@@ -151,7 +151,7 @@ What our jobs run, what a build installs and what a release signs are each pinne
 ### SUPPLY-16
 
 - **Where:** `.github/workflows/coverage.yml`, `.github/codecov.yml`
-- **Records:** [Codecov gates the changed lines](../adr/2026-10-30-codecov-gates-the-changed-lines.md), [review](../security/2026-10-30-coverage-reports-go-to-codecov.md)
+- **Records:** [Gate PRs on changed lines with Codecov's merged result](../../../../docs/adr/2026-11-09-gate-prs-on-changed-lines-with-codecovs-merged-result.md), [review](../security/2026-10-30-coverage-reports-go-to-codecov.md)
 - Note: an upload authenticates with a short-lived OIDC token from a job granted `id-token: write`, or tokenless from a fork.
 
 ### SUPPLY-17
@@ -199,7 +199,7 @@ What our jobs run, what a build installs and what a release signs are each pinne
 ### SUPPLY-24
 
 - **Where:** `tools/releasenotes`, `.claude/skills/release-notes/SKILL.md`
-- **Records:** [release notes from pull request text](../security/2026-11-06-release-notes-from-pull-request-text.md), [the agent posts approved release notes](../security/2026-11-07-the-agent-posts-approved-release-notes.md), [ADR](../adr/2026-11-07-the-agent-posts-the-notes-when-the-user-asks.md)
+- **Records:** [release notes from pull request text](../security/2026-11-06-release-notes-from-pull-request-text.md), [the agent posts approved release notes](../security/2026-11-07-the-agent-posts-approved-release-notes.md), [ADR](../../../../docs/adr/2026-11-10-write-release-notes-with-a-skill-over-deterministic-tooling.md)
 - `TestCheckFails` — `check` fails prose holding a link, HTML, a mention or `#N` outside a code span.
 
 ### SUPPLY-25
@@ -211,7 +211,7 @@ What our jobs run, what a build installs and what a release signs are each pinne
 ### SUPPLY-26
 
 - **Where:** `tools/releasenotes`
-- **Records:** [the agent posts approved release notes](../security/2026-11-07-the-agent-posts-approved-release-notes.md), [ADR](../adr/2026-11-07-the-agent-posts-the-notes-when-the-user-asks.md)
+- **Records:** [the agent posts approved release notes](../security/2026-11-07-the-agent-posts-approved-release-notes.md), [ADR](../../../../docs/adr/2026-11-10-write-release-notes-with-a-skill-over-deterministic-tooling.md)
 - `TestPublishWritesNothingOtherwise` — `publish` reads its yes from the terminal, never standard input, so an agent's shell cannot answer it.
 
 ### SUPPLY-27
@@ -224,7 +224,7 @@ What our jobs run, what a build installs and what a release signs are each pinne
 ### SUPPLY-28
 
 - **Where:** `tools/releasenotes`, `.claude/skills/release-notes/SKILL.md`
-- **Records:** [the agent posts approved release notes](../security/2026-11-07-the-agent-posts-approved-release-notes.md), [ADR](../adr/2026-11-07-the-agent-posts-the-notes-when-the-user-asks.md)
+- **Records:** [the agent posts approved release notes](../security/2026-11-07-the-agent-posts-approved-release-notes.md), [ADR](../../../../docs/adr/2026-11-10-write-release-notes-with-a-skill-over-deterministic-tooling.md)
 - Note: when the user asks in a later message, the skill lets the agent run `gh release view` to confirm the release is a draft and `gh release edit --notes-file` with the rendered notes, and nothing else.
 - Note: it never publishes the draft.
 

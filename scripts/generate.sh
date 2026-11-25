@@ -1,15 +1,25 @@
 #!/usr/bin/env bash
 # Regenerates every committed output: the protoc and gqlgen code in the Go
-# modules, the CLI's copy of config/default/cli.*, and the UI's
-# __generated__/.
+# modules, the CLI's copy of config/default/cli.*, the UI's __generated__/,
+# and the desktop app's sidecar bindings and src/gql/. With `desktop`, it
+# regenerates the desktop app's alone.
 #
 # The *.pb.go headers record the protoc and plugin versions, so it needs the
 # protoc in setup-environment's protoc-version default, and builds the plugins
 # tools/go.mod pins.
 #
-#   bash scripts/generate.sh
+#   bash scripts/generate.sh [desktop]
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+only="${1:-}"
+case "$only" in
+  "" | desktop) ;;
+  *)
+    echo "usage: $0 [desktop]" >&2
+    exit 2
+    ;;
+esac
 
 action=.github/actions/setup-environment/action.yml
 want="$(awk '
@@ -30,7 +40,12 @@ trap 'rm -rf "$bin"' EXIT
   google.golang.org/grpc/cmd/protoc-gen-go-grpc)
 export PATH="$bin:$PATH"
 
-for module in libs/go-common dashboard cluster/api cli; do
-  (cd "$module" && go generate ./...)
-done
-(cd apps/web && pnpm install --frozen-lockfile && pnpm graphql-codegen)
+if [ -z "$only" ]; then
+  for module in libs/go-common dashboard cluster/api cli; do
+    (cd "$module" && go generate ./...)
+  done
+  (cd apps/web && pnpm install --frozen-lockfile && pnpm graphql-codegen)
+fi
+# The webview's codegen reads the schema the sidecar's gqlgen reads.
+(cd apps/desktop/sidecar && go generate ./...)
+(cd apps/desktop && pnpm install --frozen-lockfile && pnpm codegen)

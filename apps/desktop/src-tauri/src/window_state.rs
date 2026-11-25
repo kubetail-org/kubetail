@@ -26,11 +26,11 @@ use crate::paths::Folders;
 /// Stamped into the file on every write; a file with another stamp is ignored.
 const SCHEMA_VERSION: u32 = 2;
 
-/// Also deleted by `make clean` (`scripts/clean-dev-data.go`).
+/// Also deleted by `make clean-desktop-window` (`sidecar/scripts/clean-dev-data.go`).
 const FILE_NAME: &str = "window-state.json";
 
 /// Where window frames are kept across launches: in the state
-/// directory, so a dev build keeps its own and `make clean-data` resets it.
+/// directory, so a dev build keeps its own and `make clean-desktop-data` resets it.
 pub fn path(folders: &Folders) -> PathBuf {
     folders.state.join(FILE_NAME)
 }

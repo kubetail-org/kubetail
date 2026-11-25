@@ -103,7 +103,7 @@ func TestConfigFromArgsDefaultsToProduction(t *testing.T) {
 
 // Pins the tag boundary. `go test ./...` builds untagged, so the ordinary run
 // asserts the environment never reaches the config; `go test -tags debug`
-// asserts the override a `make build-sidecar-dev` build honours.
+// asserts the override a `make build-desktop-sidecar-dev` build honours.
 func TestConfigFromArgsIgnoresEnvironment(t *testing.T) {
 	e := env{
 		"KUBETAIL_OAUTH_ISSUER":         "https://issuer.override",
