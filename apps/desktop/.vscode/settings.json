@@ -1,0 +1,19 @@
+{
+  // Format on save. The oxc extension resolves oxfmt from node_modules, so the editor formats
+  // with the version the lockfile pins and `pnpm lint` checks against.
+  "editor.formatOnSave": true,
+  // oxfmt formats whole files; the default mode can ask for modified lines only, which it
+  // cannot answer.
+  "editor.formatOnSaveMode": "file",
+  // Each language uses the formatter CI checks: oxfmt for TypeScript and CSS (`pnpm lint`),
+  // gofmt and rustfmt for Go and Rust (`make lint`).
+  "[typescript]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[typescriptreact]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[css]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[go]": { "editor.defaultFormatter": "golang.go" },
+  "[rust]": { "editor.defaultFormatter": "rust-lang.rust-analyzer" },
+  // There is no .prettierrc — the options moved to .oxfmtrc.json. Anyone still running the
+  // Prettier extension would format at its defaults (80 columns, double quotes) and churn
+  // every file it touched.
+  "prettier.enable": false
+}

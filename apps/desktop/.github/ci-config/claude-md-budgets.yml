@@ -1,0 +1,31 @@
+# Byte budget of each tracked CLAUDE.md, checked by scripts/check-claude-md.sh.
+# A new guide starts at its size plus about 5%, rounded up to a multiple of 512.
+# Explain an increase in the commit body.
+# A flat map of path to bytes: the script reads it with awk, so keep keys unquoted.
+CLAUDE.md: 27136
+design/CLAUDE.md: 21504
+sidecar/CLAUDE.md: 32512
+sidecar/internal/agent/CLAUDE.md: 26880
+sidecar/internal/llm/CLAUDE.md: 17408
+sidecar/internal/run/CLAUDE.md: 29440
+sidecar/internal/services/connectors/aws/CLAUDE.md: 2560
+sidecar/internal/services/connectors/github/CLAUDE.md: 2560
+sidecar/internal/services/connectors/google/CLAUDE.md: 1792
+sidecar/internal/services/connectors/internal/oauthconn/CLAUDE.md: 3072
+sidecar/internal/services/connectors/kubetailcloud/CLAUDE.md: 1792
+sidecar/internal/services/connectors/openrouter/CLAUDE.md: 3072
+sidecar/internal/services/cluster/CLAUDE.md: 18432
+sidecar/internal/services/logs/CLAUDE.md: 23552
+sidecar/internal/services/providercredentials/CLAUDE.md: 3584
+sidecar/internal/services/settings/CLAUDE.md: 7680
+sidecar/internal/tools/CLAUDE.md: 31744
+src-tauri/CLAUDE.md: 32000
+src-tauri/linux/CLAUDE.md: 4608
+src-tauri/src/updater/CLAUDE.md: 3584
+src/CLAUDE.md: 28928
+src/components/chat/CLAUDE.md: 24832
+src/components/cluster/CLAUDE.md: 7936
+src/components/dashboard/CLAUDE.md: 17408
+src/components/logs/CLAUDE.md: 11776
+src/components/settings/CLAUDE.md: 8192
+src/components/shell/CLAUDE.md: 6656

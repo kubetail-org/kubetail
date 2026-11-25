@@ -1,0 +1,9 @@
+{
+  "ignorePatterns": ["src/gql/**"],
+  "singleQuote": true,
+  "printWidth": 120,
+  "sortImports": {
+    "groups": ["builtin", "external", "internal", ["parent", "sibling", "index"]],
+    "partitionByComment": true
+  }
+}

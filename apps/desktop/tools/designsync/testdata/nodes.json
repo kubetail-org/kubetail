@@ -1,0 +1,152 @@
+{
+  "name": "Desktop",
+  "nodes": {
+    "3:3": {
+      "document": {
+        "id": "3:3", "name": "Components", "type": "CANVAS",
+        "children": [
+          {
+            "id": "1:1", "name": "dashboard", "type": "SECTION",
+            "children": [
+              {
+                "id": "9:148", "name": "StatusPill", "type": "COMPONENT_SET",
+                "relativeTransform": [[1, 0, 40], [0, 1, 80]], "size": {"x": 120, "y": 64},
+                "componentPropertyDefinitions": {"State": {"type": "VARIANT", "defaultValue": "Default", "variantOptions": ["Default", "Hover"]}},
+                "interactions": [],
+                "children": [
+                  {
+                    "id": "9:149", "name": "State=Default", "type": "COMPONENT",
+                    "relativeTransform": [[1, 0, 0], [0, 1, 0]], "size": {"x": 120, "y": 24},
+                    "layoutMode": "HORIZONTAL", "paddingLeft": 8, "paddingRight": 8, "cornerRadius": 9999,
+                    "fills": [{"type": "SOLID", "color": {"r": 0.1, "g": 0.2, "b": 0.3, "a": 1}, "boundVariables": {"color": {"type": "VARIABLE_ALIAS", "id": "VariableID:abc/1:1"}}}],
+                    "children": [
+                      {
+                        "id": "9:151", "name": "Label", "type": "TEXT",
+                        "relativeTransform": [[1, 0, 8], [0, 1, 4]], "size": {"x": 40.001, "y": 16},
+                        "characters": "Ready",
+                        "style": {"fontFamily": "Inter", "fontWeight": 500, "fontSize": 12, "lineHeightPx": 16},
+                        "fills": [{"type": "SOLID", "color": {"r": 1, "g": 1, "b": 1, "a": 1}}]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "9:150", "name": "State=Hover", "type": "COMPONENT",
+                    "relativeTransform": [[1, 0, 0], [0, 1, 40]], "size": {"x": 120, "y": 24},
+                    "opacity": 0.8, "children": []
+                  }
+                ]
+              },
+              {
+                "id": "5:21", "name": "BellButton", "type": "COMPONENT",
+                "relativeTransform": [[1, 0, 200], [0, 1, 80]], "size": {"x": 24, "y": 24},
+                "children": [
+                  {
+                    "id": "5:22", "name": "Icon", "type": "INSTANCE", "componentId": "100:1",
+                    "relativeTransform": [[1, 0, 0], [0, 1, 0]], "size": {"x": 24, "y": 24},
+                    "children": [
+                      {
+                        "id": "I5:22;100:2", "name": "Vector", "type": "VECTOR",
+                        "relativeTransform": [[1, 0, 3], [0, 1, 2]], "size": {"x": 18, "y": 20},
+                        "strokes": [{"type": "SOLID", "color": {"r": 0, "g": 0, "b": 0, "a": 1}}],
+                        "strokeGeometry": [{"path": "M0 0L18 20", "windingRule": "NONZERO"}],
+                        "fillGeometry": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "7:1", "name": "New", "type": "COMPONENT",
+                "relativeTransform": [[1, 0, 300], [0, 1, 80]], "size": {"x": 10, "y": 10}
+              }
+            ]
+          }
+        ]
+      },
+      "components": {
+        "9:149": {"key": "pill-default", "name": "State=Default", "description": "", "componentSetId": "9:148"},
+        "9:150": {"key": "pill-hover", "name": "State=Hover", "description": "", "componentSetId": "9:148"},
+        "5:21": {"key": "bell", "name": "BellButton", "description": "Rings when a cluster needs you.\n\n{\"kubetail\":1,\"id\":\"shell/bell-button\"}"},
+        "7:1": {"key": "new", "name": "New", "description": "{\"kubetail\": 1, oops}"},
+        "100:1": {"key": "lucide-bell", "name": "Lucide Icons / bell", "description": "", "remote": true}
+      },
+      "componentSets": {
+        "9:148": {"key": "pill", "name": "StatusPill", "description": "{\"kubetail\":1,\"id\":\"dashboard/status-pill\",\"changes\":[\"It's rounder.\"]}"}
+      }
+    },
+    "3:4": {
+      "document": {
+        "id": "3:4", "name": "Screens", "type": "CANVAS",
+        "children": [
+          {
+            "id": "42:1", "name": "Dashboard", "type": "SECTION",
+            "relativeTransform": [[1, 0, 0], [0, 1, 0]], "size": {"x": 2000, "y": 1000},
+            "children": [
+              {
+                "id": "42:9", "name": "Stamp", "type": "TEXT",
+                "relativeTransform": [[1, 0, 0], [0, 1, -40]], "size": {"x": 300, "y": 20},
+                "characters": "{ \"kubetail\": 1, \"id\": \"screens/dashboard\" }"
+              },
+              {
+                "id": "42:2", "name": "Dashboard — Kubetail Light", "type": "FRAME",
+                "relativeTransform": [[1, 0, 0], [0, 1, 0]], "size": {"x": 800, "y": 600},
+                "explicitVariableModes": {"VariableCollectionId:theme": "1:0"},
+                "children": [
+                  {
+                    "id": "42:3", "name": "StatusPill", "type": "INSTANCE", "componentId": "9:149",
+                    "relativeTransform": [[1, 0, 16], [0, 1, 16]], "size": {"x": 120, "y": 24},
+                    "componentProperties": {"State": {"type": "VARIANT", "value": "Default"}},
+                    "overrides": [{"id": "I42:3;9:151", "overriddenFields": ["characters", "fontSize"]}],
+                    "children": [
+                      {
+                        "id": "I42:3;9:151", "name": "Label", "type": "TEXT",
+                        "relativeTransform": [[1, 0, 8], [0, 1, 4]], "size": {"x": 40, "y": 16},
+                        "characters": "Syncing",
+                        "style": {"fontFamily": "Inter", "fontWeight": 500, "fontSize": 13, "lineHeightPx": 16},
+                        "fills": [{"type": "SOLID", "color": {"r": 1, "g": 1, "b": 1, "a": 1}}]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "44:1", "name": "Detail", "type": "SECTION",
+                "relativeTransform": [[1, 0, 0], [0, 1, 700]], "size": {"x": 900, "y": 300},
+                "children": [
+                  {
+                    "id": "44:2", "name": "Detail — Kubetail Light", "type": "FRAME",
+                    "relativeTransform": [[1, 0, 0], [0, 1, 0]], "size": {"x": 800, "y": 200}
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "43:1", "name": "Popups on Shell", "type": "SECTION",
+            "relativeTransform": [[1, 0, 0], [0, 1, 2000]], "size": {"x": 900, "y": 300},
+            "children": [
+              {
+                "id": "43:2", "name": "Menu", "type": "SECTION",
+                "relativeTransform": [[1, 0, 0], [0, 1, 0]], "size": {"x": 900, "y": 300},
+                "children": [
+                  {
+                    "id": "43:3", "name": "Stamp", "type": "TEXT",
+                    "characters": "{\"kubetail\":1,\"id\":\"screens/popups-on-shell/menu\"}"
+                  },
+                  {
+                    "id": "43:4", "name": "Shell — Menu open", "type": "FRAME",
+                    "relativeTransform": [[1, 0, 0], [0, 1, 0]], "size": {"x": 800, "y": 200}
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "components": {
+        "9:149": {"key": "pill-default", "name": "State=Default", "description": "", "componentSetId": "9:148"}
+      },
+      "componentSets": {}
+    }
+  }
+}

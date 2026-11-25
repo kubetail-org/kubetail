@@ -1,0 +1,26 @@
+// The webview's Tailwind classes, checked against `src/index.css`'s design system: `pnpm lint:tailwind`.
+// A run of its own, apart from `.oxlintrc.json`, since loading Tailwind's canonicalizer is most
+// of its time. It reads `className` and `cn(...)`; ordering and wrapping are `oxfmt`'s.
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [],
+  "jsPlugins": ["eslint-plugin-better-tailwindcss"],
+  "options": { "denyWarnings": true },
+  "categories": { "correctness": "off" },
+  "ignorePatterns": ["src/gql/**"],
+  "settings": { "better-tailwindcss": { "entryPoint": "src/index.css" } },
+  "rules": {
+    // The spelling Tailwind v4 prints: `wrap-break-word`, not `break-words`; `size-4`, not `h-4 w-4`.
+    "better-tailwindcss/enforce-canonical-classes": "error",
+    "better-tailwindcss/no-unknown-classes": "error",
+    // Two classes setting the same property.
+    "better-tailwindcss/no-conflicting-classes": "error"
+  },
+  "overrides": [
+    {
+      // The tests' handle on the scroller, not a style.
+      "files": ["src/lib/log-viewer/core.test.tsx"],
+      "rules": { "better-tailwindcss/no-unknown-classes": ["error", { "ignore": ["^scroller$"] }] }
+    }
+  ]
+}

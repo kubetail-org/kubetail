@@ -1,0 +1,726 @@
+name: release-desktop
+
+permissions:
+  contents: write
+  deployments: write
+
+on:
+  push:
+    tags:
+      - "desktop/v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release"
+        required: true
+        type: string
+      signing_policy:
+        description: "SignPath slug"
+        required: true
+        type: choice
+        default: test-signing
+        options:
+          - test-signing
+          - release-signing
+      dry_run:
+        description: "Dry run"
+        required: false
+        type: boolean
+        default: true
+
+# A release restores no GitHub Actions cache: ci.yml, coverage.yml and audit.yml
+# save caches on main, so code their jobs run could write one a release builds
+# from. So no step here passes setup-environment a node-cache, go-cache-key or
+# rust-cache-key.
+jobs:
+  config:
+    name: Plan
+    if: github.repository == 'kstackhq/kstack'
+    runs-on: ubuntu-slim
+    outputs:
+      version: ${{ steps.config.outputs.version }}
+      signing_policy: ${{ steps.config.outputs.signing_policy }}
+      dry_run: ${{ steps.config.outputs.dry_run }}
+      rpm_version: ${{ steps.config.outputs.rpm_version }}
+      rpm_release: ${{ steps.config.outputs.rpm_release }}
+      msi_version: ${{ steps.config.outputs.msi_version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - id: config
+        env:
+          RELEASE_EVENT: ${{ github.event_name }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_SIGNING_POLICY: ${{ inputs.signing_policy }}
+          RELEASE_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$RELEASE_EVENT" == "workflow_dispatch" ]; then
+            version="$RELEASE_VERSION"
+            signing_policy="$RELEASE_SIGNING_POLICY"
+            dry_run="$RELEASE_DRY_RUN"
+          else
+            version="${GITHUB_REF#refs/tags/desktop/v}"
+            # SignPath's release-signing policy accepts no request from this repository yet.
+            signing_policy="test-signing"
+            dry_run="false"
+          fi
+          # Outputs enter build configuration, paths and shell scripts downstream.
+          # The script prints the RPM and MSI versions.
+          package_versions="$(scripts/check-release-version.sh desktop "$version")"
+          case "$signing_policy" in test-signing|release-signing) ;; *) exit 1 ;; esac
+          case "$dry_run" in true|false) ;; *) exit 1 ;; esac
+          {
+            echo "version=${version}"
+            echo "signing_policy=${signing_policy}"
+            echo "dry_run=${dry_run}"
+            echo "$package_versions"
+          } >> "$GITHUB_OUTPUT"
+
+  build-sidecar:
+    name: Build · Sidecar (${{ matrix.os }}, ${{ matrix.arch }})
+    needs: [config]
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - darwin
+          - linux
+          - windows
+        arch:
+          - amd64
+          - arm64
+        include:
+          - os: darwin
+            arch: amd64
+            runner: macos-26-intel
+            triple: x86_64-apple-darwin
+          - os: darwin
+            arch: arm64
+            runner: macos-26
+            triple: aarch64-apple-darwin
+          - os: linux
+            arch: amd64
+            runner: ubuntu-22.04
+            triple: x86_64-unknown-linux-gnu
+          - os: linux
+            arch: arm64
+            runner: ubuntu-22.04-arm
+            triple: aarch64-unknown-linux-gnu
+          - os: windows
+            arch: amd64
+            runner: windows-2025-vs2026
+            triple: x86_64-pc-windows-msvc
+          - os: windows
+            arch: arm64
+            runner: windows-11-arm
+            triple: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/desktop/v${{ needs.config.outputs.version }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+
+      - name: Build
+        shell: bash
+        env:
+          KUBETAIL_HOST_TRIPLE: ${{ matrix.triple }}
+          SIDECAR_VERSION: ${{ needs.config.outputs.version }}
+        run: go run scripts/build-sidecar.go
+
+      # A `debug`-tagged sidecar lets the environment redirect sign-in, and the
+      # failure would be silent. Go records the build tags in the binary.
+      - name: Assert the shipped sidecar is untagged
+        shell: bash
+        run: |
+          if go version -m src-tauri/binaries/kubetail-sidecar-* | grep -q -- '-tags='; then
+            echo "sidecar built with tags"
+            exit 1
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: src-tauri/binaries/*
+          name: assets-sidecar-${{ matrix.os }}-${{ matrix.arch }}
+
+  build-bundle-linux:
+    name: Build · Bundle (linux, ${{ matrix.arch }})
+    needs: [config, build-sidecar]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+        include:
+          - arch: amd64
+            runner: ubuntu-22.04
+          - arch: arm64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/desktop/v${{ needs.config.outputs.version }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          setup-node: "true"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev librsvg2-bin \
+            patchelf file desktop-file-utils xdg-utils \
+            build-essential meson ninja-build libcap-dev
+
+      - name: Download sidecar artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: assets-sidecar-linux-${{ matrix.arch }}
+          path: src-tauri/binaries
+
+      # upload/download-artifact round-trips through a zip and drops the
+      # Unix exec bit; without this Tauri embeds a non-executable sidecar
+      # and the host panics with EACCES spawning it (os error 13).
+      - name: Restore sidecar exec bit
+        run: chmod +x src-tauri/binaries/*
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # On this runner, so bwrap and pasta link the same glibc as the app.
+      - name: Build bwrap
+        run: make build-bwrap
+
+      - name: Build pasta
+        run: make build-pasta
+
+      # bubblewrap is LGPL and passt GPL: the release carries the source bwrap
+      # and pasta were built from.
+      - name: Bundle embedded sources
+        run: make build-embedded-sources
+
+      # Sidecar is prebuilt and downloaded above; override
+      # beforeBuildCommand to build the frontend but not the sidecar.
+      - name: Build bundle
+        env:
+          VERSION: ${{ needs.config.outputs.version }}
+        run: pnpm tauri build --bundles deb -c "{\"version\":\"$VERSION\",\"build\":{\"beforeBuildCommand\":\"pnpm build\"}}"
+
+      # An RPM version cannot hold an rc's `-`, and Tauri takes only a SemVer
+      # version, so the RPM bundles the binary built above under the config
+      # job's RPM version and release.
+      - name: Bundle RPM
+        env:
+          RPM_VERSION: ${{ needs.config.outputs.rpm_version }}
+          RPM_RELEASE: ${{ needs.config.outputs.rpm_release }}
+        run: pnpm tauri bundle --bundles rpm -c "{\"version\":\"$RPM_VERSION\",\"bundle\":{\"linux\":{\"rpm\":{\"release\":\"$RPM_RELEASE\"}}}}"
+
+      # Tauri names the files after productName; the release names them
+      # kubetail-desktop-<version>-<os>-<arch>.<ext>. A target that is not a
+      # directory makes cp fail unless the glob matches exactly one file.
+      - name: Collect bundle
+        env:
+          VERSION: ${{ needs.config.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p assets
+          cp src-tauri/target/release/bundle/deb/*.deb "assets/kubetail-desktop-$VERSION-linux-$ARCH.deb"
+          cp src-tauri/target/release/bundle/rpm/*.rpm "assets/kubetail-desktop-$VERSION-linux-$ARCH.rpm"
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: assets-bundle-linux-${{ matrix.arch }}
+          path: assets/*
+
+      # Not prefixed "assets-bundle-": the release job compares each
+      # architecture's archive before attaching one.
+      - name: Upload embedded sources
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: embedded-sources-linux-${{ matrix.arch }}
+          path: src-tauri/linux/embedded-sources.tar.gz
+
+  # Only a stock 24.04 proves the AppArmor profiles load and let Kubetail's own
+  # bwrap and pasta run what the sandbox asks: the whole chain, as the probe
+  # runs it.
+  check-bundle-linux:
+    name: Check · Bundle (linux, ${{ matrix.arch }})
+    needs: [config, build-bundle-linux]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/desktop/v${{ needs.config.outputs.version }}
+          persist-credentials: false
+
+      - name: Download bundle
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: assets-bundle-linux-${{ matrix.arch }}
+          path: assets
+
+      # Unrestricted, the check proves nothing about the profile.
+      - name: Assert user namespaces are restricted
+        run: test "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns)" = 1
+
+      - name: Install the package
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ./assets/kubetail-desktop-*-linux-"$ARCH".deb
+
+      # As the runner's own user: root is not restricted.
+      - name: Run the sandbox's chains
+        run: scripts/check-sandbox-chain.sh
+
+  build-bundle-macos:
+    name: Build · Bundle (macos)
+    needs: [config, build-sidecar]
+    environment: production
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/desktop/v${{ needs.config.outputs.version }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          setup-node: "true"
+
+      # In src-tauri so the target lands on the pinned toolchain, not rustup's default.
+      - name: Add x86_64 Rust target (darwin universal)
+        working-directory: ./src-tauri
+        run: rustup target add x86_64-apple-darwin
+
+      - name: Download sidecar artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: assets-sidecar-darwin-*
+          path: src-tauri/binaries
+          merge-multiple: true
+
+      # The two per-arch sidecars are built separately; Tauri's
+      # externalBin for a universal target wants a single fat binary
+      # named with the universal-apple-darwin triple. lipo them.
+      - name: Fuse universal sidecar binary
+        run: |
+          cd src-tauri/binaries
+          lipo -create -output kubetail-sidecar-universal-apple-darwin \
+            kubetail-sidecar-x86_64-apple-darwin \
+            kubetail-sidecar-aarch64-apple-darwin
+          chmod +x kubetail-sidecar-universal-apple-darwin
+          lipo -info kubetail-sidecar-universal-apple-darwin
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Stage App Store Connect API key
+        env:
+          ASC_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: |
+          install -m 700 -d "$RUNNER_TEMP/asc"
+          printf '%s' "$ASC_KEY_CONTENT" \
+            > "$RUNNER_TEMP/asc/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/asc/AuthKey.p8"
+
+      # Sidecar is prebuilt and downloaded above; override
+      # beforeBuildCommand to build the frontend but not the sidecar.
+      #
+      # Tauri signs the .app inside-out (embedded sidecar + frameworks →
+      # app → .dmg), notarizes the .dmg with the ASC key, and staples it.
+      # The APPLE_* env vars below are what its bundler looks for.
+      - name: Build, sign & notarize bundle (darwin universal)
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ vars.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ vars.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: ${{ runner.temp }}/asc/AuthKey.p8
+          VERSION: ${{ needs.config.outputs.version }}
+        run: pnpm tauri build --target universal-apple-darwin -c "{\"version\":\"$VERSION\",\"build\":{\"beforeBuildCommand\":\"pnpm build\"}}"
+
+      - name: Remove staged API key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/asc"
+
+      - name: Collect bundle
+        env:
+          VERSION: ${{ needs.config.outputs.version }}
+        run: |
+          mkdir -p assets
+          cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg "assets/kubetail-desktop-$VERSION-darwin-universal.dmg"
+
+      # The updater's archive, in the plugin's layout: the signed .app as its
+      # one top-level entry. sign-updater signs it. COPYFILE_DISABLE and
+      # --no-mac-metadata keep AppleDouble files and xattrs out.
+      - name: Archive the app for the updater
+        env:
+          VERSION: ${{ needs.config.outputs.version }}
+        run: |
+          mkdir -p updater
+          COPYFILE_DISABLE=1 tar --no-mac-metadata -czf "updater/kubetail-desktop-$VERSION-darwin-universal.app.tar.gz" \
+            -C src-tauri/target/universal-apple-darwin/release/bundle/macos Kubetail.app
+
+      - name: Upload signed bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: assets-bundle-macos
+          path: assets/*
+
+      # Not prefixed "assets-bundle-": sign-updater attaches it with its signature.
+      - name: Upload the updater's archive
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: updater-input-macos
+          path: updater/*
+
+  build-bundle-windows:
+    name: Build · Bundle (windows, ${{ matrix.arch }})
+    needs: [config, build-sidecar]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+        include:
+          - arch: amd64
+            runner: windows-2025-vs2026
+            triple: x86_64-pc-windows-msvc
+          - arch: arm64
+            runner: windows-11-arm
+            triple: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/desktop/v${{ needs.config.outputs.version }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          setup-node: "true"
+
+      - name: Download sidecar artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: assets-sidecar-windows-${{ matrix.arch }}
+          path: src-tauri/binaries
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # In src-tauri so the target lands on the pinned toolchain, not rustup's default.
+      - name: Add Rust target
+        working-directory: ./src-tauri
+        run: rustup target add ${{ matrix.triple }}
+
+      - name: Build bundle
+        shell: bash
+        env:
+          VERSION: ${{ needs.config.outputs.version }}
+          MSI_VERSION: ${{ needs.config.outputs.msi_version }}
+        run: pnpm tauri build --target ${{ matrix.triple }} -c "{\"version\":\"$VERSION\",\"build\":{\"beforeBuildCommand\":\"pnpm build\"},\"bundle\":{\"targets\":[\"msi\"],\"windows\":{\"wix\":{\"version\":\"$MSI_VERSION\"}}}}"
+
+      # SignPath pulls this by artifact-id to sign it. Its name is
+      # deliberately NOT prefixed "assets-bundle-" so the release job's
+      # `pattern: assets-bundle-*` excludes it: the unsigned MSI has the
+      # same internal filename as the signed one and would otherwise
+      # clobber it under `merge-multiple: true`.
+      - name: Upload unsigned MSI
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: signpath-input-windows-${{ matrix.arch }}
+          path: src-tauri/target/${{ matrix.triple }}/release/bundle/msi/*.msi
+
+  # Apart from the build, so the SignPath token never shares a runner with
+  # node_modules or anything a dependency's install or build script left.
+  # This job checks out nothing and installs nothing.
+  sign-bundle-windows:
+    name: Sign · Bundle (windows, ${{ matrix.arch }})
+    needs: [config, build-bundle-windows]
+    environment: production
+    permissions:
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+        include:
+          - arch: amd64
+            tauri_arch: x64
+          - arch: arm64
+            tauri_arch: arm64
+    runs-on: ubuntu-24.04
+    steps:
+      # A re-run attempt uploads again under the same name; take the newest.
+      - name: Find unsigned MSI
+        id: unsigned
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_NAME: signpath-input-windows-${{ matrix.arch }}
+        run: |
+          id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=$ARTIFACT_NAME" \
+            --jq '.artifacts | max_by(.created_at) | .id')
+          if [[ ! "$id" =~ ^[0-9]+$ ]]; then
+            echo "No artifact named $ARTIFACT_NAME" >&2
+            exit 1
+          fi
+          echo "artifact-id=$id" >> "$GITHUB_OUTPUT"
+
+      - name: Sign MSI with SignPath
+        uses: signpath/github-action-submit-signing-request@4a84eb4ad763290f059275786f2deed97c2c672b # v3.1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: "kubetail"
+          signing-policy-slug: ${{ needs.config.outputs.signing_policy }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          artifact-configuration-slug: kubetail-desktop
+          wait-for-completion: true
+          output-artifact-directory: assets
+          parameters: |
+            arch: ${{ toJSON(matrix.tauri_arch) }}
+            version: ${{ toJSON(needs.config.outputs.version) }}
+
+      # Renamed after signing: SignPath's artifact configuration matches
+      # Tauri's file name.
+      - name: Name signed MSI
+        env:
+          VERSION: ${{ needs.config.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          mv assets/*.msi "assets/kubetail-desktop-$VERSION-windows-$ARCH.msi"
+
+      - name: Upload signed MSI
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: assets
+          name: assets-bundle-windows-${{ matrix.arch }}
+
+  # Apart from every build, so the updater key never shares a runner with
+  # node_modules or anything a dependency's install or build script left. It
+  # runs the repo's own script and the pinned cargo-tauri it fetches, nothing
+  # else. → docs/adr/2026-11-08-the-updater-trusts-a-current-and-a-standby-key.md
+  sign-updater:
+    name: Sign · Updater artifacts
+    needs: [config, build-bundle-macos, sign-bundle-windows]
+    environment: production
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    outputs:
+      manifests: ${{ steps.sign.outputs.manifests }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/desktop/v${{ needs.config.outputs.version }}
+          persist-credentials: false
+
+      - name: Download the macOS archive
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: updater-input-macos
+          path: updater
+
+      # The MSIs as SignPath signed them: the updater installs these bytes.
+      - name: Download the signed MSIs
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: assets-bundle-windows-*
+          path: updater
+          merge-multiple: true
+
+      # One manifest per key: the previous key's secrets are set only while a
+      # retired key is kept (docs/updater-key.md). The standby key is offline.
+      - name: Sign and write the manifests
+        id: sign
+        env:
+          VERSION: ${{ needs.config.outputs.version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY_PREVIOUS: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PREVIOUS }}
+          TAURI_SIGNING_PRIVATE_KEY_PREVIOUS_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PREVIOUS_PASSWORD }}
+        run: |
+          manifests=$(scripts/sign-updater.sh "$VERSION" updater)
+          echo "manifests=$(paste -sd' ' <<<"$manifests")" >> "$GITHUB_OUTPUT"
+          rm updater/*.msi
+
+      - name: Upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: assets-bundle-updater
+          path: updater/*
+
+  release:
+    name: Release · GitHub
+    needs:
+      - config
+      - build-bundle-linux
+      - check-bundle-linux
+      - build-bundle-macos
+      - sign-bundle-windows
+      - sign-updater
+    environment: production
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/desktop/v${{ needs.config.outputs.version }}
+          persist-credentials: false
+
+      - name: Download bundles
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: assets-bundle-*
+          path: assets
+          merge-multiple: true
+
+      - name: Download embedded sources
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: embedded-sources-linux-*
+          path: ${{ runner.temp }}/embedded-sources
+
+      # The archive is reproducible, so equal bytes prove every architecture's
+      # bwrap and pasta were built from the same source.
+      - name: Attach embedded sources
+        working-directory: ${{ runner.temp }}/embedded-sources
+        env:
+          VERSION: ${{ needs.config.outputs.version }}
+        run: |
+          cmp embedded-sources-linux-amd64/embedded-sources.tar.gz \
+            embedded-sources-linux-arm64/embedded-sources.tar.gz
+          cp embedded-sources-linux-amd64/embedded-sources.tar.gz \
+            "$GITHUB_WORKSPACE/assets/kubetail-desktop-$VERSION-embedded-sources.tar.gz"
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        env:
+          SYFT_SOURCE_NAME: kubetail-desktop
+          SYFT_SOURCE_VERSION: ${{ needs.config.outputs.version }}
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: assets/kubetail-desktop-${{ needs.config.outputs.version }}.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Generate SHA-256 checksums
+        working-directory: ./assets
+        run: |
+          sha256sum -- * > SHA256SUMS
+
+      - name: Import GPG key
+        env:
+          GPG_SIGNING_KEY: ${{ secrets.KSTACK_BOT_GPG_SIGNING_KEY }}
+        run: printf '%s' "$GPG_SIGNING_KEY" | gpg --batch --import
+
+      # The passphrase goes in on stdin, never on the command line. The `!`
+      # makes gpg sign with exactly this key, not a subkey it would pick.
+      - name: Sign SHA256SUMS with GPG
+        working-directory: ./assets
+        env:
+          GPG_PASSPHRASE: ${{ secrets.KSTACK_BOT_GPG_PASSWORD }}
+          GPG_FINGERPRINT: ${{ vars.KSTACK_BOT_GPG_SIGNING_KEY_FINGERPRINT }}
+        run: |
+          printf '%s' "$GPG_PASSPHRASE" | gpg --batch --pinentry-mode loopback --passphrase-fd 0 \
+            --local-user "${GPG_FINGERPRINT}!" --armor --detach-sign SHA256SUMS
+
+      # Every file is named kubetail-desktop-<version>-<os>-<arch>.<ext>, but
+      # the updater's manifests, named as installed apps read them from
+      # updates.kubetail.com; a missing, extra or misnamed one fails the release,
+      # dry run included.
+      - name: Check the release's files
+        working-directory: ./assets
+        env:
+          VERSION: ${{ needs.config.outputs.version }}
+          MANIFESTS: ${{ needs.sign-updater.outputs.manifests }}
+        run: |
+          read -ra manifests <<<"$MANIFESTS"
+          expected=(
+            "kubetail-desktop-$VERSION-linux-amd64.deb"
+            "kubetail-desktop-$VERSION-linux-arm64.deb"
+            "kubetail-desktop-$VERSION-linux-amd64.rpm"
+            "kubetail-desktop-$VERSION-linux-arm64.rpm"
+            "kubetail-desktop-$VERSION-darwin-universal.dmg"
+            "kubetail-desktop-$VERSION-darwin-universal.app.tar.gz"
+            "kubetail-desktop-$VERSION-windows-amd64.msi"
+            "kubetail-desktop-$VERSION-windows-arm64.msi"
+            "kubetail-desktop-$VERSION.cdx.json"
+            "kubetail-desktop-$VERSION-embedded-sources.tar.gz"
+            "${manifests[@]}"
+            SHA256SUMS
+            SHA256SUMS.asc
+          )
+          diff <(printf '%s\n' "${expected[@]}" | sort) <(find . -mindepth 1 -printf '%P\n' | sort)
+
+      - name: Debug
+        if: ${{ needs.config.outputs.dry_run == 'true' }}
+        run: |
+          ls -lah assets/*
+          cat assets/SHA256SUMS
+          cat assets/SHA256SUMS.asc
+
+      - name: Create release
+        if: ${{ needs.config.outputs.dry_run == 'false' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.config.outputs.version }}
+        run: |
+          prerelease=()
+          if [[ "$VERSION" == *-* ]]; then
+            prerelease=(--prerelease)
+          fi
+          gh release create "desktop/v$VERSION" assets/* \
+            --verify-tag --draft --title "desktop/v$VERSION" --notes "" "${prerelease[@]}"
+
+      - name: Remind the releaser to write the notes
+        if: ${{ needs.config.outputs.dry_run == 'false' }}
+        env:
+          VERSION: ${{ needs.config.outputs.version }}
+        run: |
+          {
+            echo "Draft release \`desktop/v$VERSION\` has no notes yet."
+            echo "Run \`/release-notes desktop desktop/v$VERSION\` in Claude Code before publishing the draft."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup GPG
+        if: always()
+        run: |
+          gpgconf --kill gpg-agent || true
+          rm -rf ~/.gnupg

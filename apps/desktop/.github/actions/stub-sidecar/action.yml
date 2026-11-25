@@ -1,0 +1,16 @@
+name: 'Stub Sidecar'
+description: 'Creates an empty sidecar binary where tauri-build looks for it'
+
+# tauri-build checks the externalBin exists and copies it, never running it, so
+# an empty file lets the Rust build and tests run without building the sidecar.
+runs:
+  using: "composite"
+  steps:
+    - name: Stub sidecar binary
+      shell: bash
+      run: |
+        TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
+        EXT=""
+        case "$TRIPLE" in *windows*) EXT=".exe" ;; esac
+        mkdir -p src-tauri/binaries
+        touch "src-tauri/binaries/kubetail-sidecar-$TRIPLE$EXT"

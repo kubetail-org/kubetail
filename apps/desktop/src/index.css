@@ -1,0 +1,275 @@
+@import 'tailwindcss';
+
+@import '@kubetail/ui';
+@source '../node_modules/@kubetail/ui/dist/**/*.js';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root,
+.light {
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #1e2530;
+  --card: #f6f8fb;
+  --card-foreground: #1e2530;
+  --popover: #fafbfd;
+  --popover-foreground: #1e2530;
+  --primary: #9f5436;
+  --primary-foreground: #ffffff;
+  --secondary: #eaeef4;
+  --secondary-foreground: #414c5c;
+  --muted: #eaeef4;
+  --muted-foreground: #5c6779;
+  --accent: #e7d2c9;
+  --accent-foreground: #402318;
+  --destructive: #d32f2f;
+  --destructive-foreground: #ffffff;
+  --border: #dbe2ec;
+  --input: #8c94a0;
+  --ring: #9f5436;
+  --chart-1: #8fc6ff;
+  --chart-2: #297eff;
+  --chart-3: #155dfc;
+  --chart-4: #1447e6;
+  --chart-5: #193cb8;
+  --selection-band: color-mix(in srgb, var(--chart-4) 30%, transparent);
+  /* The data-rate sparkline's two lines: categorical slots 1 and 2, validated on --card. */
+  --series-received: #2a78d6;
+  --series-sent: #eb6834;
+  --sidebar: #f2f3fa;
+  --sidebar-foreground: #414c5c;
+  --sidebar-primary: #9f5436;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ecdcd4;
+  --sidebar-accent-foreground: #402318;
+  --sidebar-border: #ccd5e2;
+  --sidebar-ring: #9f5436;
+  --app-bar: #f2f3fa;
+  --app-bar-hover: rgba(23, 23, 23, 0.06);
+  /* A log line's colours are fancy-ansi's defaults but where the theme's background would
+     drown them: white on the light one. */
+  --ansi-white: #8a9099;
+  --ansi-bright-white: #6b717b;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #14171d;
+  --foreground: #c2c8d2;
+  --card: #1c2028;
+  --card-foreground: #c2c8d2;
+  --popover: #181c23;
+  --popover-foreground: #c2c8d2;
+  --primary: #dec1b7;
+  --primary-foreground: #331e16;
+  --secondary: #2a303b;
+  --secondary-foreground: #a3abb9;
+  --muted: #2a303b;
+  --muted-foreground: #9198a6;
+  --accent: #3d2a20;
+  --accent-foreground: #e7d2c9;
+  --destructive: #f87171;
+  --destructive-foreground: #14171d;
+  --border: #2c333f;
+  --input: #5e6572;
+  --ring: #dec1b7;
+  --chart-1: #8fc6ff;
+  --chart-2: #297eff;
+  --chart-3: #155dfc;
+  --chart-4: #1447e6;
+  --chart-5: #193cb8;
+  --selection-band: color-mix(in srgb, var(--chart-4) 50%, transparent);
+  --series-received: #3987e5;
+  --series-sent: #d95926;
+  --sidebar: #1c2028;
+  --sidebar-foreground: #c2c8d2;
+  --sidebar-primary: #dec1b7;
+  --sidebar-primary-foreground: #331e16;
+  --sidebar-accent: #3d2a20;
+  --sidebar-accent-foreground: #e7d2c9;
+  --sidebar-border: #353d4a;
+  --sidebar-ring: #5f6b7d;
+  --app-bar: #232935;
+  --app-bar-hover: rgba(255, 255, 255, 0.135);
+  /* Black on the dark one; white goes back to its default. */
+  --ansi-black: #7a808b;
+  --ansi-bright-black: #949aa5;
+  --ansi-white: #d3d7cf;
+  --ansi-bright-white: #eeeeec;
+}
+
+@theme {
+  --font-sans: 'Roboto Flex Variable', Arial, Helvetica, sans-serif;
+  --font-mono: 'Roboto Mono Variable', ui-monospace, monospace;
+  --color-app-bar: var(--app-bar);
+  --color-app-bar-hover: var(--app-bar-hover);
+  /* The omnibox's pill and its active tab. */
+  --shadow-pill: 0 0.75px 1.5px -0.75px rgb(0 0 0 / 0.1), 0 0.75px 2.25px 0 rgb(0 0 0 / 0.1);
+
+  /* A working answer's *Working 8s* label: a band of foreground sweeping across `text-shimmer`. */
+  --animate-shimmer: shimmer 2s linear infinite;
+
+  @keyframes shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -100% 0;
+    }
+  }
+}
+
+@layer base {
+  html,
+  body {
+    /* Kill the webview rubber-band / overscroll "bounce" at the document edges. */
+    overscroll-behavior: none;
+  }
+
+  /* The app scrolls inside its panes; the window never scrolls, even when content
+     overflows it. On the root element `clip` acts as `hidden`. */
+  html {
+    overflow: clip;
+  }
+
+  /*
+   * The app's full-height reference. macOS is full-bleed (no `WindowFrame` box),
+   * so height is measured against the window viewport (`100svh`). Off macOS the
+   * app lives inside `WindowFrame` — a `position: fixed`, inset, `overflow-hidden`
+   * box — so `100svh` (the *window*) overflows the frame by its gutter and gets
+   * clipped at the bottom. There the reference is `100%` of that frame instead,
+   * which tracks the frame as it switches between the inset gutter and the
+   * full-bleed `inset-0` it uses while maximized. Consumed via
+   * `min-h-[var(--app-min-h)]` wherever a screen would otherwise use `min-h-svh`.
+   */
+  :root {
+    --app-min-h: 100svh;
+  }
+
+  html.frameless {
+    --app-min-h: 100%;
+  }
+
+  body {
+    @apply antialiased;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    position: relative;
+    /*
+     * Paint the document itself from the resolved scheme's token, so a window's
+     * first frame is themed before React mounts any `bg-background` surface —
+     * otherwise a dark-scheme window flashes the webview's default white until the
+     * app renders. The pre-paint `.dark` class comes from the inline script in
+     * `index.html`. Linux is frameless+transparent, so `html.frameless body` below
+     * overrides this back to transparent (the gutter must show through).
+     */
+    background-color: var(--background);
+  }
+
+  #root {
+    isolation: isolate;
+  }
+
+  /* Desktop controls and in-app links show the arrow, as a native app's sidebar does. The
+     button selectors match `@kubetail/ui`'s `cursor: pointer` rule so this one, coming
+     later, wins. A link that leaves the app opts back in with `cursor-pointer`. */
+  button:not(:disabled),
+  [role='button']:not(:disabled),
+  a[href] {
+    cursor: default;
+  }
+
+  /*
+   * Frameless Linux/Windows windows (see `WindowFrame`): the window is
+   * transparent, so the document itself must be transparent to expose the small
+   * gutter around the frame where its drop shadow paints. The `frameless` class
+   * is set on <html> at startup off macOS (see `main.tsx`); macOS keeps its
+   * native decorations, so its document stays opaque.
+   */
+  html.frameless,
+  html.frameless body,
+  html.frameless #root {
+    background: transparent;
+  }
+}
+
+/*
+ * Chrome the app portals outside itself — the dialog scrim. These rules must stay
+ * OUT of `@layer base`: base loses to `utilities`, so from in there they never beat
+ * the utility classes on the overlay they are reshaping.
+ */
+
+/*
+ * Blur the app behind an open dialog so the scrim reads as depth rather than a
+ * flat dim. Applies on every platform (the scrim itself does too); the frameless
+ * inset rules below only reshape where the scrim/blur is clipped.
+ */
+
+[data-slot='dialog-overlay'] {
+  backdrop-filter: blur(2px);
+}
+
+/*
+ * Dialog scrim clipped to the frame. base-ui portals the overlay to <body>,
+ * outside `WindowFrame`, so its default `inset-0` darkens the transparent gutter
+ * the frame leaves around the app — the scrim spills past the rounded window
+ * edge. Inset it to match the frame instead. Kept in step with `WindowFrame`'s
+ * `inset-4`/`rounded-lg` by hand. macOS (no `.frameless`) and a maximized frameless
+ * window (the frame is full-bleed `inset-0` then, flagged by `.frame-maximized` from
+ * `WindowFrame`) keep the full-window scrim.
+ */
+
+html.frameless [data-slot='dialog-overlay'] {
+  inset: 1rem;
+  border-radius: 0.5rem;
+}
+
+html.frameless.frame-maximized [data-slot='dialog-overlay'] {
+  inset: 0;
+  border-radius: 0;
+}
+
+/* A thin bar that always shows. Styling WebKit's bar makes it a classic one, drawn beside the
+   content rather than over it, so a table's row borders never show through it. Only the
+   -webkit- pseudo-elements: Chromium ignores them once scrollbar-width or scrollbar-color is set. */
+@utility table-scrollbar {
+  &::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  &::-webkit-scrollbar-track,
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-clip: content-box;
+    background-color: color-mix(in srgb, var(--muted-foreground) 40%, transparent);
+  }
+}
+
+/* A scroll container the user still scrolls, with no bar drawn: the log viewer's header. */
+@utility no-scrollbar {
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  scrollbar-width: none;
+}
+
+/* Muted text with a band of foreground in it, swept by `animate-shimmer`. Reduced motion
+   leaves the band still, so the text stays readable. */
+@utility text-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--muted-foreground) 40%,
+    var(--foreground) 50%,
+    var(--muted-foreground) 60%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  color: transparent;
+}

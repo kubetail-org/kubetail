@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kubetail</title>
+    <script>
+      // Pre-paint theming: runs before the bundle, so it can't import — it
+      // hand-mirrors resolveColorScheme (src/lib/theme.tsx) against the
+      // host-injected window.__KUBETAIL_HOST__. Absent/unset falls back to "system".
+      // See docs/adr/2026-08-09-first-paint-theming.md
+      (function () {
+        try {
+          var pref = (window.__KUBETAIL_HOST__ || {}).colorSchemePreference;
+          var dark = pref === 'dark' || (pref !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+        } catch (e) {
+          /* matchMedia unavailable — leave the default (light). */
+        }
+      })();
+    </script>
+    <style>
+      /* The mark before the bundle paints: index.css is not on the page yet, so
+         this shows the scheme's icon by the .dark class the script above sets.
+         Shape matches AppMark at 48px (size-12), centred the way ReadyGate
+         centres it — at 100svh, since --app-min-h arrives with the CSS. React's
+         first commit replaces it. */
+      #root:has(> .boot-mark) {
+        display: flex;
+        min-height: 100svh;
+        align-items: center;
+        justify-content: center;
+      }
+      .boot-mark {
+        width: 3rem;
+        height: 3rem;
+      }
+      .boot-mark img {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .boot-mark .dark-only,
+      .dark .boot-mark .light-only {
+        display: none;
+      }
+      .dark .boot-mark .dark-only {
+        display: block;
+      }
+      /* ReadyGate's drag strip, so the window drags before the bundle paints. */
+      .boot-drag {
+        position: fixed;
+        inset: 0 0 auto;
+        height: 56px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="root"><div class="boot-drag" data-tauri-drag-region="deep"></div><div class="boot-mark" aria-hidden="true"><img class="light-only" src="/src/assets/icons/app-light.svg" width="48" height="48" alt="" /><img class="dark-only" src="/src/assets/icons/app-dark.svg" width="48" height="48" alt="" /></div></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

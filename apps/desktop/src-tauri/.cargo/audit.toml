@@ -1,0 +1,53 @@
+# cargo-audit configuration. CI runs `cargo audit --deny unsound --deny unmaintained`,
+# so an advisory that is not listed here fails the build.
+#
+# Every entry is a tracked acceptance with a recorded reason, never a dismissal:
+# docs/adr/2026-09-05-tauri-pinned-transitive-advisories.md says why each group is
+# accepted and what makes us revisit. Add an entry only alongside that ADR.
+
+[advisories]
+ignore = [
+  # glib 0.18.5 — VariantStrIter unsoundness (null deref). The only entry point is
+  # Variant::array_iter_str, and nothing in the graph calls it. Linux-only stack.
+  "RUSTSEC-2024-0429",
+
+  # gtk, gtk-sys, gtk3-macros, gdk, gdk-sys, gdkx11, gdkx11-sys, gdkwayland-sys, atk,
+  # atk-sys (0.18) — unmaintained. tao and wry pin the GTK 3 line; upstream moved to gtk4.
+  "RUSTSEC-2024-0411",
+  "RUSTSEC-2024-0412",
+  "RUSTSEC-2024-0413",
+  "RUSTSEC-2024-0414",
+  "RUSTSEC-2024-0415",
+  "RUSTSEC-2024-0416",
+  "RUSTSEC-2024-0417",
+  "RUSTSEC-2024-0418",
+  "RUSTSEC-2024-0419",
+  "RUSTSEC-2024-0420",
+
+  # proc-macro-error 1.0.4 — unmaintained. Build-time only, via glib-macros and gtk3-macros.
+  "RUSTSEC-2024-0370",
+
+  # unic-char-range, unic-common, unic-char-property, unic-ucd-version, unic-ucd-ident
+  # (0.9.0) — unmaintained. Reached through urlpattern 0.3.0, a tauri-utils dependency.
+  # Fixed upstream, unreleased: urlpattern 0.4 dropped unic, but published tauri-utils
+  # 2.9.3 still pins 0.3. Drop these five once tauri-utils ships the bump.
+  "RUSTSEC-2025-0075",
+  "RUSTSEC-2025-0080",
+  "RUSTSEC-2025-0081",
+  "RUSTSEC-2025-0098",
+  "RUSTSEC-2025-0100",
+
+  # zvariant, zbus_names, zvariant_derive (5.x) — unmaintained; zbus 6 folded them into
+  # zbus itself. Reached through zbus 5, which tauri-plugin-opener and
+  # tauri-plugin-single-instance pin (2.7.2 and 2.5.4 still require "^5.9"). Drop these
+  # three once both plugins release on zbus 6, and move our own zbus to 6 with them.
+  "RUSTSEC-2026-0370",
+  "RUSTSEC-2026-0371",
+  "RUSTSEC-2026-0372",
+
+  # chrono 0.4 — unmaintained. In Cargo.lock only, never compiled: serde_with, a
+  # tauri-utils dependency, names it through weak `chrono_0_4?/…` features, and the
+  # lockfile records an optional dependency a weak feature names. Drop it once
+  # serde_with stops naming chrono or Cargo stops locking weak dependencies.
+  "RUSTSEC-2026-0543",
+]

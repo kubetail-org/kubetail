@@ -1,0 +1,260 @@
+name: 'Setup Environment'
+description: 'Sets up Node.js, PNPM, Go, and Rust conditionally for building Kubetail'
+
+outputs:
+  go-cache-key:
+    description: 'The Go cache this run saves, when it saves one'
+    value: ${{ steps.go-cache-paths.outputs.key }}
+  go-cache-path:
+    description: 'The directories the Go cache holds'
+    value: ${{ steps.go-cache-paths.outputs.path }}
+
+inputs:
+  github-token:
+    description: 'GitHub token'
+    required: false
+    default: ''
+  go-version:
+    description: 'Go version to install'
+    required: false
+    default: '1.26.11'
+  node-version:
+    description: 'Node.js version to install'
+    required: false
+    default: '26'
+  setup-rust:
+    description: 'Whether to set up Rust'
+    required: false
+    default: 'false'
+  setup-protoc:
+    description: 'Whether to set up Protoc'
+    required: false
+    default: 'false'
+  setup-go:
+    description: 'Whether to set up Go'
+    required: false
+    default: 'false'
+  setup-node:
+    description: 'Whether to set up Node.js and PNPM'
+    required: false
+    default: 'false'
+  setup-sandbox:
+    description: 'Whether to set up the sandbox and require its tests'
+    required: false
+    default: 'false'
+  node-cache:
+    description: 'Whether to cache the pnpm store'
+    required: false
+    default: 'false'
+  go-cache-key:
+    description: 'Names the Go cache; empty turns it off'
+    required: false
+    default: ''
+  rust-cache-key:
+    description: 'Names the Rust cache; empty turns it off'
+    required: false
+    default: ''
+  cache-save:
+    description: 'Whether to save the Rust cache'
+    required: false
+    default: 'false'
+  go-cache-mode:
+    description: 'use, update or rebuild; a rebuild skips restoring the Go cache, so the job builds a new one to save'
+    required: false
+    default: 'use'
+  kubectl-version:
+    description: 'kubectl version the sandbox tests run'
+    required: false
+    default: 'v1.37.0'
+  install-az:
+    description: 'Whether to install az for the app tests that run it in the sandbox, on a Linux X64 runner'
+    required: false
+    default: 'false'
+  az-version:
+    description: 'Azure CLI version install-az installs'
+    required: false
+    default: '2.93.0'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up git authentication for GitHub requests in Rust environment
+      if: inputs.setup-rust == 'true' && inputs.github-token != ''
+      shell: bash
+      env:
+        TOKEN: ${{ inputs.github-token }}
+      run: |
+        git config --global url."https://${TOKEN}:@github.com/".insteadOf "https://github.com/"
+
+    - name: Set up Protoc
+      if: inputs.setup-protoc == 'true'
+      uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+
+    - name: Install Tauri Linux system dependencies
+      if: inputs.setup-rust == 'true' && runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libwebkit2gtk-4.1-dev \
+          libappindicator3-dev \
+          librsvg2-dev \
+          patchelf \
+          libgtk-3-dev \
+          libsoup-3.0-dev \
+          libjavascriptcoregtk-4.1-dev
+
+    - name: Read pinned Rust toolchain
+      if: inputs.setup-rust == 'true'
+      id: rust-toolchain
+      shell: bash
+      run: sed -n 's/^channel = "\(.*\)"/channel=\1/p' src-tauri/rust-toolchain.toml >> "$GITHUB_OUTPUT"
+
+    # `v1` takes the toolchain as an input; `components` mirrors
+    # rust-toolchain.toml, which is the pin devs get.
+    - name: Set up Rust
+      if: inputs.setup-rust == 'true'
+      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+      with:
+        toolchain: ${{ steps.rust-toolchain.outputs.channel }}
+        components: rustfmt, clippy, llvm-tools-preview
+
+    # rust-cache keys on every installed toolchain, so the runner image's own
+    # stable would change the key, and miss the cache, whenever an image update
+    # rolls out. The pinned toolchain is the only one any cargo call here uses.
+    - name: Remove the runner image's Rust toolchains
+      if: inputs.setup-rust == 'true'
+      shell: bash
+      env:
+        CHANNEL: ${{ steps.rust-toolchain.outputs.channel }}
+      run: |
+        rustup toolchain list --quiet | while read -r toolchain; do
+          case "$toolchain" in
+            "$CHANNEL"-*) ;;
+            *) rustup toolchain uninstall "$toolchain" ;;
+          esac
+        done
+        rustup toolchain list
+
+    # The caller decides whether to save; ci.yml's CACHE_MODE saves on main.
+    - name: Set up Rust cache
+      if: inputs.setup-rust == 'true' && inputs.rust-cache-key != ''
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      with:
+        workspaces: "./src-tauri"
+        shared-key: ${{ inputs.rust-cache-key }}
+        save-if: ${{ inputs.cache-save == 'true' }}
+        cache-bin: false
+
+    - name: Set up PNPM
+      if: inputs.setup-node == 'true'
+      uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+    - name: Set up Node.js
+      if: inputs.setup-node == 'true'
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: ${{ inputs.node-cache == 'true' && 'pnpm' || '' }}
+        cache-dependency-path: 'pnpm-lock.yaml'
+
+    - name: Set up Go
+      if: inputs.setup-go == 'true'
+      uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache: false
+
+    # One Go cache per job and runner, named after the run that saved it. GOCACHE
+    # is content-addressed, so a cache from before a go.sum change is still
+    # right, just partly unused. The prefix ends in `-run-` because one runner's
+    # name can start another's (ubuntu-24.04, ubuntu-24.04-arm).
+    - name: Find Go cache paths
+      if: inputs.setup-go == 'true' && inputs.go-cache-key != ''
+      id: go-cache-paths
+      shell: bash
+      env:
+        PREFIX: go-${{ inputs.go-version }}-${{ inputs.go-cache-key }}-run-
+      run: |
+        {
+          echo "prefix=$PREFIX"
+          echo "key=$PREFIX$GITHUB_RUN_ID"
+          echo "path<<EOF"
+          go env GOMODCACHE GOCACHE
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+    # A rebuilding run restores nothing, so every test runs. Any other restores
+    # the newest cache, and a run on main saves a new one after its tests pass.
+    - name: Restore Go cache
+      if: >-
+        inputs.setup-go == 'true' && inputs.go-cache-key != ''
+        && inputs.go-cache-mode != 'rebuild'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.go-cache-paths.outputs.path }}
+        # Never matches, so restore-keys finds the newest cache.
+        key: doesntexist
+        restore-keys: ${{ steps.go-cache-paths.outputs.prefix }}
+
+    # bubblewrap and passt (pasta, a run's internet) for the sandbox's tests,
+    # which fail rather than skip under KUBETAIL_REQUIRE_SANDBOX, and iproute2,
+    # which a resolver test sets up a namespace with; AppArmor restricts
+    # unprivileged user namespaces on 24.04 by default.
+    - name: Set up the sandbox
+      if: inputs.setup-sandbox == 'true' && runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bubblewrap passt iproute2
+        sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+        echo KUBETAIL_REQUIRE_SANDBOX=1 >> "$GITHUB_ENV"
+
+    # macOS ships Seatbelt, so its sandbox tests need nothing installed.
+    - name: Require the sandbox
+      if: inputs.setup-sandbox == 'true' && runner.os == 'macOS'
+      shell: bash
+      run: echo KUBETAIL_REQUIRE_SANDBOX=1 >> "$GITHUB_ENV"
+
+    # The app's end-to-end tests run kubectl and jq in the sandbox and fail
+    # without them under KUBETAIL_REQUIRE_SANDBOX, so they are installed here
+    # rather than taken from the runner image. kubectl goes to ~/.local/bin,
+    # since a sandboxed run reads Kubetail's toolchain folders, never PATH.
+    - name: Install kubectl and jq
+      if: inputs.setup-sandbox == 'true' && runner.os != 'Windows'
+      shell: bash
+      env:
+        KUBECTL_VERSION: ${{ inputs.kubectl-version }}
+      run: |
+        os=$(uname -s | tr '[:upper:]' '[:lower:]')
+        case "$(uname -m)" in
+          x86_64) arch=amd64 ;;
+          arm64 | aarch64) arch=arm64 ;;
+        esac
+        url="https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${os}/${arch}/kubectl"
+        dir="$HOME/.local/bin"
+        mkdir -p "$dir"
+        curl -fsSL -o "$dir/kubectl" "$url"
+        echo "$(curl -fsSL "$url.sha256")  $dir/kubectl" | shasum -a 256 --check
+        chmod +x "$dir/kubectl"
+        echo "$dir" >> "$GITHUB_PATH"
+        if [ "$os" = linux ]; then
+          sudo apt-get install -y jq
+        else
+          brew install jq
+        fi
+
+    # The app's Azure tests run the az KUBETAIL_TEST_AZ names in the sandbox, so
+    # az's private file formats are pinned on one leg; elsewhere they skip.
+    # /opt is a folder a sandboxed run reads; /opt/az is the runner image's
+    # own az, so this one goes beside it.
+    - name: Install az
+      if: inputs.install-az == 'true' && runner.os == 'Linux' && runner.arch == 'X64'
+      shell: bash
+      env:
+        AZ_VERSION: ${{ inputs.az-version }}
+      run: |
+        sudo python3 -m venv /opt/kubetail-az
+        sudo /opt/kubetail-az/bin/pip install --quiet "azure-cli==${AZ_VERSION}"
+        /opt/kubetail-az/bin/az version --output tsv
+        echo KUBETAIL_TEST_AZ=/opt/kubetail-az/bin/az >> "$GITHUB_ENV"

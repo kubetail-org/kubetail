@@ -1,0 +1,13 @@
+name: 'Prune Caches'
+description: 'Deletes every Actions cache on the ref but the newest of each family'
+
+# The job needs actions: write. Run it after every job that saves a cache,
+# including rust-cache and setup-node, which save in post steps.
+runs:
+  using: "composite"
+  steps:
+    - name: Prune caches
+      shell: sh
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: sh "$GITHUB_ACTION_PATH/prune-caches.sh" "$GITHUB_REF"

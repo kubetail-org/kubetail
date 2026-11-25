@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "op",
+    "name"
+  ],
+  "properties": {
+    "op": {
+      "type": "string",
+      "enum": ["save", "forget"],
+      "description": "What to do with the note"
+    },
+    "name": {
+      "type": "string",
+      "description": "The note's name: lower-case letters, digits and single hyphens, at most 48"
+    },
+    "body": {
+      "type": "string",
+      "description": "The fact, at most 500 bytes. Required on save"
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["cluster", "everywhere"],
+      "description": "Who the note reaches: this cluster (the default) or every cluster, which asks the user"
+    }
+  }
+}

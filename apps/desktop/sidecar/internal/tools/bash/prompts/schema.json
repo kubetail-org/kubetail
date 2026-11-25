@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "command"
+  ],
+  "properties": {
+    "command": {
+      "type": "string",
+      "description": "The command to execute"
+    },
+    "description": {
+      "type": "string",
+      "description": "What the command does, in plain words, in active voice. The user reads it above the command when deciding whether to run it, so name what it changes, if anything, and where: the namespace, the branch, the file. Do not restate the command's text or its flags, and never call a command safe, harmless or read-only: the user judges that from the command.\n\nFor a simple command, keep it brief (5-10 words):\n- kubectl --context prod get pods -n shop → \"List pods in the shop namespace\"\n- git status → \"Show working tree status\"\n- git push -u origin fix-api-memory → \"Push branch fix-api-memory to origin\"\n\nFor one that is harder to read at a glance (pipes, obscure flags, several steps), say enough to follow it:\n- kubectl --context prod get events -n shop --field-selector type=Warning | tail -20 → \"Show the latest warning events in shop\"\n- kubectl --context prod delete pod web-0 -n shop → \"Delete pod web-0 in the shop namespace\"\n- git switch -c fix-api-memory && git commit -am \"Raise api memory limit\" → \"Create branch fix-api-memory and commit the edited files\""
+    },
+    "timeout": {
+      "type": "number",
+      "description": "Optional timeout in milliseconds (max 600000)"
+    },
+    "run_in_background": {
+      "type": "boolean",
+      "description": "Set to true to run this command in the background."
+    },
+    "network": {
+      "type": "boolean",
+      "description": "Set to true to ask the user to give this one command the internet, in a chat whose question's context says the sandbox has none. It changes nothing outside the sandbox."
+    },
+    "workdir": {
+      "type": "string",
+      "description": "The directory to run the command in: absolute, `~`-prefixed, or relative to the workspace. Defaults to the workspace. Use this instead of `cd`. A `~` is the user's home outside the sandbox and the workspace in it, and a sandboxed command's directory must be under the workspace."
+    }
+  }
+}

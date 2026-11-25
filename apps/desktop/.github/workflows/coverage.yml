@@ -1,0 +1,358 @@
+name: coverage
+
+permissions:
+  contents: read
+
+# Runs beside ci.yml on its own triggers, plus a push to wip/*: that gives the
+# branch's tip the Codecov report a PR into it is compared with. The PR it
+# merged ran the other checks.
+on:
+  pull_request:
+    branches:
+      - "**"
+  push:
+    branches:
+      - main
+      - wip/**
+  workflow_dispatch:
+    inputs:
+      cache-mode:
+        description: >-
+          use: restore the Go and Rust caches, save none. update: also save a
+          new Go cache. rebuild: start the Go cache from empty and save it.
+          Off main, a saved cache is that branch's alone; PRs never read it.
+        type: choice
+        options:
+          - use
+          - update
+          - rebuild
+        default: use
+
+# A PR's new push cancels its last run. Every other run has a group of its
+# own, so each commit on main and wip/* gets the report a PR into it compares
+# with.
+concurrency:
+  group: coverage-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # As in ci.yml: a dispatch takes its input, a push to main updates, every
+  # other run uses.
+  CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
+  # As in ci.yml: rust-cache keys on CARGO_* variables.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+
+jobs:
+  # A pull request measures a language when one of its paths in
+  # .github/ci-config/path-filters.yml, which ci.yml's Plan reads too,
+  # changed. A push or a dispatch measures them all.
+  #
+  # GitHub starts push and schedule runs in forks too. Outside kstackhq/kstack
+  # Plan runs only for a PR or a dispatch, and every other job needs it, so a
+  # fork's automatic run skips whole. A job whose `if:` runs past a skipped
+  # need (`always()`) checks that Plan succeeded.
+  changes:
+    name: Plan
+    if: >-
+      github.repository == 'kstackhq/kstack'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      cache-mode: ${{ env.CACHE_MODE }}
+      go: ${{ github.event_name != 'pull_request' || steps.filter.outputs.go == 'true' }}
+      rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
+      typescript: ${{ github.event_name != 'pull_request' || steps.filter.outputs.typescript == 'true' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: .github/ci-config/path-filters.yml
+
+  go:
+    name: Go (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    strategy:
+      fail-fast: false
+      # One runner per OS: the sidecar's one split by architecture,
+      # seccomp_linux_<arch>.go, holds declarations alone, so three profiles
+      # hold every statement. macOS 27 is the release users run; nothing in
+      # the sidecar branches on the macOS version.
+      # The Codecov flag is named by GOOS, so it matches the reports already
+      # stored.
+      matrix:
+        include:
+          - os: linux
+            goos: linux
+            runner: ubuntu-24.04
+          - os: macos
+            goos: darwin
+            runner: xcode-27
+          - os: windows
+            goos: windows
+            runner: windows-2025-vs2026
+    runs-on: ${{ matrix.runner }}
+    # Twice each suite run's -timeout, so a hang fails the test binary with a
+    # goroutine dump before the runner kills the job.
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      # Codecov's upload authenticates with an OIDC token.
+      id-token: write
+    steps:
+      # The whole history, for the same reason as ci.yml's Build and Test · Go.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: setup
+        uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          # macOS skips its Seatbelt tests without KUBETAIL_REQUIRE_SANDBOX=1.
+          setup-sandbox: "true"
+          go-cache-key: go-coverage-${{ matrix.runner }}
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      - name: Date files by their last commit
+        run: go run scripts/restore-mtime.go
+      # Built as scripts/build-sidecar.go ships it, so the run tests the
+      # pure-Go os/user and net resolver the release uses. A cached test
+      # replays its coverage with it. SSH_AUTH_SOCK is pinned as in ci.yml's Go ·
+      # Build and Test, since its value keys the login shell's cached results.
+      # -coverpkg=./... counts a helper exercised only from another package's
+      # tests. Instrumenting every package, with no -short, is too slow for
+      # Go's 10-minute default per test binary on Windows. Both passes run in
+      # bash: PowerShell splits -coverpkg=./... at its dot, which empties
+      # -coverpkg and hands ./... to the test binary, turning off the test cache.
+      # scripts/cover-changed.sh measures as this job does; change both together.
+      #
+      # Linux runs every package. macOS and Windows run only the packages whose
+      # Go files differ from Linux's, listed at run time so a new split joins
+      # on its own; the rest would repeat Linux's run. A test elsewhere that
+      # reaches into a split package's platform code no longer counts for it.
+      # Every event filters alike, so a PR and its base compare like runs.
+      - name: Measure coverage
+        working-directory: ./sidecar
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+          SSH_AUTH_SOCK: ""
+        run: |
+          pkgs=./...
+          if [ "$RUNNER_OS" != Linux ]; then
+            files='{{.ImportPath}} {{.GoFiles}}'
+            linux=$(GOOS=linux go list -f "$files" ./... | sort)
+            native=$(go list -f "$files" ./... | sort)
+            pkgs=$(comm -13 <(echo "$linux") <(echo "$native") | cut -d' ' -f1)
+            if [ -z "$pkgs" ]; then
+              echo "::error::no sidecar package splits by OS on $RUNNER_OS"
+              exit 1
+            fi
+            echo "Packages split by OS:"
+            echo "$pkgs"
+          fi
+          # shellcheck disable=SC2086 # one import path per word
+          go test -timeout 30m -covermode=atomic -coverpkg=./... \
+            -coverprofile="$RUNNER_TEMP/untagged.out" $pkgs
+      # -tags debug compiles the environment overrides, which no other build has.
+      # Linux alone runs it: no debug-tagged file in sidecar/ is OS-specific, so
+      # the Linux pass reaches every line the tag adds. A debug-tagged file that
+      # gains an OS constraint needs that OS here too.
+      - name: Measure coverage (-tags debug)
+        if: matrix.os == 'linux'
+        working-directory: ./sidecar
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+          SSH_AUTH_SOCK: ""
+        run: >-
+          go test -tags debug -timeout 30m -covermode=atomic -coverpkg=./...
+          -coverprofile="$RUNNER_TEMP/debug.out" ./...
+      # debug.out exists on Linux alone.
+      - name: Merge the profiles and drop marked lines
+        working-directory: ./tools
+        shell: bash
+        run: |
+          profiles=("$RUNNER_TEMP/untagged.out")
+          if [ -f "$RUNNER_TEMP/debug.out" ]; then
+            profiles+=("$RUNNER_TEMP/debug.out")
+          fi
+          go run ./coverignore -dir ../sidecar -o "$RUNNER_TEMP/coverage-${{ matrix.os }}.out" "${profiles[@]}"
+      # A fork's PR cannot mint the OIDC token; the action then uploads
+      # tokenless, which Codecov accepts for a public repository.
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: ${{ runner.temp }}/coverage-${{ matrix.os }}.out
+          disable_search: true
+          plugins: noop
+          flags: go-${{ matrix.goos }}
+          fail_ci_if_error: true
+      # After the upload, so a failed job leaves the last cache the newest.
+      - name: Save Go cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.go-cache-path }}
+          key: ${{ steps.setup.outputs.go-cache-key }}
+
+  typescript:
+    name: TypeScript (linux)
+    needs: changes
+    if: needs.changes.outputs.typescript == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+          node-cache: "true"
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      # scripts/cover-changed.sh measures as this job does; change both together.
+      - name: Measure coverage
+        run: pnpm vitest run --mode coverage
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: coverage/lcov.info
+          disable_search: true
+          plugins: noop
+          flags: typescript
+          fail_ci_if_error: true
+
+  # One runner per OS, as Go's: Rust's platform splits are by OS.
+  # The instrumented build is its own profile, so it keeps its own cache.
+  rust:
+    name: Rust (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            runner: ubuntu-24.04
+          - os: macos
+            runner: xcode-27
+          - os: windows
+            runner: windows-2025-vs2026
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          setup-go: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          rust-cache-key: rust-coverage-${{ matrix.runner }}
+          cache-save: ${{ env.CACHE_MODE != 'use' }}
+      - uses: ./.github/actions/stub-sidecar
+      # The action's release fixes the checksums. Keep the version in step with
+      # llvm_cov_version in scripts/cover-changed.sh.
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        with:
+          tool: cargo-llvm-cov@0.9.1
+      # scripts/cover-changed.sh measures as this job does; change both together.
+      - name: Measure coverage
+        working-directory: ./src-tauri
+        run: cargo llvm-cov --lcov --output-path ${{ runner.temp }}/rust-${{ matrix.os }}.lcov
+      - name: Drop marked lines
+        working-directory: ./tools
+        run: >-
+          go run ./coverignore -lcov -o ${{ runner.temp }}/rust-${{ matrix.os }}-filtered.lcov
+          ${{ runner.temp }}/rust-${{ matrix.os }}.lcov
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: ${{ runner.temp }}/rust-${{ matrix.os }}-filtered.lcov
+          disable_search: true
+          plugins: noop
+          flags: rust-${{ matrix.os }}
+          fail_ci_if_error: true
+
+  # Reads Codecov's merged result once every upload above is processed, and
+  # fails on an uncovered changed line or a drop in the total
+  # (tools/coveragegate). It diffs the base and the head itself, so it needs
+  # their history. Codecov's public API needs no token, so a fork's PR runs it
+  # too. A language whose job failed is not waited for.
+  gate:
+    name: Gate
+    needs:
+      - changes
+      - go
+      - typescript
+      - rust
+    if: ${{ !cancelled() && needs.changes.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Gate on Codecov's merged result
+        working-directory: ./tools
+        env:
+          GO_RESULT: ${{ needs.go.result }}
+          TYPESCRIPT_RESULT: ${{ needs.typescript.result }}
+          RUST_RESULT: ${{ needs.rust.result }}
+          # Codecov records a PR's uploads under its head, not the merge commit.
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Empty on a push, whose base is the commit's parent.
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          flags=""
+          if [ "$GO_RESULT" = success ]; then flags="$flags,go-linux,go-darwin,go-windows"; fi
+          if [ "$TYPESCRIPT_RESULT" = success ]; then flags="$flags,typescript"; fi
+          if [ "$RUST_RESULT" = success ]; then flags="$flags,rust-linux,rust-macos,rust-windows"; fi
+          go run ./coveragegate -sha "$SHA" -base "$BASE" -flags "${flags#,}" \
+            -run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+  # As ci.yml's: leaves one copy of each cache on the ref. It runs after the
+  # Rust jobs because rust-cache saves in a post step.
+  cache-prune:
+    name: Prune · Caches
+    needs:
+      - changes
+      - go
+      - rust
+    if: always() && needs.changes.result == 'success' && needs.changes.outputs.cache-mode != 'use'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions/prune-caches
+      - uses: ./.github/actions/prune-caches

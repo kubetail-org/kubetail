@@ -1,0 +1,8 @@
+# Every text file is LF in the working tree on every OS. The formatters
+# (gofmt, oxfmt, cargo fmt) and bash all read a CRLF checkout as broken, so a
+# Windows clone must not take core.autocrlf's default.
+* text=auto eol=lf
+
+*.ico binary
+*.icns binary
+*.png binary

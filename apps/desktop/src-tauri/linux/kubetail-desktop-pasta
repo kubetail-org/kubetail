@@ -1,0 +1,101 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Kubetail's copy of passt's AppArmor profile for pasta, from contrib/apparmor/
+# at passt 2026_10_02.cba3570: usr.bin.pasta with abstractions/pasta and
+# abstractions/passt written out, since a system without the passt package has
+# neither, renamed kubetail_desktop_pasta and attached to Kubetail's own pasta. pasta
+# starts one program, the sandbox's bwrap, so it may execute the bwraps the
+# sidecar runs and nothing else.
+#
+# Copyright (c) 2022 Red Hat GmbH
+# Author: Stefano Brivio <sbrivio@redhat.com>
+# Licensed under the GNU General Public License, version 2 or later
+# (/usr/share/doc/kubetail-desktop/passt-LICENSE-GPL-2.0-or-later).
+
+abi <abi/4.0>,
+
+include <tunables/global>
+
+profile kubetail_desktop_pasta /usr/lib/kubetail-desktop/pasta flags=(attach_disconnected) {
+  include <abstractions/base>
+
+  include <abstractions/nameservice>		# get_dns(), conf.c
+
+  capability net_bind_service,			# isolation.c, conf.c
+  capability setuid,
+  capability setgid,
+  capability sys_admin,
+  capability setpcap,
+  capability net_admin,
+  capability sys_ptrace,
+  capability setfcap,
+  userns,
+
+  /					r,	# isolate_prefork(), isolation.c
+  mount options=(rw, runbindable) -> /,
+  mount		""	-> "/",
+  mount		""	-> "/tmp/",
+  mount		""	-> "/proc/",
+  pivot_root	"/tmp/" -> "/tmp/",
+  umount	"/",
+
+  owner @{PROC}/@{pid}/gid_map		w,	# make_ugid_map()
+  owner @{PROC}/@{pid}/setgroups	w,
+  owner @{PROC}/@{pid}/uid_map		rw,
+
+  @{PROC}/sys/net/ipv4/ip_local_port_range r,	# fwd_probe_ephemeral()
+
+  @{PROC}/sys/net/ipv4/tcp_syn_retries r,	# tcp_get_rto_params(), tcp.c
+  @{PROC}/sys/net/ipv4/tcp_syn_linear_timeouts r,
+  @{PROC}/sys/net/ipv4/tcp_rto_max_ms r,
+
+  # udp_get_timeout_params(), udp.c
+  @{PROC}/sys/net/netfilter/nf_conntrack_udp_timeout r,
+  @{PROC}/sys/net/netfilter/nf_conntrack_udp_timeout_stream r,
+
+  @{PROC}/net/tcp			r,	# procfs_scan_listen(), util.c
+  @{PROC}/net/tcp6			r,
+  @{PROC}/net/udp			r,
+  @{PROC}/net/udp6			r,
+
+  @{PROC}/@{pid}/net/tcp		r,	# procfs_scan_listen(), util.c
+  @{PROC}/@{pid}/net/tcp6		r,
+  @{PROC}/@{pid}/net/udp		r,
+  @{PROC}/@{pid}/net/udp6		r,
+
+  @{PROC}/[0-9]*/ns/			r,	# pasta_netns_quit_init(),
+  @{PROC}/[0-9]*/ns/net			r,	# pasta_wait_for_ns(),
+  @{PROC}/[0-9]*/ns/user		r,	# conf_pasta_ns()
+
+  owner @{PROC}/sys/net/ipv4/ping_group_range w, # pasta_spawn_cmd(), pasta.c
+
+  ptrace				r,	# pasta_open_ns()
+
+  network netlink raw,				# nl_sock_init_do(), netlink.c
+
+  network inet stream,				# tcp.c
+  network inet6 stream,
+
+  network inet dgram,				# udp.c
+  network inet6 dgram,
+
+  network unix stream,				# tap.c
+
+  network unix dgram,				# __openlog(), log.c
+
+  /dev/net/tun				rw,	# tap_ns_tun(), tap.c
+
+  @{run}/user/@{uid}/**			rw,	# pasta_open_ns()
+
+  # user-tmp is using "owner" which is not compatible with netns paths
+  # as they show up with ouid=0 in the kernel AppArmor checks
+  /tmp/**				rw,	# pasta_open_ns()
+
+  # The sandbox's bwrap: Kubetail's own under kubetail_desktop_bwrap, which must be
+  # loaded, or the system's under its profile where it has one.
+  /usr/lib/kubetail-desktop/bwrap			Px,
+  /{usr/,usr/local/,}bin/bwrap		PUx,
+
+  # Site-specific additions and overrides. See local/README for details.
+  include if exists <local/kubetail-desktop-pasta>
+}
