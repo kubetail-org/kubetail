@@ -209,7 +209,7 @@ Where:
 Example:
 
 ```
-git commit -a -s --trailer "Assisted-by: Claude:claude-opus-4.6" -m "<message>"
+git commit -a -s --trailer "Assisted-by: Claude:claude-opus-5-5" -m "<message>"
 ```
 
 ## Community
