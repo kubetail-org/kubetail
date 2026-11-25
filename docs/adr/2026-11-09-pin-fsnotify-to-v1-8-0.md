@@ -3,6 +3,7 @@ title: Pin fsnotify to v1.8.0
 date: 2026-11-09
 scope: repo
 status: Accepted
+amended_by: 2026-11-25-leave-the-desktop-sidecar-outside-the-fsnotify-pin.md
 ---
 
 # Pin fsnotify to v1.8.0

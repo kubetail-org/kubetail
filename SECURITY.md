@@ -52,10 +52,10 @@ privileges, is very much in scope.
 
 ## Verifying a Release
 
-Every CLI download and every image carries a build provenance attestation,
-signed through Sigstore for the GitHub Actions run that built it. Verify one
-with the [GitHub CLI](https://cli.github.com/), naming the release's tag and
-the workflow that published it.
+Every CLI download, every image and every desktop release file carries a
+build provenance attestation, signed through Sigstore for the GitHub Actions
+run that built it. Verify one with the [GitHub CLI](https://cli.github.com/),
+naming the release's tag and the workflow that published it.
 
 A CLI download, here from `cli/v0.18.0`:
 
@@ -79,3 +79,12 @@ gh attestation verify oci://kubetail/kubetail-dashboard:0.17.0 \
 The other images are `kubetail-cluster-api`, `kubetail-cluster-agent` and
 `kubetail-cli`, each from its own component's tag. An `-alpine` tag is attested
 the same way.
+
+A Kubetail Desktop release file, here from `desktop/v0.1.0`:
+
+```sh
+gh attestation verify kubetail-desktop-0.1.0-darwin-universal.dmg \
+  -R kubetail-org/kubetail \
+  --source-ref refs/tags/desktop/v0.1.0 \
+  --signer-workflow kubetail-org/kubetail/.github/workflows/release-desktop.yml
+```

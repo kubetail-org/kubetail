@@ -212,3 +212,4 @@ What differs here:
 | 2026-11-25 | [Decide every target's request by access level, a boundary, a mode and rules over one action](2026-11-25-permissions-are-access-levels-a-boundary-modes-and-rules-over-one-action.md) | cross-cutting | Accepted |
 | 2026-11-25 | [Name every data access for its family, kind and operation](2026-11-25-name-every-data-access-for-its-family-kind-and-operation.md) | cross-cutting | Accepted |
 | 2026-11-25 | [A window fixes its cluster, and Kubetail never falls back from an unreachable one](2026-11-25-a-window-fixes-its-cluster-and-never-falls-back.md) | cross-cutting | Accepted |
+| 2026-11-25 | [Import Kstack without its history and reset its migrations](2026-11-25-import-kstack-without-its-history-and-reset-its-migrations.md) | repo | Accepted |

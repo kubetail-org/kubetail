@@ -3,6 +3,7 @@ title: Release files are named kubetail-<product>-<version>-<os>-<arch>
 date: 2026-11-08
 scope: repo
 status: Accepted
+amended_by: 2026-11-25-import-kstack-without-its-history-and-reset-its-migrations.md
 ---
 
 # Release files are named kubetail-\<product\>-\<version\>-\<os\>-\<arch\>
