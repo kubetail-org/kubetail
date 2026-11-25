@@ -38,6 +38,10 @@ import (
 
 const workspacePath = "github.com/kubetail-org/kubetail"
 
+// The modules outside go.work, by their directory from the repo root. A
+// command for one of their packages runs in the module's directory.
+var outsideModules = []string{"apps/desktop/sidecar"}
+
 // The bounds on a package's output excerpt. The issue body that holds it is
 // limited to 65536 characters.
 const (
@@ -360,12 +364,21 @@ func excerpt(bufs []*buffer) (string, int) {
 // package, so it runs the whole package. A package that failed before its
 // tests started printed no seed.
 func command(pkg string, cpu int, seed string, count int, race bool) string {
-	dir := "./" + strings.TrimPrefix(pkg, workspacePath+"/")
+	rel := strings.TrimPrefix(pkg, workspacePath+"/")
+	var b strings.Builder
+	b.WriteString("go")
+	for _, m := range outsideModules {
+		if inModule, ok := strings.CutPrefix(rel, m); ok && (inModule == "" || inModule[0] == '/') {
+			fmt.Fprintf(&b, " -C %s", m)
+			rel = strings.TrimPrefix(inModule, "/")
+			break
+		}
+	}
+	dir := "./" + rel
 	if seed == "" {
 		seed = "on"
 	}
-	var b strings.Builder
-	b.WriteString("go test")
+	b.WriteString(" test")
 	if race {
 		b.WriteString(" -race")
 	}

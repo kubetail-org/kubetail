@@ -11,11 +11,10 @@ A Kubernetes desktop app, in three parts that talk to each other. The root `CLAU
 - **`licenses/`** — the licenses and `THIRD_PARTY_NOTICES.md` of the third-party programs the Linux packages carry (bwrap, pasta, the AppArmor profiles), installed with them. See `licenses/README.md` and `src-tauri/linux/CLAUDE.md`.
 - **`proto/`** — shared gRPC contract (host↔sidecar). Single source of truth, compiled to Go (committed, by `make generate-desktop`) and Rust (by `src-tauri/build.rs`). `sidecar/internal/app/layout/testdata/layouts.json` pins the folder layout both sides compute.
 - **`scripts/`** — the scripts only the desktop uses. The sidecar's build is `scripts/build-sidecar.go` (`make build-desktop-sidecar`); `tauri dev`/`tauri build` call it with `go run` from `apps/desktop/`, never `make` or `sh`, because on Windows Tauri runs them through `cmd.exe`.
-- **`.claude/skills/`** — the desktop's `release-notes` and `release-version` skills.
 
 The desktop's make targets are the root `Makefile`'s `<verb>-desktop` and `<verb>-desktop-<what>`; `make help` lists them. Environment variables that change a dev run are listed in [`docs/development-switches.md`](docs/development-switches.md). `make clean-desktop-data` deletes the dev app's data, cache, config and state folders (refuses while a dev sidecar runs; `sidecar/scripts/clean-dev-data.go`); `make clean-desktop-window` deletes only its saved window frame.
 
-**`.github/` holds the desktop's workflows from Kstack, which GitHub runs only from the repo's root `.github/`.** Until step 3 of `docs/specs/desktop/` moves them there, no CI job checks the desktop: run its checks below.
+**CI checks the desktop in the root's `ci-desktop.yml` and `coverage-desktop.yml`**, on the `desktop` set of `.github/ci-config/runners.json`, and releases it with `release-desktop.yml`.
 
 ## Host↔sidecar transport
 

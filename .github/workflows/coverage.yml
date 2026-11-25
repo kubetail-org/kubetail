@@ -65,3 +65,11 @@ jobs:
       contents: read
       pull-requests: read
       id-token: write
+
+  desktop:
+    name: desktop
+    uses: ./.github/workflows/coverage-desktop.yml
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write

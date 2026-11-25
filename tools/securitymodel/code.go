@@ -23,8 +23,9 @@ import (
 )
 
 // sharedDirs are the repo's folders the desktop's model may cite from the
-// repo's root: the tooling the desktop shares with the other components.
-var sharedDirs = []string{"tools", "scripts"}
+// repo's root: the tooling, CI and skills the desktop shares with the other
+// components.
+var sharedDirs = []string{"tools", "scripts", ".github", ".claude"}
 
 // A tree is what the model can cite: the app's files, the repo's shared
 // folders and the tests in them.

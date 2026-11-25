@@ -67,6 +67,56 @@ web:
   - .github/workflows/coverage-web.yml
   - apps/web/**
   - '!**/*.md'
+desktop:
+  - .github/workflows/ci-desktop.yml
+  - .github/workflows/coverage-desktop.yml
+  - '!**/*.md'
+# The desktop's sidecar, and what Check · AppArmor profiles builds and runs.
+desktop-sidecar:
+  - apps/desktop/proto/**
+  - apps/desktop/scripts/**
+  - apps/desktop/sidecar/**
+  - apps/desktop/src-tauri/linux/**
+  - scripts/check-go-fix.sh
+  - scripts/restore-mtime.go
+  - scripts/staticcheck.sh
+  - '!**/*.md'
+# The desktop's host builds against a stub sidecar, so the sidecar is not its
+# input, but its tests read the sidecar's layout fixture.
+desktop-host:
+  - .github/actions/stub-sidecar/**
+  - apps/desktop/proto/**
+  - apps/desktop/sidecar/internal/app/layout/testdata/**
+  - apps/desktop/src-tauri/**
+  - '!**/*.md'
+desktop-webview:
+  - .gitignore
+  - apps/desktop/*.ts
+  - apps/desktop/.oxfmtrc.json
+  - apps/desktop/.oxlintrc*.json
+  - apps/desktop/index.html
+  - apps/desktop/lint/**
+  - apps/desktop/package.json
+  - apps/desktop/pnpm-lock.yaml
+  - apps/desktop/pnpm-workspace.yaml
+  - apps/desktop/public/**
+  - apps/desktop/sidecar/graph/schema.graphqls
+  - apps/desktop/src/**
+  # index.test.ts checks src/assets/icons/ against the masters.
+  - apps/desktop/src-icons/**
+  - apps/desktop/tsconfig*.json
+  - '!**/*.md'
+# The design manifest and every file an entry in it can name.
+desktop-design:
+  - apps/desktop/design/**
+  - apps/desktop/src/components/**
+  - apps/desktop/src/layouts/**
+  - apps/desktop/src/routes/**
+  - '!**/*.md'
+# The security model cites tests and files anywhere in the app, and is
+# Markdown itself.
+desktop-security-model:
+  - apps/desktop/**
 e2e:
   - .github/workflows/ci-e2e.yml
   - e2e/**
@@ -174,3 +224,10 @@ release-cluster-agent:
   - build/package/Dockerfile.cluster-agent
   - crates/**
   - proto/**
+release-desktop:
+  - apps/desktop/proto/**
+  - apps/desktop/public/**
+  - apps/desktop/sidecar/**
+  - apps/desktop/src/**
+  - apps/desktop/src-icons/**
+  - apps/desktop/src-tauri/**

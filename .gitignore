@@ -75,6 +75,7 @@ CLAUDE.local.md
 .claude/skills/*
 !.claude/skills/release-cli/
 !.claude/skills/release-cluster/
+!.claude/skills/release-desktop/
 !.claude/skills/release-notes/
 !.claude/skills/release-version/
 

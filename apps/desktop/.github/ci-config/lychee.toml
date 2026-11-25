@@ -1,4 +1,0 @@
-offline = true
-include_fragments = "anchor-only"
-no_progress = true
-exclude = ["docs/specs/"]

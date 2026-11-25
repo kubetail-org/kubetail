@@ -19,9 +19,14 @@ on:
         type: boolean
         default: true
 
+# Every job runs on a dispatch, or when a cli/v release is published: the
+# other components' releases, desktop/v ones among them, publish nothing here.
 jobs:
   generate-nuspec:
     name: Package · Chocolatey
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || startsWith(github.event.release.tag_name, 'cli/v')
     runs-on: ubuntu-24.04
     steps:
       - name: Config
@@ -88,6 +93,9 @@ jobs:
 
   push-to-chocolatey:
     name: Publish · Chocolatey
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || startsWith(github.event.release.tag_name, 'cli/v')
     needs: generate-nuspec
     environment: production
     runs-on: windows-latest

@@ -40,7 +40,7 @@ const usage = `usage: releasenotes <command> <args>
   render <notes.json>        print the release's Markdown
   publish <tag> <notes.md>   ask on the terminal, then write the notes to the release
 
-A component is cli, dashboard, cluster-api or cluster-agent.`
+A component is cli, dashboard, cluster-api, cluster-agent or desktop.`
 
 // A tool runs the commands against one checkout and one GitHub repository.
 type tool struct {

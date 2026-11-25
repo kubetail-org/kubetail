@@ -3,6 +3,7 @@ title: Define the CI runner matrix in one runners.json file
 date: 2026-11-17
 scope: repo
 status: Accepted
+amended_by: 2026-11-25-keep-a-runner-set-per-area-in-runners-json.md
 ---
 
 # Define the CI runner matrix in one runners.json file
