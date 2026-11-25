@@ -31,6 +31,7 @@ func TestTheRepositorysFiltersNameEachComponent(t *testing.T) {
 		"dashboard":     {"dashboard", "libs/go-common", "libs/graphql/dashboard", "apps/web"},
 		"cluster-api":   {"cluster/api", "libs/go-common", "libs/graphql/cluster-api", "libs/proto"},
 		"cluster-agent": {"cluster/agent", "libs/proto"},
+		"desktop":       {"apps/desktop/sidecar", "apps/desktop/src", "apps/desktop/src-tauri"},
 	} {
 		paths, err := tl.componentPaths(context.Background(), component)
 		if err != nil {

@@ -1,18 +1,19 @@
 ---
 name: release-version
-description: Recommend the next release version of a Kubetail component (cli, dashboard, cluster-api or cluster-agent) under SemVer 2.0.0. Use when asked which version to release or tag next.
-argument-hint: cli | dashboard | cluster-api | cluster-agent
-allowed-tools: Bash(git tag:*), Bash(git log:*), Bash(git show:*), Bash(git diff:*), Bash(git fetch:*), Bash(git rev-parse:*), Bash(git merge-base:*), Read, Grep
+description: Recommend the next release version of a Kubetail component (cli, dashboard, cluster-api, cluster-agent or desktop) under SemVer 2.0.0. Use when asked which version to release or tag next.
+argument-hint: cli | dashboard | cluster-api | cluster-agent | desktop
+allowed-tools: Bash(git tag:*), Bash(git log:*), Bash(git show:*), Bash(git diff:*), Bash(git fetch:*), Bash(git rev-parse:*), Bash(git merge-base:*), Bash(apps/desktop/scripts/check-release-version.sh:*), Read, Grep
 ---
 
 # Recommend the next release version
 
 Recommend the next version of one component, given as the argument: `cli`, `dashboard`,
-`cluster-api` or `cluster-agent`. If the argument is missing or is anything else, ask which
-component and stop.
+`cluster-api`, `cluster-agent` or `desktop`. If the argument is missing or is anything else, ask
+which component and stop.
 
 **This skill recommends and nothing else.** It never creates or pushes a tag, edits a file or
-dispatches a workflow. A person tags with the `release-cli` or `release-cluster` skill.
+dispatches a workflow. A person tags with the `release-cli`, `release-cluster` or `release-desktop`
+skill.
 
 The rules are [SemVer 2.0.0](https://semver.org/).
 
@@ -24,10 +25,12 @@ The rules are [SemVer 2.0.0](https://semver.org/).
 | `dashboard`     | `dashboard/v<version>`     | `release-docker.yml`                    | `dashboard/` `libs/go-common/` `libs/graphql/dashboard/` `apps/web/`        |
 | `cluster-api`   | `cluster-api/v<version>`   | `release-docker.yml`                    | `cluster/api/` `libs/go-common/` `libs/graphql/cluster-api/` `libs/proto/`  |
 | `cluster-agent` | `cluster-agent/v<version>` | `release-docker.yml`                    | `cluster/agent/` `libs/proto/`                                              |
+| `desktop`       | `desktop/v<version>`       | `release-desktop.yml`                   | `apps/desktop/src/` `apps/desktop/src-tauri/` `apps/desktop/sidecar/` `apps/desktop/proto/` |
 
 Each component's full list, with its Dockerfile and default config, is its `release-<component>`
 filter in `.github/ci-config/path-filters.yml`. Use those globs as the paths below. The CLI
-embeds the Dashboard, so the Dashboard's changes are the CLI's too.
+embeds the Dashboard, so the Dashboard's changes are the CLI's too. The desktop ships its sidecar
+inside the app, so the sidecar's changes are the desktop's.
 
 ## 1. Find the last release
 
@@ -46,8 +49,12 @@ precedence**, not by date or by `sort -V`. Precedence (SemVer §11):
    With all shared identifiers equal, the shorter list sorts first.
 4. Build metadata (`+…`) is ignored.
 
-Skip a tag whose version is not SemVer (step 5), and say you skipped it. If the component has no
-tag, say so and stop.
+Skip a tag whose version fails step 5's check, and say you skipped it. If the component has no
+tag, say so and stop, except for the desktop.
+
+**The desktop's first release.** With no `desktop/v*` tag, recommend the version in
+`apps/desktop/src-tauri/tauri.conf.json` and apply no bump. Still list the commits from step 2,
+over the whole history, as what the release holds.
 
 ## 2. Collect the commits
 
@@ -92,6 +99,9 @@ What counts as breaking:
   released Dashboard or `kubetail logs` reads, since a cluster runs them at different versions.
 - **`cluster-agent`:** the same as the Dashboard, plus a change to the gRPC contract in `libs/proto/`
   that a released Cluster API cannot speak.
+- **`desktop`:** dropping a supported OS or architecture, or losing or misreading data a previous
+  version persisted (`apps/desktop/docs/persisted-data.md`). The GraphQL and gRPC surfaces are
+  internal to the app; a change there alone is not breaking.
 
 The release's level is the highest level among the commits. If it is none, say there is nothing
 to release and stop.
@@ -105,7 +115,8 @@ Let the last release be `X.Y.Z`, with or without a prerelease.
 - At `1.0.0` or later: major → `(X+1).0.0`, minor → `X.(Y+1).0`, patch → `X.Y.(Z+1)`.
 - **Before `1.0.0`:** a breaking change or a `feat` bumps the minor, `0.Y.Z` → `0.(Y+1).0`; a
   `fix` or `perf` bumps the patch, `0.Y.(Z+1)`. SemVer leaves `0.x` unstable, and this is the
-  convention every component keeps. Say plainly when this rule applies.
+  convention every component keeps, but for the desktop, where a `feat` bumps the patch. Say
+  plainly when this rule applies.
 - A bump resets every field below it (`0.3.4` → `0.4.0`).
 
 **From a prerelease (`X.Y.Z-<pre>`):** first find the version the prerelease leads to. Apply the
@@ -130,6 +141,9 @@ version. Say this when it applies.
 
 Never recommend build metadata (`+…`).
 
+**The desktop's prereleases are `rc.<n>` alone**: its RPM and MSI versions are derived from that
+form. Never recommend `beta.<n>` or `rc<n>` for it.
+
 ## 5. Check the version
 
 The version must match SemVer without build metadata, which `tools/releasenotes` and the
@@ -137,6 +151,13 @@ workflows' prerelease check (a `-` in the version) rely on:
 
 ```
 ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$
+```
+
+For the desktop, run the check `release-desktop.yml` runs; it exits non-zero on a version the
+workflow rejects:
+
+```sh
+apps/desktop/scripts/check-release-version.sh desktop <version>
 ```
 
 Check too that the tag does not exist yet (`git rev-parse -q --verify refs/tags/<tag>` prints
@@ -148,7 +169,7 @@ before printing it.
 Print, in this order:
 
 1. **Recommended version**, and the alternative when step 4 offers two.
-2. **Last release**: its tag and commit.
+2. **Last release**: its tag and commit, or "none, first release".
 3. **Bump level**: major, minor or patch, and the rule that turned it into this version
    (the `0.x` rule, a prerelease, or none).
 4. **Commits that drove it**: each commit at the release's level as `sha subject`, then a count
@@ -156,5 +177,5 @@ Print, in this order:
 5. **Helm chart changes**: for a cluster component, each commit whose PR says the chart needs a
    new permission, Secret, port, environment variable or config key. The chart, in
    `kubetail-org/helm-charts`, must ship it with this release.
-6. **Next step**: tag it with `/release-cli` or `/release-cluster`, then write the notes with
-   `/release-notes <component> <tag>`.
+6. **Next step**: tag it with `/release-cli`, `/release-cluster` or `/release-desktop`, then write
+   the notes with `/release-notes <component> <tag>`.
