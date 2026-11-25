@@ -17,7 +17,8 @@ Writing standards for this repo (the root CLAUDE.md has the full statement):
    or point at a PR.
 3. Documentation — simple, concise, easy for a human to read. Lead with what is true now.
 Applies to hand-written files, not generated output (graph/generated.go,
-graph/model/models_gen.go, *.pb.go, apps/web/src/lib/graphql/*/__generated__/) or lockfiles.
+graph/model/models_gen.go, *.pb.go, apps/web/src/lib/graphql/*/__generated__/,
+apps/desktop/src/gql/) or lockfiles.
 EOF
 
 jq -n --arg ctx "$REMINDER" \

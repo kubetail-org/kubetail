@@ -4,7 +4,7 @@ The app bar, both sidebars, the window frame and its controls, the startup gate 
 
 ## Startup
 
-**`ReadyGate` (`src/components/shell/ready-gate.tsx`) draws `AppMark`** at 48px, centred, in every state. `AppMark` draws `src/assets/icons/`'s light or dark app icon, one per scheme; those are `make generate-desktop-icons`' copies of `src-icons/`. `index.html` carries a static copy of the same mark inside `#root`, so first paint and React's first commit show the same thing in the same place — keep them matching. It also draws a 56px `data-tauri-drag-region` strip over its top edge, so the window drags before the app bar mounts; `index.html`'s static copy carries the same strip.
+**`ReadyGate` (`src/components/shell/ready-gate.tsx`) draws `AppMark`** at 48px, centred, in every state. `AppMark` draws `src/assets/icons/`'s light or dark app icon, by scheme; `make generate-desktop-icons` copies them from `src-icons/`. `index.html` carries a static copy of the same mark inside `#root`, so first paint and React's first commit show the same thing in the same place — keep them matching. It also draws a 56px `data-tauri-drag-region` strip over its top edge, so the window drags before the app bar mounts; `index.html`'s static copy carries the same strip.
 
 ## Window layout
 

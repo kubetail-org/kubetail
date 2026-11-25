@@ -96,7 +96,7 @@ files](../docs/adr/2026-09-08-two-processes-two-log-files.md).
 - `graph/` — schema, generated code, resolvers. Resolver deps are non-nil; tests wire fakes. A
   domain refusal reaches the wire as `KUBETAIL_VALIDATION_ERROR` through a mapper in `graph/util.go`.
   A `Chat` folder grant with no `chatID` is refused, never widened to every chat.
-- `grpc/` — committed protoc output; regenerate with `make generate-desktop`, **never hand-edit `*.pb.go`**. It runs `scripts/protoc.sh`, which fetches the pinned `protoc` and builds the plugins from `go.mod`'s `tool` block.
+- `grpc/` — committed protoc output; regenerate with `make generate-desktop`, **never hand-edit `*.pb.go`**. It runs the repo's pinned `protoc` and plugins.
 - `internal/` → [ADR: services, lib and the
   rest](../docs/adr/2026-10-06-sidecar-packages-group-into-services-lib-and-the-rest.md):
   `services/` (state outliving a request, reached from `graph/`/`grpc/`), `lib/` (no Kubetail
@@ -361,11 +361,10 @@ spawned it, as `main` does for a bad flag or root; the host shows it on the star
 
 - testify + `httptest`. Resolver tests stand up `graph.NewServer(ctx, &graph.Resolver{...})` + `POST /graphql`; lifecycle tests stand up `app.New(...)`. Filesystem via `t.TempDir()`.
 - A fixture that needs a stored status writes it with `beehive.NewAdminClient`, never by registering a controller. A controller's own writes are asserted by calling `Reconcile` against a stubbed `ControllerClient`.
-- White-box tests by default (`package foo`). External `package foo_test` only to pin a public contract, and say so.
-- No magic sleeps (root `CLAUDE.md`). Wait on channels through `internal/lib/testutil` (`Wait`, `Recv`, `RecvClosed`, `WaitClosed`); the one failsafe is `testutil.Timeout`.
+- Wait on channels through `internal/lib/testutil` (`Wait`, `Recv`, `RecvClosed`, `WaitClosed`); the one failsafe is `testutil.Timeout`.
 - A fake that notifies the test uses `testutil.Signal` (single-shot) or `testutil.Probe[T]` (repeating, drops oldest). A consumer doing edge detection needs a lossless fan-out instead.
-- `make test-desktop` while working, `make test-desktop` for the whole suite, `make lint-desktop` (gofmt), `make vet-desktop` (go vet and staticcheck on every GOOS, linux/arm64 and each build tag; silence a staticcheck finding with `//lint:ignore <check> <reason>`). `make check-changed` runs `make vet-desktop` instead: go vet and go fix on the changed packages and go vet on their importers, on this machine's platform. `ALL_PLATFORMS=1` adds staticcheck and every other GOOS and tag. CI checks the rest. Run `gofmt -w` before committing.
-- **`make vet-desktop` and CI fail on code `go fix` would rewrite** (`scripts/check-go-fix.sh`), on every GOOS, on linux/arm64, and on the `debug`, `livecache` and `liveswitch` tags. Run `go fix -stringsbuilder=false ./...` and review the result; `stringsbuilder` stays off.
+- `make vet-desktop` runs go vet and staticcheck on every build `scripts/go-builds.sh` lists: each GOOS, linux/arm64 and each build tag. A new split joins that list and `vet-desktop`'s `go vet` lines.
+- **`make vet-desktop` and CI fail on code `go fix` would rewrite** (`scripts/check-go-fix.sh`), on every GOOS, on linux/arm64, and on the `debug`, `livecache` and `liveswitch` tags. Run the `go fix` command it prints and review the result.
 - **CI's race step runs `go test -race -short ./...`** with `GORACE=atexit_sleep_ms=0`. A sweep too slow for the race detector shrinks under `testing.Short()`; a test never skips under it. The nightly stress run sets neither `-short` nor `GORACE`, so the full sweep and the exit sleep run.
 - A test outside `services/cluster` that needs a real cache store uses `cluster/clustertest` (`NewStore`, `Apply`, `Delete`, `Mirror`, `Read`); it carries the query views. Its `Connection` is one a test can `Retire`.
 
@@ -388,8 +387,8 @@ OS-specific, so Linux's pass reaches all of them), both with
 `tools/coverignore` merges the two profiles and drops every block a marker exempts: the statement
 or function whose first line ends in `// coverage:ignore <reason>`, body included, and the lines
 from `// coverage:ignore-start <reason>` to `// coverage:ignore-stop`. Codecov merges the three
-OSes, so a `_windows.go` line is judged by the Windows upload. The gate is the root `CLAUDE.md`'s *Testing conventions*. Generated files are
-in `.github/codecov.yml`'s `ignore`. `make cover-go` prints this OS's numbers per function; `make cover-desktop-changed`, the changed lines this OS leaves uncovered.
+OSes, so a `_windows.go` line is judged by the Windows upload. Generated files are left out of coverage, in `scripts/cover-changed.sh`'s `ignored` and Codecov's
+`ignore`. `make cover-desktop-changed` lists the changed lines this OS leaves uncovered.
 
 When you change the sidecar's wiring or conventions, update this file or the package's guide in the
 same change. When you change *why*, write an ADR.

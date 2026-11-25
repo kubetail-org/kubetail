@@ -1,8 +1,9 @@
 # Kubetail
 
-A real-time logging dashboard for Kubernetes, in one monorepo with one folder per component. `apps/web/`, each Go module, `cluster/agent/`, `libs/proto/` and `e2e/` have a guide of their own. → [ADR: keep one folder per component](docs/adr/2026-11-17-one-folder-per-component.md)
+A real-time logging dashboard for Kubernetes, in one monorepo with one folder per component. `apps/web/`, `apps/desktop/`, each Go module, `cluster/agent/`, `libs/proto/` and `e2e/` have a guide of their own. → [ADR: keep one folder per component](docs/adr/2026-11-17-one-folder-per-component.md)
 
-- **`apps/web/`** — the React single-page app. `apps/desktop/` and `apps/mobile/` hold a README until work on them starts.
+- **`apps/web/`** — the React single-page app. `apps/mobile/` holds a README until work on it starts.
+- **`apps/desktop/`** — Kubetail Desktop, a Tauri app: a React webview, a Rust host and a Go sidecar, each with a guide under `apps/desktop/CLAUDE.md`.
 - **`dashboard/`** — the Dashboard backend: serves the UI, a GraphQL API over the Kubernetes API, sessions and the proxy to the Cluster API.
 - **`cli/`** — the `kubetail` CLI. `kubetail serve` runs the Dashboard on the user's machine; `kubetail logs` prints logs in the terminal.
 - **`cluster/api/`** — the Cluster API: a GraphQL server inside the cluster that reads logs through the Cluster Agents.
@@ -11,7 +12,7 @@ A real-time logging dashboard for Kubernetes, in one monorepo with one folder pe
 - **`go.work`** — the Go workspace of `cli`, `dashboard`, `cluster/api` and `libs/go-common`.
 - **`<component>/Dockerfile`** — each component's release image, built from the repo root. It copies only the folders its component needs, each to the same relative place it has in the repo.
 - **`config/default/`** — the documented default config file of each component. Defaults are set in each component's code; change both. → [ADR: each component owns its config](docs/adr/2026-11-09-each-component-owns-its-config.md)
-- **`tools/`** — a Go module outside the workspace, with a `go.work` of its own: the coverage tools CI runs, `releasenotes` (the `release-notes` skill's), and pins of the Go tools CI runs (`actionlint`, `govulncheck`, the protoc plugins), so Dependabot moves them.
+- **`tools/`** — a Go module outside the workspace, with a `go.work` of its own: the coverage tools CI runs, `releasenotes` (the `release-notes` skill's), the desktop's `designsync` and `securitymodel`, and pins of the Go tools CI runs (`actionlint`, `govulncheck`, the protoc plugins), so Dependabot moves them.
 - **`hack/tilt/kubetail.yaml`** — the whole dev deployment.
 - **`e2e/`** — end-to-end tests in Python, run against a kind cluster.
 - **`docs/adr/`** — Architecture Decision Records: why the design is the way it is.
@@ -33,7 +34,7 @@ make                                                     # the CLI with the UI e
 
 ## How a request travels
 
-**There are two environments, and code branches on them by name** (`config.Environment` in `libs/go-common/config`). `desktop` is `kubetail serve` and `kubetail logs` on the user's machine: credentials come from the kubeconfig, and a query names its kube context, the kubeconfig's current one by default. `cluster` is the Dashboard deployed in the cluster, or the CLI with `--in-cluster`: the kube context is the empty string, and a request runs as the token it carries, or as the Dashboard's ServiceAccount when `auth-mode` is `auto` and it carries none. → [ADR: one implementation per environment](docs/adr/2026-11-09-one-implementation-per-environment-behind-an-interface.md)
+**There are two environments, and code branches on them by name** (`config.Environment` in `libs/go-common/config`). `desktop` is `kubetail serve` and `kubetail logs` on the user's machine, not the Kubetail Desktop app in `apps/desktop/`: credentials come from the kubeconfig, and a query names its kube context, the kubeconfig's current one by default. `cluster` is the Dashboard deployed in the cluster, or the CLI with `--in-cluster`: the kube context is the empty string, and a request runs as the token it carries, or as the Dashboard's ServiceAccount when `auth-mode` is `auto` and it carries none. → [ADR: one implementation per environment](docs/adr/2026-11-09-one-implementation-per-environment-behind-an-interface.md)
 
 **The browser talks only to the Dashboard backend**: GraphQL at `/graphql` (POST, and WebSocket for subscriptions) and a few REST routes under `/api/`.
 
@@ -48,15 +49,15 @@ kubetail logs ──────────────────────
 
 ## Generated code
 
-Generated Go and TypeScript are committed and never hand-edited: `*.pb.go`, `graph/generated.go`, `graph/model/models_gen.go`, `apps/web/src/lib/graphql/*/__generated__/`. The Rust gRPC code is generated on every build and never committed. After editing a source, `make generate` runs every generator, `cli/assets/`'s copy of `config/default/cli.*` among them, with the `protoc` version and plugins CI pins; `libs/proto/CLAUDE.md`, *Go modules* below and `apps/web/CLAUDE.md` say what each source needs. `make check-generated` runs it and fails if a committed file changed; CI's `Check · Generated` runs that. → [ADR: commit generated Go and TypeScript](docs/adr/2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md), [ADR: check generated code in CI by regenerating it](docs/adr/2026-11-10-check-generated-code-in-ci-by-regenerating-it.md)
+Generated Go and TypeScript are committed and never hand-edited: `*.pb.go`, `graph/generated.go`, `graph/model/models_gen.go`, `apps/web/src/lib/graphql/*/__generated__/`, `apps/desktop/src/gql/`. The Rust gRPC code is generated on every build and never committed. After editing a source, `make generate` runs every generator, `cli/assets/`'s copy of `config/default/cli.*` among them, with the `protoc` version and plugins CI pins; `libs/proto/CLAUDE.md`, *Go modules* below and `apps/web/CLAUDE.md` say what each source needs. `make check-generated` runs it and fails if a committed file changed; CI's `Check · Generated` runs that. → [ADR: commit generated Go and TypeScript](docs/adr/2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md), [ADR: check generated code in CI by regenerating it](docs/adr/2026-11-10-check-generated-code-in-ci-by-regenerating-it.md)
 
 ## Go modules
 
-Four modules under the root `go.work`: `cli`, `dashboard`, `cluster/api` and `libs/go-common`. Each module's guide adds its own.
+Four modules under the root `go.work`: `cli`, `dashboard`, `cluster/api` and `libs/go-common`. Each module's guide adds its own. The desktop's sidecar, `apps/desktop/sidecar`, is a module outside it, as `tools/` is: it imports no sibling, builds alone, runs its Go commands in its own directory and stays outside the fsnotify pin.
 
 - **Imports point one way.** `libs/go-common` imports no sibling. `dashboard` and `cluster/api` import `libs/go-common` alone. `cli` imports `libs/go-common` and exactly two Dashboard packages, `dashboard/pkg/app` and `dashboard/pkg/config`. Nothing imports `cli` or `cluster/api`.
 - **Each module builds without `go.work`**, as the release builds do. Every `go.mod` carries a `replace` for each sibling it imports and a complete `go.sum`. A new import of a sibling module needs the `replace`, and a `COPY` in the component's `Dockerfile`, to the same relative place it has in the repo. → [ADR: each Go module builds without go.work](docs/adr/2026-11-09-each-go-module-builds-without-go-work.md)
-- **Every module pins `fsnotify` to v1.8.0 with a `replace`**; keep the four in step. → [ADR: pin fsnotify to v1.8.0](docs/adr/2026-11-09-pin-fsnotify-to-v1-8-0.md)
+- **Every workspace module pins `fsnotify` to v1.8.0 with a `replace`**; keep the four in step. → [ADR: pin fsnotify to v1.8.0](docs/adr/2026-11-09-pin-fsnotify-to-v1-8-0.md)
 - **Go is 1.26**; CI and the Dockerfiles pin the patch version (`go-version` in `.github/actions/setup-environment/action.yml`).
 
 ### Checks
@@ -135,7 +136,7 @@ Each guide has an `AGENTS.md` symlink beside it; a new guide gets one. This file
 - **Update a guide in the same change** as the invariant, convention or command it states.
 - **Keep them light: they are read on every task.** A line belongs when a change would go wrong without it and the files being edited do not say it: an invariant, a convention, a command, a coupling between files, a trap. What a file holds, what a function does and which flags or keys exist are read from the code. State a fact once, in the narrowest guide that covers it.
 - **Each guide has a byte budget** in `.github/ci-config/claude-md-budgets.yml`, which CI enforces (`make lint-repo-claude-md`, `Lint · CLAUDE.md`). A new guide gets one, and a commit that raises one explains why in its body.
-- **They state what is true now.** Why a design was chosen, and what was rejected, goes in an ADR ([`docs/adr/README.md`](docs/adr/README.md)), linked from the guide that states the decision. When a decision changes, write a new ADR, flip the old one's status and repoint every link in the same commit. A guide never links a superseded ADR.
+- **They state what is true now.** Why a design was chosen, and what was rejected, goes in an ADR ([`docs/adr/README.md`](docs/adr/README.md)), linked from the guide that states the decision. The desktop app's own decisions are in [`apps/desktop/docs/adr/`](apps/desktop/docs/adr/README.md). When a decision changes, write a new ADR, flip the old one's status and repoint every link in the same commit. A guide never links a superseded ADR.
 - **Describe the present, not the past**, in guides and code comments alike: drop "used to", "no longer", "formerly", and notes on what was renamed or removed. A contrast with an external system ("unlike client-go's default") is fine. `docs/adr/` is the one exemption: it is an append-only record.
 
 ## Writing standards
@@ -176,14 +177,15 @@ A change in one place can break another area. Also run:
 | `libs/go-common/` | `make test-cli test-cluster-api` |
 | `libs/graphql/*/schema.graphqls` | `make generate`, `make vet-web` |
 | `libs/proto/` | `make generate`, the Go and Rust checks |
+| `apps/desktop/proto/` or the sidecar's GraphQL schema | `make generate-desktop`, then `make vet-desktop test-desktop` |
 | a `Dockerfile` or a toolchain version | `make lint-repo-toolchains lint-repo-digests` |
 | `.github/` or other YAML | `make lint-repo-yaml` |
 | `scripts/` | `make lint-repo-sh test-repo` |
-| `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
+| `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...`, and `make lint-desktop` for `designsync` or `securitymodel` |
 | Markdown | `make lint-repo-md lint-repo-claude-md` |
 | `config/` or `hack/` | CI runs no code job for these: name the checks you ran in the PR |
 
-- **Each check is `make <verb>-<area>`**, over the areas CI checks apart: `cli` (with `dashboard`), `libs`, `cluster-api`, `cluster-agent`, `web`, `e2e` and `repo`, for what belongs to no component. No target runs every area. `make help` lists them. `vet-web` type-checks the UI with `tsc -b`; no target runs `vite build` or the checks of `tools/`.
+- **Each check is `make <verb>-<area>`**, over the areas CI checks apart: `cli` (with `dashboard`), `libs`, `cluster-api`, `cluster-agent`, `web`, `desktop`, `e2e` and `repo`, for what belongs to no component. No target runs every area. `make help` lists them. `vet-web` type-checks the UI with `tsc -b`; no target runs `vite build` or the checks of `tools/`.
 - **`scripts/cover-changed.sh <area>` lists an area's changed lines that no local test run reaches**, measured as its `coverage-*.yml` measures them. A new coverage area gets a case there, a `cover-<area>-changed` target and a case in `scripts/cover-changed.bats`, which runs each area's suite and checks it lists a known uncovered line.
 - **Markdown links are checked offline in CI** (`make lint-repo-md`): a moved or renamed file breaks every relative link to it.
 - **CI is one workflow per area, called from two**: `ci.yml` calls `ci-cli.yml` (the CLI and the Dashboard backend), `ci-libs.yml` (`libs/go-common`), `ci-cluster.yml`, `ci-web.yml`, `ci-e2e.yml` and `ci-repo.yml`; `coverage.yml` calls `coverage-<area>.yml` for `cli`, `libs`, `cluster` and `web`. The callers run on every pull request and push to `main`, and never take an `on: paths:`: each area's Plan picks its jobs by path, from the one list in `path-filters.yml`. An area file also runs alone by dispatch (`gh workflow run ci-cli.yml --ref <branch>`), so it keeps a Plan job, its own `CACHE_MODE` and its own `Prune · Caches`. → [ADR: run CI as one workflow per area](docs/adr/2026-11-19-run-ci-as-one-workflow-per-area.md)
@@ -215,7 +217,7 @@ Each area's guide lists what an ordinary change there can break. These hold ever
 Add an external dependency only for a material gain in readability or performance, and state the reason. Go: the standard library first. Rust: well-maintained, audited crates. TypeScript: weigh the bundle size.
 
 - **Dependabot proposes updates weekly** (`.github/dependabot.yml`) and a person merges each one. It never moves a toolchain: the Go, Node and Rust versions, `packageManager` and the `@types/node` major are bumped by hand. → [ADR: Dependabot moves dependencies, and a person merges every update](docs/adr/2026-11-09-dependabot-moves-dependencies-and-a-person-merges-every-update.md)
-- **Each toolchain has one exact version, set in one place**: Go and Node in the `go-version` and `node-version` defaults of `.github/actions/setup-environment/action.yml`, Rust in `cluster/agent/rust-toolchain.toml`. CI installs it, and the `golang`, `node` and `rust` images in the release Dockerfiles and `hack/tilt/` carry the same version in their tags. Bump them in one commit, with Node the `@types/node` major in `apps/web/package.json`, and re-pin each image's digest; `make lint-repo-toolchains` (CI's `Lint · Toolchains`) fails on a mismatch. → [ADR: pin each toolchain to one version that CI and the images share](docs/adr/2026-11-10-pin-each-toolchain-to-one-version-that-ci-and-the-images-share.md)
+- **Each toolchain has one exact version, set in one place**: Go and Node in the `go-version` and `node-version` defaults of `.github/actions/setup-environment/action.yml`, Rust in `cluster/agent/rust-toolchain.toml`, pnpm in `apps/web/package.json`'s `packageManager`. `apps/desktop/src-tauri/rust-toolchain.toml` and `apps/desktop/package.json`'s `packageManager` pin the same. CI installs it, and the `golang`, `node` and `rust` images in the release Dockerfiles and `hack/tilt/` carry the same version in their tags. Bump them in one commit, with Node the `@types/node` major in `apps/web/package.json`, and re-pin each image's digest; `make lint-repo-toolchains` (CI's `Lint · Toolchains`) fails on a mismatch. → [ADR: pin each toolchain to one version that CI and the images share](docs/adr/2026-11-10-pin-each-toolchain-to-one-version-that-ci-and-the-images-share.md)
 - **Every image a Dockerfile pulls is pinned by tag and digest** (`alpine:3.24.4@sha256:…`), so a re-pushed tag cannot change a release; `make lint-repo-digests` fails on one without. Dependabot moves the other images, tag and digest together. `docker buildx imagetools inspect <image>:<tag>` prints the digest to pin.
 - **`audit.yml` fails a PR only for the advisories it brings in**, and audits the whole tree on `main` and nightly. A failure there opens a `security` issue.
 

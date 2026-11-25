@@ -76,7 +76,7 @@ Every group on a page is a Figma section, laid out so that no two overlap. A new
 
 | Command | What it does |
 | --- | --- |
-| `check` (`make lint-desktop`) | Fails on an entry that is malformed, or that names a file or `symbol` that is not there. Part of `make lint` and CI's `Lint · Design`. |
+| `check` (`make lint-desktop`) | Fails on an entry that is malformed, or that names a file or `symbol` that is not there. Part of `make lint-desktop`. |
 | `status` (`make status-desktop-design`) | Lists every component and screen not in sync. |
 | `record <id>...` (`make record-desktop-design IDS="<id>..."`) | Sets the entries' `blob`s to the working tree's and, with the token, each entry's `figma` from the live file: node, name and hash. It says both sides match, so sync a side that is ahead before recording. |
 | `format` | Rewrites the manifest in the one format `check` accepts. Run it after editing the manifest by hand. |

@@ -13,7 +13,7 @@ Prerequisite: step 1 merged into Kstack's `main`. One commit into `wip/desktop`,
 | 5. Merge `scripts/sandbox-dev-setup.sh` | Done | — |
 | 6. Place the scripts | Done | — |
 | 7. Add the Makefile area | Done | — |
-| 8. Fold the guides | Planned | — |
+| 8. Fold the guides | Done | — |
 | 9. Merge the root files | Planned | — |
 
 1. **Import.** Copy the tree of step 1's merge commit into the layout, with the message *Decisions* asks for, and delete `1-rename.md` with its row in the README.
