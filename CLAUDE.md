@@ -144,8 +144,9 @@ Each guide has an `AGENTS.md` symlink beside it; a new guide gets one. This file
 For every hand-written file, not generated output or lockfiles.
 
 1. **Code — simple, idiomatic, easy for a human to follow.** Prefer the boring construction. Match the idiom of the file you are in.
-2. **Comments — terse, necessary, easy for a human to read.** Say what the code cannot: the why, the invariant, the trap. Never restate the code, argue against an alternative you rejected (that is what `docs/adr/` is for), address a reviewer or point at a PR.
-3. **Documentation — simple, concise, easy for a human to read.** Lead with what is true now. One idea per sentence.
+2. **Names — descriptive, idiomatic, consistent with the rest of the codebase,** signatures and schemas included. One concept, one name.
+3. **Comments — terse, necessary, easy for a human to read.** Say what the code cannot: the why, the invariant, the trap. Never restate the code, argue against an alternative you rejected (that is what `docs/adr/` is for), address a reviewer or point at a PR.
+4. **Documentation — simple, concise, easy for a human to read.** Lead with what is true now. One idea per sentence.
 
 `scripts/writing-standards-hook.sh` (`.claude/settings.json`) restates these every turn. Keep the two in sync.
 
