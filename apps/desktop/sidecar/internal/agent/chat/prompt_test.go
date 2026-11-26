@@ -83,16 +83,14 @@ func TestTheSystemPromptExplainsTheMemorySection(t *testing.T) {
 func TestTheSystemPromptExplainsTheWorkspaceSection(t *testing.T) {
 	t.Parallel()
 
-	assert.Contains(t, promptSystem, "The next section, `## Workspace`, is this chat's workspace: `path` is the directory every command starts in, and its files last for the rest of the chat.")
+	assert.Contains(t, promptSystem, "The next section, `## Workspace`, is the chat's workspace: its `path`.")
 }
 
 func TestTheSystemPromptExplainsTheSandboxSection(t *testing.T) {
 	t.Parallel()
 
-	assert.Contains(t, promptSystem, "The last section, `## Sandbox`, says where this chat's commands run: "+
-		"`sandboxed` in the sandbox, which runs each unasked, or `outside` as the user, which waits for their approval of each. "+
-		"In the sandbox, `network` says whether they reach the internet, and `read` and `readWrite` list the user's folders the sandbox reaches, "+
-		"which `Read`, `Write` and `Edit` open without asking. It is absent on a machine with no sandbox.")
+	assert.Contains(t, promptSystem, "The last section, `## Sandbox`, is this chat's sandbox: where commands run, whether they reach the internet, "+
+		"and which of the user's folders they reach. It is absent on a machine with no sandbox.")
 }
 
 // The monitor's prompt is its own file, whole, and tells it nobody is there to
