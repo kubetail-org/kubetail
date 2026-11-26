@@ -13,9 +13,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # GitHub starts schedule runs in forks too. Outside kubetail-org/kubetail
+  # this job runs only for a dispatch, and every other job needs it, so a
+  # fork's scheduled run skips whole. Report · Failures runs past a skipped
+  # need (`always()`), so it checks that Plan succeeded.
+  plan:
+    name: Plan
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-slim
+    steps:
+      - run: "true"
+
   linux:
     name: Test · Packages (${{ matrix.mgr }}, ${{ matrix.os }}, ${{ matrix.arch }})
-    if: github.repository == 'kubetail-org/kubetail'
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -155,7 +168,7 @@ jobs:
 
   linux-apk:
     name: Test · Packages (apk, alpine-edge, ${{ matrix.arch }})
-    if: github.repository == 'kubetail-org/kubetail'
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -204,7 +217,7 @@ jobs:
 
   linux-apt:
     name: Test · Packages (apt, ${{ matrix.series }}, ${{ matrix.arch }})
-    if: github.repository == 'kubetail-org/kubetail'
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -265,7 +278,7 @@ jobs:
 
   linux-apt-emulated:
     name: Test · Packages (apt, ${{ matrix.series }}, ${{ matrix.arch }})
-    if: github.repository == 'kubetail-org/kubetail'
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -335,7 +348,7 @@ jobs:
 
   linux-copr:
     name: Test · Packages (copr, ${{ matrix.os }}, ${{ matrix.arch }})
-    if: github.repository == 'kubetail-org/kubetail'
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -407,7 +420,7 @@ jobs:
 
   linux-dnf:
     name: Test · Packages (dnf, ${{ matrix.os }}, ${{ matrix.arch }})
-    if: github.repository == 'kubetail-org/kubetail'
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -485,7 +498,7 @@ jobs:
 
   linux-snap:
     name: Test · Packages (snap, ubuntu-24.04, ${{ matrix.arch }})
-    if: github.repository == 'kubetail-org/kubetail'
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -525,7 +538,7 @@ jobs:
 
   linux-zypper:
     name: Test · Packages (zypper, ${{ matrix.os }}, ${{ matrix.arch }})
-    if: github.repository == 'kubetail-org/kubetail'
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -582,7 +595,7 @@ jobs:
 
   macos:
     name: Test · Packages (${{ matrix.mgr }}, ${{ matrix.os }}, ${{ matrix.arch }})
-    if: github.repository == 'kubetail-org/kubetail'
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -681,7 +694,7 @@ jobs:
 
   windows:
     name: Test · Packages (${{ matrix.mgr }}, windows, ${{ matrix.arch }})
-    if: github.repository == 'kubetail-org/kubetail'
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -817,7 +830,7 @@ jobs:
 
   install-sh:
     name: Test · install.sh (${{ matrix.os }}, ${{ matrix.arch }})
-    if: github.repository == 'kubetail-org/kubetail'
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -877,6 +890,7 @@ jobs:
   summary:
     name: Report · Failures
     needs:
+      - plan
       - install-sh
       - linux
       - linux-apk
@@ -889,7 +903,7 @@ jobs:
       - macos
       - windows
     runs-on: ubuntu-24.04
-    if: always() && github.repository == 'kubetail-org/kubetail'
+    if: always() && needs.plan.result == 'success'
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2

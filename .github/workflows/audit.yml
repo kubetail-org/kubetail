@@ -54,8 +54,8 @@ jobs:
   # GitHub starts push and schedule runs in forks too. Outside
   # kubetail-org/kubetail this job runs only for a PR or a dispatch, and every
   # other job needs it, so a fork's automatic run skips whole.
-  fork-gate:
-    name: Fork gate
+  plan:
+    name: Plan
     if: >-
       github.repository == 'kubetail-org/kubetail'
       || github.event_name == 'pull_request'
@@ -66,7 +66,7 @@ jobs:
 
   go-audit:
     name: Go
-    needs: fork-gate
+    needs: plan
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     steps:
@@ -93,7 +93,7 @@ jobs:
 
   rust-audit:
     name: Rust
-    needs: fork-gate
+    needs: plan
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     steps:
@@ -117,7 +117,7 @@ jobs:
 
   typescript-audit:
     name: TypeScript
-    needs: fork-gate
+    needs: plan
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     steps:
@@ -189,7 +189,7 @@ jobs:
   # the graph.
   typescript-submit:
     name: Submit dependencies · TypeScript
-    needs: fork-gate
+    needs: plan
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
