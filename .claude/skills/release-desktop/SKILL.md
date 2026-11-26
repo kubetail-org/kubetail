@@ -53,7 +53,7 @@ Tag and push a new semver release for the `desktop` component.
 
 7. **Write the notes** — `release-desktop.yml` builds, signs and notarizes every platform, then opens a draft release for the tag, a prerelease when the version has a `-`. Once it has, tell the user to run `/release-notes desktop desktop/v{X.Y.Z}`, which writes the notes to the draft.
 
-8. **Publish** — the user publishes the draft on GitHub, and **leaves *Set as the latest release* unticked**. The repo's latest release is the CLI's: the README's download link and the CLI's packages read it.
+8. **Publish** — the user publishes the draft on GitHub, and **leaves *Set as the latest release* unticked**. The repo's latest release is the CLI's: the README's download link and the CLI's packages read it. Publishing a final sends it to every installed app on macOS and Windows: `publish-desktop-updates.yml` copies its manifests to `updates.kubetail.com`. Confirm that run succeeded. A pre-release reaches no installed app.
 
 ## Rules
 

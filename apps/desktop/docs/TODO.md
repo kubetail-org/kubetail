@@ -1226,8 +1226,7 @@ risk stays distinguishable from an unnoticed one, and is not repeated here.
   needs (nothing creates a deployment, so that grant just goes). Audits run only on pull requests, so
   an advisory filed against a quiet `main` waits for whoever opens the next one — add a daily
   schedule. And the release job is gated on nothing: add a step that checks the required checks
-  passed **for the commit the tag points at**, not `github.sha`, which on a manual run is whatever
-  ref it was dispatched from. Finally, write a short page on verifying a download — the GPG key,
+  passed for the tag's commit: a release comes only from the tag push. Finally, write a short page on verifying a download — the GPG key,
   `shasum -c`, `codesign`/`spctl`, `signtool`, and plainly that Linux bundles are unsigned — and run
   it ourselves once before telling anyone else to. `.github/ci-config/zizmor.yml` ignores
   `release-desktop.yml`'s `excessive-permissions` finding until this lands; drop the ignore with the fix.
@@ -1250,7 +1249,7 @@ risk stays distinguishable from an unnoticed one, and is not repeated here.
   and no platform has a notice, so someone who installs a Linux package stays on that version until
   they happen to visit the releases page — including past a security fix. Saying so needs no signing
   key. Shape: the sidecar fetches `updates.kubetail.com`'s `latest-<key id>.json` (H-4b's manifest) on launch and
-  every 24 hours, jittered, compares versions, and publishes the answer on the GraphQL surface; the
+  every 12 hours by the wall clock, jittered, compares versions, and publishes the answer on the GraphQL surface; the
   webview shows a quiet notice whose link opens the release page in the system browser. The check
   belongs in the sidecar because the webview has no network access. It sends the version and nothing
   else — no identity, no machine id, no cluster data — and a failed check is silent, since not
@@ -1261,12 +1260,8 @@ risk stays distinguishable from an unnoticed one, and is not repeated here.
 
 - **H-4b — the in-app updater is unchecked (medium; release owner).** The updater is built on macOS
   and Windows ([ADR](adr/2026-11-08-the-updater-trusts-a-current-and-a-standby-key.md),
-  [record](security/2026-11-08-in-app-updater.md)); Linux applies no update. Three things remain.
-  **Serve the manifests**, before the second desktop release with the updater is published, or
-  the first one's installs never hear of it: an S3 bucket behind CloudFront on `updates.kubetail.com`,
-  and a workflow on `release: published` that, for a `desktop/v*` final, copies the release's
-  `latest-<key id>.json` files to `desktop/stable/` with a short cache lifetime. It assumes an AWS
-  role through GitHub OIDC that can write to that bucket alone, so no AWS key is stored. Then
+  [record](security/2026-11-08-in-app-updater.md)); Linux applies no update. Publishing a final copies its
+  manifests to `updates.kubetail.com` (`publish-desktop-updates.yml`). Two things remain. First,
   generate the current and the standby keys (`pnpm tauri signer generate`): the current private
   half and its password become the `production` environment's `TAURI_SIGNING_PRIVATE_KEY` and
   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, the standby's stays offline, apart from the current key's

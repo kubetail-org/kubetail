@@ -22,7 +22,7 @@ apps/desktop/sidecar/internal/services/settings/CLAUDE.md: 7680
 apps/desktop/sidecar/internal/tools/CLAUDE.md: 31744
 apps/desktop/src-tauri/CLAUDE.md: 32000
 apps/desktop/src-tauri/linux/CLAUDE.md: 4608
-apps/desktop/src-tauri/src/updater/CLAUDE.md: 3584
+apps/desktop/src-tauri/src/updater/CLAUDE.md: 4096
 apps/desktop/src/CLAUDE.md: 28928
 apps/desktop/src/components/chat/CLAUDE.md: 24832
 apps/desktop/src/components/cluster/CLAUDE.md: 7936

@@ -15,22 +15,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release"
+        description: "Version to build as a dry run"
         required: true
         type: string
-      signing_policy:
-        description: "SignPath slug"
-        required: true
-        type: choice
-        default: test-signing
-        options:
-          - test-signing
-          - release-signing
-      dry_run:
-        description: "Dry run"
-        required: false
-        type: boolean
-        default: true
 
 # A release restores no GitHub Actions cache: the ci-*.yml, coverage-*.yml and
 # audit.yml files save caches on main, so code their jobs run could write one a
@@ -57,24 +44,22 @@ jobs:
         env:
           RELEASE_EVENT: ${{ github.event_name }}
           RELEASE_VERSION: ${{ inputs.version }}
-          RELEASE_SIGNING_POLICY: ${{ inputs.signing_policy }}
-          RELEASE_DRY_RUN: ${{ inputs.dry_run }}
         run: |
+          # A release comes only from the tag push: its attestation names the
+          # tag, which publish-desktop-updates.yml and SECURITY.md verify. A
+          # dispatch, from any branch, is a dry run on the test certificate.
           if [ "$RELEASE_EVENT" == "workflow_dispatch" ]; then
             version="$RELEASE_VERSION"
-            signing_policy="$RELEASE_SIGNING_POLICY"
-            dry_run="$RELEASE_DRY_RUN"
+            signing_policy="test-signing"
+            dry_run="true"
           else
             version="${GITHUB_REF#refs/tags/desktop/v}"
-            # SignPath's release-signing policy accepts no request from this repository yet.
-            signing_policy="test-signing"
+            signing_policy="release-signing"
             dry_run="false"
           fi
           # Outputs enter build configuration, paths and shell scripts downstream.
           # The script prints the RPM and MSI versions.
           package_versions="$(apps/desktop/scripts/check-release-version.sh desktop "$version")"
-          case "$signing_policy" in test-signing|release-signing) ;; *) exit 1 ;; esac
-          case "$dry_run" in true|false) ;; *) exit 1 ;; esac
           {
             echo "version=${version}"
             echo "signing_policy=${signing_policy}"
@@ -549,13 +534,50 @@ jobs:
           path: assets
           name: assets-bundle-windows-${{ matrix.arch }}
 
+  # On Windows, where Get-AuthenticodeSignature reads an MSI. sign-updater
+  # waits for it, so the updater key signs only an MSI SignPath signed.
+  check-bundle-windows:
+    name: Check · Bundle (windows)
+    needs: [config, sign-bundle-windows]
+    runs-on: windows-2025-vs2026
+    steps:
+      - name: Download the signed MSIs
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: assets-bundle-windows-*
+          path: assets
+          merge-multiple: true
+
+      - name: Verify Authenticode signatures
+        shell: pwsh
+        env:
+          SIGNING_POLICY: ${{ needs.config.outputs.signing_policy }}
+        run: |
+          $files = @(Get-ChildItem assets -Filter *.msi)
+          if ($files.Count -ne 2) { throw "expected 2 MSIs, found $($files.Count)" }
+
+          $failed = $false
+          foreach ($file in $files) {
+            $sig = Get-AuthenticodeSignature $file.FullName
+            Write-Output "$($file.Name): $($sig.Status) $($sig.SignerCertificate.Subject)"
+            if ($env:SIGNING_POLICY -eq 'release-signing') {
+              $ok = $sig.Status -eq 'Valid'
+            } else {
+              # SignPath's test certificate chains to a root the runner does
+              # not trust, so require only an intact signature.
+              $ok = $sig.SignerCertificate -and $sig.Status -notin 'NotSigned', 'HashMismatch'
+            }
+            if (-not $ok) { $failed = $true }
+          }
+          if ($failed) { exit 1 }
+
   # Apart from every build, so the updater key never shares a runner with
   # node_modules or anything a dependency's install or build script left. It
   # runs the repo's own script and the pinned cargo-tauri it fetches, nothing
   # else. → apps/desktop/docs/adr/2026-11-08-the-updater-trusts-a-current-and-a-standby-key.md
   sign-updater:
     name: Sign · Updater artifacts
-    needs: [config, build-bundle-macos, sign-bundle-windows]
+    needs: [config, build-bundle-macos, sign-bundle-windows, check-bundle-windows]
     environment: production
     permissions:
       contents: read
@@ -612,6 +634,7 @@ jobs:
       - check-bundle-linux
       - build-bundle-macos
       - sign-bundle-windows
+      - check-bundle-windows
       - sign-updater
     environment: production
     runs-on: ubuntu-24.04

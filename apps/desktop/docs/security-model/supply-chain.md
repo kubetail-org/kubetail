@@ -38,11 +38,14 @@ What our jobs run, what a build installs and what a release signs are each pinne
 | SUPPLY-29 | The twenty-one advisories Tauri's Linux stack, `urlpattern`, the Tauri plugins' zbus 5 and `tauri-utils`' `serde_with` pin are left unresolved. | **By decision** | — |
 | SUPPLY-30 | picomatch's ReDoS advisory, unpatched upstream, is left unresolved in build and test tooling. | **By decision** | — |
 | SUPPLY-31 | The app tells the user a newer release exists. | **Not built** | Nothing checks, so a user can sit on a version with a known bug indefinitely. |
-| SUPPLY-32 | Signed in-app updates on macOS and Windows: the app installs only an artifact signed by one of the two keys it was built with, current or standby. | **Built**, not yet checked end to end | The source's status is "Built, not yet checked end to end". Nothing publishes the manifests to `updates.kubetail.com` yet, and the manual check waits on the real key. Linux applies no update. |
+| SUPPLY-32 | Signed in-app updates on macOS and Windows: the app installs only an artifact signed by one of the two keys it was built with, current or standby. | **Built**, not yet checked end to end | The source's status is "Built, not yet checked end to end". `publish-desktop-updates.yml` copies a final's manifests to `updates.kubetail.com`; the manual check waits on the real key. Linux applies no update. |
 | SUPPLY-33 | An in-app update's signature is bound to the version the manifest names. | **Built**, not yet checked end to end | As SUPPLY-32. |
 | SUPPLY-34 | Each updater key has its own manifest on `updates.kubetail.com`, and each endpoint is held to its key's id. | **Built**, not yet checked end to end | As SUPPLY-32. |
 | SUPPLY-35 | A release is gated on the checks for its own commit. | **Not built** | `release-desktop.yml` grants write permissions to every job, and audits run only per pull request. |
 | SUPPLY-36 | The macOS bundle grants only the hardened-runtime exceptions it needs. | **Not built** | Three exceptions ship whose necessity has never been tested against a signed build. |
+| SUPPLY-37 | A tagged release signs its MSIs with SignPath's release certificate, and fails on an MSI whose Authenticode signature is not `Valid` before the updater key signs it. | **Built**, not yet run on a tag | No `desktop/v*` tag has run it. |
+| SUPPLY-38 | A release comes only from a tag push: a dispatch of `release-desktop.yml` is a dry run on SignPath's test certificate. | **Held by review** | — |
+| SUPPLY-39 | `updates.kubetail.com` serves only manifests `release-desktop.yml` attested at their final's tag, and a newer live manifest is replaced only by a dispatch with `force`. | **Held by review** | Who can write to the bucket is who can run a job in the `updates` environment, or an administrator of the AWS account. |
 
 ## Evidence
 
@@ -262,7 +265,7 @@ What our jobs run, what a build installs and what a release signs are each pinne
 - Note: a rotation promotes the standby, so a lost or stolen current key strands no app.
 - Note: the release fails on a current key that is not the committed one or a standby that is unset.
 - Note: Linux applies no update.
-- Note: nothing publishes the manifests to `updates.kubetail.com` yet, and the manual check (an update installs, a different key is refused) waits on the real key.
+- Note: publishing a final copies its manifests to `updates.kubetail.com` (`publish-desktop-updates.yml`); the manual check (an update installs, a different key is refused) waits on the real key.
 
 ### SUPPLY-33
 
@@ -292,3 +295,21 @@ What our jobs run, what a build installs and what a release signs are each pinne
 - **Records:** [TODO](../TODO.md#security)
 - Note: no spec yet.
 - Note: three exceptions ship whose necessity has never been tested against a signed build.
+
+### SUPPLY-37
+
+- **Where:** `.github/workflows/release-desktop.yml`
+- **Records:** [TODO](../TODO.md#security)
+- Note: a tag push sets `signing_policy` to `release-signing`; `check-bundle-windows` runs `Get-AuthenticodeSignature` on both MSIs, and `sign-updater` and `release` wait for it.
+
+### SUPPLY-38
+
+- **Where:** `.github/workflows/release-desktop.yml`
+- Note: the `Plan` job sets `dry_run` and `test-signing` for every dispatch, and the dispatch takes a version alone.
+- Note: a dispatch attests nothing, and a tag push's attestation names the tag, which `publish-desktop-updates.yml` and `SECURITY.md` verify.
+
+### SUPPLY-39
+
+- **Where:** `.github/workflows/publish-desktop-updates.yml`
+- Note: each manifest passes `gh attestation verify` against `release-desktop.yml` at `refs/tags/desktop/v<version>`, and its `version` must be the tag's.
+- Note: the AWS role, the bucket and the distribution are made by hand; the role trusts only the `updates` environment, which holds no secrets.

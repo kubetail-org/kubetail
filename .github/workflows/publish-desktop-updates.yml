@@ -1,0 +1,179 @@
+name: publish-desktop-updates
+
+# Copies a desktop final's updater manifests to updates.kubetail.com, where
+# installed apps read them. A pre-release sends no `released`, so only a
+# final's are copied. The bucket, the distribution and the role are made by
+# hand. → apps/desktop/src-tauri/src/updater/CLAUDE.md
+
+permissions:
+  contents: read
+
+on:
+  release:
+    types:
+      - released
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run"
+        required: false
+        type: boolean
+        default: true
+      force:
+        description: "Replace a newer live manifest (to stop offering a bad release)"
+        required: false
+        type: boolean
+        default: false
+
+# A release and a dispatch never compare and write the manifests at once.
+concurrency:
+  group: publish-desktop-updates
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish · Manifests
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      && (github.event_name == 'workflow_dispatch'
+        || startsWith(github.event.release.tag_name, 'desktop/v'))
+    # The AWS role trusts this environment's jobs alone. It holds no secrets.
+    environment: updates
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUCKET: ${{ vars.UPDATES_BUCKET }}
+      PREFIX: desktop/stable
+    steps:
+      - name: Config
+        id: config
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_FORCE: ${{ inputs.force }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            version="$INPUT_VERSION"
+            dry_run="$INPUT_DRY_RUN"
+            force="$INPUT_FORCE"
+          else
+            version="${RELEASE_TAG#desktop/v}"
+            dry_run="false"
+            force="false"
+          fi
+          # The stable channel takes finals only, and the comparison below
+          # orders x.y.z alone.
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Not a desktop final: $version" >&2
+            exit 1
+          fi
+          case "$dry_run" in true|false) ;; *) exit 1 ;; esac
+          case "$force" in true|false) ;; *) exit 1 ;; esac
+          {
+            echo "version=$version"
+            echo "dry_run=$dry_run"
+            echo "force=$force"
+          } >> "$GITHUB_OUTPUT"
+
+      # A dispatch can name any tag; only a published final is offered.
+      - name: Check the release
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+        run: |
+          state=$(gh release view "desktop/v$VERSION" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')
+          if [ "$state" != "false false" ]; then
+            echo "desktop/v$VERSION is a draft or a pre-release" >&2
+            exit 1
+          fi
+
+      - name: Download the manifests
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+        run: |
+          gh release download "desktop/v$VERSION" --pattern 'latest-*.json' --dir manifests
+
+      # The attestation names the workflow and the tag that built each file,
+      # so a manifest attached to the release by hand fails here.
+      - name: Verify the manifests
+        working-directory: ./manifests
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+        run: |
+          shopt -s nullglob
+          manifests=(latest-*.json)
+          if [ ${#manifests[@]} -eq 0 ]; then
+            echo "desktop/v$VERSION has no manifest" >&2
+            exit 1
+          fi
+          for m in "${manifests[@]}"; do
+            if [[ ! "$m" =~ ^latest-[0-9A-F]{16}\.json$ ]]; then
+              echo "Not a manifest name: $m" >&2
+              exit 1
+            fi
+            gh attestation verify "$m" \
+              --repo "$GH_REPO" \
+              --source-ref "refs/tags/desktop/v$VERSION" \
+              --signer-workflow "$GH_REPO/.github/workflows/release-desktop.yml"
+            got=$(jq -r .version "$m")
+            if [ "$got" != "$VERSION" ]; then
+              echo "$m is version $got, not $VERSION" >&2
+              exit 1
+            fi
+          done
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.UPDATES_AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # Listing tells a missing manifest (the first release on a key) from a
+      # read that failed: S3 answers 403 for both without s3:ListBucket.
+      - name: Compare with the live manifests
+        working-directory: ./manifests
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+          FORCE: ${{ steps.config.outputs.force }}
+        run: |
+          live=$(aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "$PREFIX/" \
+            --query 'Contents[].Key' --output text | tr '\t' '\n')
+          for m in latest-*.json; do
+            if ! grep -qxF -- "$PREFIX/$m" <<<"$live"; then
+              echo "$m: none live"
+              continue
+            fi
+            current=$(aws s3 cp "s3://$BUCKET/$PREFIX/$m" - | jq -r .version)
+            echo "$m: $current live"
+            newest=$(printf '%s\n' "$current" "$VERSION" | sort -V | tail -1)
+            if [ "$newest" != "$VERSION" ]; then
+              if [ "$FORCE" != "true" ]; then
+                echo "$m is $current live, newer than $VERSION; dispatch with force to replace it" >&2
+                exit 1
+              fi
+              echo "::warning::Replacing $m $current with $VERSION"
+            fi
+          done
+
+      # Nothing is deleted: the standby's manifest is missing until it is
+      # promoted. Nothing is invalidated: the cache lifetime is enough.
+      - name: Upload the manifests
+        if: ${{ steps.config.outputs.dry_run == 'false' }}
+        working-directory: ./manifests
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+        run: |
+          for m in latest-*.json; do
+            aws s3 cp "$m" "s3://$BUCKET/$PREFIX/$m" \
+              --cache-control "max-age=300" --content-type application/json --only-show-errors
+            echo "- \`$m\`: $VERSION" >> "$GITHUB_STEP_SUMMARY"
+          done
