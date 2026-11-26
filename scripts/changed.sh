@@ -65,3 +65,51 @@ vitest_scope() {
   ts=$(grep -E "^$1/(src/.*\.tsx?|lint/.*\.[jt]s)$" <<<"$changed" | existing | sed "s|^$1/||" | paste -sd ' ' - || true)
   [ -z "$ts" ] || echo "related --run --passWithNoTests $ts"
 }
+
+# go_pkg_dirs: the package directory of each changed file read from stdin. A
+# file other than Go counts for the nearest directory above it that holds Go
+# (testdata/, an embedded file).
+go_pkg_dirs() {
+  local f d
+  while read -r f; do
+    d=$(dirname "$f")
+    if [[ "$f" != *.go ]]; then
+      while [ "$d" != . ] && ! compgen -G "$d/*.go" >/dev/null; do d=$(dirname "$d"); done
+    fi
+    [ "$d" = . ] || echo "$d"
+  done
+}
+
+# go_scope <module>...: the packages of the named modules that the change
+# reaches, as paths from the repo root: each changed package and every package
+# whose build or tests import one, from any module of their workspace. A go.mod
+# or go.sum change names its module whole (./cli/...).
+go_scope() {
+  local repo=github.com/kubetail-org/kubetail mods pkgs m asked=() patterns=()
+  for m in "$@"; do
+    if has "^$m/go\.(mod|sum)$"; then echo "./$m/..."; else asked+=("$m"); fi
+  done
+  [ ${#asked[@]} -gt 0 ] || return 0
+  mods=$(go -C "$1" list -m -f '{{.Path}}' | sed "s|^$repo/||")
+  pkgs=$(grep -E "^($(paste -sd '|' - <<<"$mods"))/" <<<"$changed" | grep -vE '\.md$|/go\.(mod|sum)$' | go_pkg_dirs | sort -u || true)
+  [ -n "$pkgs" ] || return 0
+  # -test adds each package's test variants, p.test and `p [p.test]`, whose
+  # Deps hold its tests' imports. ForTest names the package of a variant.
+  for m in $mods; do patterns+=("$repo/$m/..."); done
+  go -C "$1" list -e -test -f '{{or .ForTest .ImportPath}} {{join .Deps " "}}' "${patterns[@]}" |
+    awk -v repo="$repo/" -v pkgs="$pkgs" -v asked="${asked[*]}" '
+      BEGIN {
+        split(pkgs, p, "\n")
+        for (i in p) changed[repo p[i]] = 1
+        n = split(asked, a, " ")
+      }
+      {
+        pkg = $1
+        sub(/\.test$/, "", pkg)
+        hit = pkg in changed
+        for (i = 2; i <= NF && !hit; i++) hit = $i in changed
+        if (!hit) next
+        dir = substr(pkg, length(repo) + 1)
+        for (i = 1; i <= n; i++) if (dir == a[i] || index(dir, a[i] "/") == 1) print "./" dir
+      }' | sort -u
+}
