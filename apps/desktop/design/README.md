@@ -8,7 +8,7 @@ This page is for people. The rules an agent follows are in [`CLAUDE.md`](CLAUDE.
 
 ## The three pieces
 
-**1. The Figma files.** [Desktop](https://www.figma.com/design/UTfwwz8cyLq5RA6mNFxUsD/Desktop) holds the app's components and screens. [kubetail-ui](https://www.figma.com/design/KoHFVSSKfENrqPidIkJfpO/kubetail-ui) is the shared library it builds on.
+**1. The Figma files.** [Kubetail Desktop](https://www.figma.com/design/UTfwwz8cyLq5RA6mNFxUsD/Kubetail-Desktop) holds the app's components and screens. [kubetail-ui](https://www.figma.com/design/KoHFVSSKfENrqPidIkJfpO/kubetail-ui) is the shared library it builds on.
 
 **2. The manifest, [`components.json`](components.json).** It has one entry per Figma component. The entry says which code draws that component:
 
@@ -90,7 +90,7 @@ Elsewhere, set `FIGMA_TOKEN`. Without a token, the report covers the code side a
 You make `StatusPill` fully round in `status-pill.tsx` and merge it.
 
 1. The file's fingerprint no longer matches the manifest. `make status-desktop-design` now lists `dashboard/status-pill` as "code ahead".
-2. In Figma, save a named version of Desktop (**File → Save to version history**). Agent edits land directly in the file, and this is your undo.
+2. In Figma, save a named version of Kubetail Desktop (**File → Save to version history**). Agent edits land directly in the file, and this is your undo.
 3. Ask an agent: *"Update StatusPill in Figma to match the code."*
 4. The agent tells you what it will change and waits for your yes.
 5. It edits the component in Figma, shows you a screenshot, and records both new fingerprints in the entry: the code's and the design's.
@@ -179,7 +179,7 @@ The report covers components and the screens that are drawn. A clean report does
 
 The report from example 6 is long and you want it cleared.
 
-1. In Figma, save a named version of Desktop.
+1. In Figma, save a named version of Kubetail Desktop.
 2. Ask an agent: *"Sync everything that is out of sync between Figma and the code."*
 3. The agent runs the report, then gives you one plan, grouped by state, and waits. For the report above:
    - **Code ahead:** it will update `ScopeTrigger` in Figma.
@@ -208,7 +208,7 @@ Screens work like components. The difference is what counts as the screen's own.
 - **One file can hold several components.** `cluster-status/popover.tsx` draws four. A change to it flags all four as "code ahead". For the ones the change did not touch, record the new fingerprint and change nothing else. The same goes for `app-layout.tsx`, which lays out several screens.
 - **Some components are security-sensitive.** Their entry has `"security": true`, as `Chat/ApprovalRequest` does. A design change to one is reviewed as a security change, not a restyle.
 - **Never put real cluster data in Figma.** Screens use made-up names and logs.
-- **A change to the kubetail-ui library must be published in Figma** before Desktop sees it.
+- **A change to the kubetail-ui library must be published in Figma** before Kubetail Desktop sees it.
 
 ## What is not built yet
 

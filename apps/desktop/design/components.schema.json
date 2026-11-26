@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/kubetail-org/kubetail/blob/main/design/components.schema.json",
   "title": "Kubetail design manifest",
-  "description": "Maps each local component and each screen of the Desktop Figma file to the code that draws it, with both sides' state at their last sync.",
+  "description": "Maps each local component and each screen of the Kubetail Desktop Figma file to the code that draws it, with both sides' state at their last sync.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "components"],

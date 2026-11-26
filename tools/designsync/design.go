@@ -40,7 +40,7 @@ type stamp struct {
 // property at its default.
 type node = map[string]any
 
-// A page is one page of the Desktop file, as the nodes endpoint returns it.
+// A page is one page of the Kubetail Desktop file, as the nodes endpoint returns it.
 type page struct {
 	Document      node                     `json:"document"`
 	Components    map[string]componentMeta `json:"components"`

@@ -25,7 +25,7 @@ import (
 
 const (
 	figmaAPI    = "https://api.figma.com/v1"
-	desktopFile = "UTfwwz8cyLq5RA6mNFxUsD" // design/CLAUDE.md's Desktop
+	desktopFile = "UTfwwz8cyLq5RA6mNFxUsD" // design/CLAUDE.md's Kubetail Desktop
 )
 
 // A figmaFile reads one Figma file over the REST API, with a personal access

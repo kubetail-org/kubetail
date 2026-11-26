@@ -15,7 +15,7 @@
 // Command designsync does the bookkeeping that keeps the Figma design and the
 // desktop webview's code in step (apps/desktop/design/CLAUDE.md). It reads the
 // manifest, apps/desktop/design/components.json, and, when FIGMA_TOKEN is set,
-// the Desktop file over Figma's REST API. It never writes to Figma.
+// the Kubetail Desktop file over Figma's REST API. It never writes to Figma.
 // Run it from tools/: go run ./designsync <command> ....
 package main
 
