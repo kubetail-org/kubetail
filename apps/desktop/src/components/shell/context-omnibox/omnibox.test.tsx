@@ -207,9 +207,9 @@ describe('ContextOmnibox', () => {
     expect(screen.getByTestId('cluster-trigger-name').parentElement).toHaveClass('@max-[14rem]:gap-1');
     // The words give way to an icon, the warning's tooltip and spoken name kept.
     const badge = screen.getByTitle(/insecure-skip-tls-verify/);
-    expect(badge).toHaveClass('shrink-0', '@max-[14rem]:px-0.5');
-    expect(badge.querySelector('svg')).toHaveClass('hidden', '@max-[14rem]:block');
-    expect(screen.getByText('Unverified TLS')).toHaveClass('@max-[14rem]:sr-only');
+    expect(badge).toHaveClass('shrink-0', '@max-sm:px-0.5');
+    expect(badge.querySelector('svg')).toHaveClass('hidden', '@max-sm:block');
+    expect(screen.getByText('Unverified TLS')).toHaveClass('@max-sm:sr-only');
   });
 
   it('opts out of the app bar’s drag region', () => {

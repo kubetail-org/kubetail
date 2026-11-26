@@ -22,6 +22,8 @@ import { LayoutDashboard, MessageCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 
+import { APP_BAR_CAPSULE_CLASS } from '@/lib/control-style';
+
 const TAB_CLASS = cn(
   'flex h-7 items-center justify-center gap-1.5 rounded-full px-3 py-0.75',
   'text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground',
@@ -52,7 +54,7 @@ function Tab({ to, label, icon: Icon }: { to: '/chat' | '/dashboard'; label: str
 // The omnibox lays the track out and gives it its hit area.
 export function ModeTabs({ className }: { className?: string }) {
   return (
-    <nav aria-label="View" className={cn('flex h-8 items-center gap-0.5 rounded-full bg-muted p-0.5', className)}>
+    <nav aria-label="View" className={cn(APP_BAR_CAPSULE_CLASS, className)}>
       <Tab to="/chat" label="Chat" icon={MessageCircle} />
       <Tab to="/dashboard" label="Dashboard" icon={LayoutDashboard} />
     </nav>

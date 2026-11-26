@@ -26,7 +26,8 @@ const UNVERIFIED_TLS_TITLE: Record<'skip-verify' | 'plain-http', string> = {
 // Rides beside the cluster it is about: the one way the app says a connection
 // goes unverified, so it must not be conditioned on anything but the verdict.
 // `collapsible` shrinks it to a warning icon inside a container (`@container`) under
-// 14rem wide, its words left to assistive tech and its reason to the tooltip.
+// 24rem (`sm`) wide, its words left to assistive tech and its reason to the tooltip.
+// Narrower, the full badge and the omnibox's tabs leave the cluster's name no room.
 export function UnverifiedTLSBadge({
   entry,
   collapsible = false,
@@ -40,12 +41,12 @@ export function UnverifiedTLSBadge({
     <span
       className={cn(
         'inline-flex shrink-0 items-center rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300',
-        collapsible && '@max-[14rem]:px-0.5',
+        collapsible && '@max-sm:px-0.5',
       )}
       title={UNVERIFIED_TLS_TITLE[reason]}
     >
-      {collapsible && <TriangleAlert aria-hidden className="hidden size-3.5 @max-[14rem]:block" />}
-      <span className={cn(collapsible && '@max-[14rem]:sr-only')}>Unverified TLS</span>
+      {collapsible && <TriangleAlert aria-hidden className="hidden size-3.5 @max-sm:block" />}
+      <span className={cn(collapsible && '@max-sm:sr-only')}>Unverified TLS</span>
     </span>
   );
 }

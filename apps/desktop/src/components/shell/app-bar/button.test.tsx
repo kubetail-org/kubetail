@@ -28,7 +28,10 @@ describe('AppBarButton', () => {
 
   it('takes a caller’s class over its own', () => {
     render(<AppBarButton aria-label="Back" className="size-7.5 rounded-md" />);
-    expect(screen.getByRole('button', { name: 'Back' })).toHaveClass('size-7.5', 'rounded-md');
-    expect(screen.getByRole('button', { name: 'Back' })).not.toHaveClass('size-7', 'rounded-full');
+    const button = screen.getByRole('button', { name: 'Back' });
+    expect(button).toHaveClass('size-7.5', 'rounded-md');
+    // One class per assertion: `not.toHaveClass` with several passes when any is missing.
+    expect(button).not.toHaveClass('size-7');
+    expect(button).not.toHaveClass('rounded-full');
   });
 });

@@ -63,9 +63,10 @@ function ServerGlyph({ health }: { health?: Health }) {
 // The server icon as its own control, opening the window's cluster's status: `icon-sm`'s
 // 28px, a circle, its icon gray. Its hit area covers the chip's 6px left padding and the
 // pill's 4px beside it, half the 2px gap before the trigger, and the 2px above and below it
-// in the chip and the pill's 3px past that. The insets count from inside the button's own 1px transparent border (the
-// library's, for its focus ring). Under 14rem the chip's padding goes, leaving the name
-// room. Nothing while the window is on no cluster: the trigger draws the bare icon then.
+// in the chip and the pill's 3px past that. The insets count from inside the button's own
+// 1px transparent border (the library's, for its focus ring). Under 14rem the chip's
+// padding goes, leaving the name room. Nothing while the window is on no cluster: the
+// trigger draws the bare icon then.
 function StatusButton({ anchorRef }: { anchorRef: RefObject<HTMLElement | null> }) {
   const { context } = useActiveKubeContext();
   const { clusters } = useClusters();
@@ -95,10 +96,10 @@ function StatusButton({ anchorRef }: { anchorRef: RefObject<HTMLElement | null> 
 // badge, or why there is none. A button of its own, with its own hover: it fills the chip's
 // height, its 6px padding even on both sides; its hit area reaches over the pill's 3px above
 // and below, half the 2px gap after the status button and half the 12px gap before the
-// tabs, so a press anywhere there lands on it. In a narrow omnibox the name
-// truncates first and the badge shrinks to its icon, so the warning stays; the connecting
-// and empty states draw their icon alone, their words left to the button's name. With no
-// cluster it also draws the bare icon, where the status button would be.
+// tabs, so a press anywhere there lands on it. In a narrow omnibox the name truncates first
+// and the badge shrinks to its icon, so the warning stays; the connecting and empty states
+// draw their icon alone, their words left to the button's name. With no cluster it also
+// draws the bare icon, where the status button would be.
 function ClusterTrigger({ anchorRef }: { anchorRef: RefObject<HTMLElement | null> }) {
   const { context, active, noneSelected, phase } = useActiveKubeContext();
   const hasCluster = context !== '';

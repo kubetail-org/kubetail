@@ -14,14 +14,18 @@
 
 // The looks controls share across areas that do not import each other.
 
-// The app bar's controls share `APP_BAR_HOVER_CLASS` with components the bar imports: the
-// omnibox and the window's caption buttons. They sit outside `app-bar/`, so neither has to
-// import the folder that imports it.
+// The app bar's controls share `APP_BAR_HOVER_CLASS` and `APP_BAR_CAPSULE_CLASS` with
+// components the bar imports: the omnibox and the window's caption buttons. They sit outside
+// `app-bar/`, so neither has to import the folder that imports it.
 
 // Hover is a wash over the bar's own tint rather than the library's fixed `bg-muted`. The
 // `dark:` form is needed too: `ghost` carries its own `dark:hover:bg-muted/50`, which
 // tailwind-merge only replaces with a class in the same variant chain.
 export const APP_BAR_HOVER_CLASS = 'hover:bg-app-bar-hover dark:hover:bg-app-bar-hover';
+
+// The muted, round 32px track that groups related controls in the app bar: its button
+// capsules and the omnibox's mode tabs.
+export const APP_BAR_CAPSULE_CLASS = 'flex h-8 items-center gap-0.5 rounded-full bg-muted p-0.5';
 
 // The look of the controls at the top of the left sidebar: New chat and both search
 // boxes. The fill and the border are the chat composer's, so they stay opaque on the

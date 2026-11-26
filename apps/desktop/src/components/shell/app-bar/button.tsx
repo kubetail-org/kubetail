@@ -17,7 +17,7 @@ import { Button } from '@kubetail/ui/elements/button';
 import { cn } from '@kubetail/ui/lib/utils';
 import type { ComponentProps } from 'react';
 
-import { APP_BAR_HOVER_CLASS } from '@/lib/control-style';
+import { APP_BAR_CAPSULE_CLASS, APP_BAR_HOVER_CLASS } from '@/lib/control-style';
 
 // `ghost` has no resting fill, so the bar's tint shows through and only hover paints;
 // `icon-sm` is 28px, drawn round to match the bar's capsules and omnibox. The icon is gray.
@@ -33,7 +33,7 @@ export function AppBarButton({ className, ...props }: ComponentProps<typeof Butt
   );
 }
 
-// A muted, round track grouping related app bar buttons; it echoes the omnibox's mode tabs.
+// Groups related app bar buttons in one track.
 export function AppBarCapsule({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('flex h-8 items-center gap-0.5 rounded-full bg-muted p-0.5', className)} {...props} />;
+  return <div className={cn(APP_BAR_CAPSULE_CLASS, className)} {...props} />;
 }
