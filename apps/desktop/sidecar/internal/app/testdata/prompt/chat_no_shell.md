@@ -450,13 +450,12 @@ Open or replace the live view of logs in the user's window: one or more resource
   "properties": {
     "description": {
       "type": "string",
-      "description": "What the view is for, in plain words (5-10 words). The user reads it on the card."
+      "description": "What the view is for, in 5-10 words. The user sees it on the card."
     },
     "sources": {
       "type": "array",
       "minItems": 1,
       "maxItems": 100,
-      "description": "What the view reads. Lines from every source are merged by timestamp.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -466,27 +465,26 @@ Open or replace the live view of logs in the user's window: one or more resource
         ],
         "properties": {
           "namespace": {
-            "type": "string",
-            "description": "The namespace the resource is in"
+            "type": "string"
           },
           "resource": {
             "type": "string",
-            "description": "The resource as <kind>/<name>: pods/webapp-7f9c, deployments/webapp, statefulsets/db, daemonsets/agent, jobs/backfill, cronjobs/nightly, replicasets/webapp-7f9c"
+            "description": "<kind>/<name>, such as deployments/web"
           },
           "containers": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "Containers to read, by exact name. Omit for the default container, as kubectl logs does; the receipt names the others."
+            "description": "By exact name. Omit for the default container."
           },
           "all_containers": {
             "type": "boolean",
-            "description": "Read every container of the pod, as kubectl logs --all-containers does. Not with containers."
+            "description": "Not with containers."
           },
           "previous": {
             "type": "boolean",
-            "description": "Read the instance before the last restart instead of the running one, as kubectl logs --previous does. It is finished: nothing arrives on it."
+            "description": "The instance before the last restart."
           }
         }
       }
@@ -494,56 +492,51 @@ Open or replace the live view of logs in the user's window: one or more resource
     "filters": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Keep only lines from these nodes. Each is a list of values allowed; omit a key for any.",
+      "description": "Keep only lines from nodes with these names, or region, zone, os or arch labels.",
       "properties": {
         "node": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node names"
+          }
         },
         "region": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node regions (topology.kubernetes.io/region)"
+          }
         },
         "zone": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node zones (topology.kubernetes.io/zone)"
+          }
         },
         "os": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node operating systems (kubernetes.io/os)"
+          }
         },
         "arch": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node architectures (kubernetes.io/arch)"
+          }
         }
       }
     },
     "grep": {
       "type": "string",
-      "description": "A regular expression each line's message must match. Omit for every line."
+      "description": "A regular expression the message must match."
     },
     "anchor": {
       "type": "string",
-      "description": "Where the view opens: tail (the newest line, the default), head (the oldest line kept), an RFC 3339 time, or an ISO 8601 duration back from now such as PT15M."
+      "description": "tail (the default), head, an RFC 3339 time, or an ISO 8601 duration back from now such as PT15M."
     },
     "pin_to_end": {
       "type": "boolean",
-      "description": "Whether the viewer keeps the end in view as new lines arrive. New lines arrive either way. Default false; true is what 'tail the logs' means."
+      "description": "Keep the newest line in view. Default false; true to tail."
     }
   }
 }
@@ -559,13 +552,12 @@ Read a window of logs yourself: one or more resources merged by timestamp over a
   "properties": {
     "description": {
       "type": "string",
-      "description": "Why you are reading, in plain words (5-10 words). The user reads it above the lines."
+      "description": "Why you are reading, in 5-10 words. The user sees it."
     },
     "sources": {
       "type": "array",
       "minItems": 1,
       "maxItems": 100,
-      "description": "What to read. Lines from every source are merged by timestamp.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -575,27 +567,26 @@ Read a window of logs yourself: one or more resources merged by timestamp over a
         ],
         "properties": {
           "namespace": {
-            "type": "string",
-            "description": "The namespace the resource is in"
+            "type": "string"
           },
           "resource": {
             "type": "string",
-            "description": "The resource as <kind>/<name>: pods/webapp-7f9c, deployments/webapp, statefulsets/db, daemonsets/agent, jobs/backfill, cronjobs/nightly, replicasets/webapp-7f9c"
+            "description": "<kind>/<name>, such as deployments/web"
           },
           "containers": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "Containers to read, by exact name. Omit for the default container, as kubectl logs does; the header names the others."
+            "description": "By exact name. Omit for the default container."
           },
           "all_containers": {
             "type": "boolean",
-            "description": "Read every container of the pod, as kubectl logs --all-containers does. Not with containers."
+            "description": "Not with containers."
           },
           "previous": {
             "type": "boolean",
-            "description": "Read the instance before the last restart instead of the running one, as kubectl logs --previous does. It is finished: nothing arrives on it."
+            "description": "The instance before the last restart."
           }
         }
       }
@@ -603,70 +594,65 @@ Read a window of logs yourself: one or more resources merged by timestamp over a
     "filters": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Keep only lines from these nodes. Each is a list of values allowed; omit a key for any.",
+      "description": "Keep only lines from nodes with these names, or region, zone, os or arch labels.",
       "properties": {
         "node": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node names"
+          }
         },
         "region": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node regions (topology.kubernetes.io/region)"
+          }
         },
         "zone": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node zones (topology.kubernetes.io/zone)"
+          }
         },
         "os": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node operating systems (kubernetes.io/os)"
+          }
         },
         "arch": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node architectures (kubernetes.io/arch)"
+          }
         }
       }
     },
     "grep": {
       "type": "string",
-      "description": "A regular expression each line's message must match. Omit for every line."
+      "description": "A regular expression the message must match."
     },
     "since": {
       "type": "string",
-      "description": "Where the range starts: an RFC 3339 time at any precision, its first nanosecond, such as 2026-10-21 or 2026-10-21T05:00Z, or an ISO 8601 duration back from now such as PT15M. Omit for the oldest line Kubetail holds."
+      "description": "Range start: an RFC 3339 time, or an ISO 8601 duration back from now such as PT15M. Omit for the oldest line."
     },
     "until": {
       "type": "string",
-      "description": "Where the range ends, in the same forms; a time's last nanosecond, so 2026-10-21T05:00Z takes the whole minute. Omit for the newest line."
+      "description": "Range end, in the same forms. Omit for the newest line."
     },
     "before": {
       "type": [
         "integer",
         "string"
       ],
-      "description": "Context before the range: a number of lines (0 to 500), or an ISO 8601 duration of at most P7D such as PT5M. Its lines are marked [before] and pass the grep unfiltered."
+      "description": "Context before the range: 0 to 500 lines, or a duration up to P7D."
     },
     "after": {
       "type": [
         "integer",
         "string"
       ],
-      "description": "Context after the range, in the same forms. Its lines are marked [after]."
+      "description": "Context after the range, in the same forms."
     },
     "page_from": {
       "type": "string",
@@ -674,28 +660,28 @@ Read a window of logs yourself: one or more resources merged by timestamp over a
         "first",
         "last"
       ],
-      "description": "Which end of the window the page comes from: last (the default) the newest lines, first the oldest."
+      "description": "Default last, the newest lines."
     },
     "page_size": {
       "type": "integer",
       "minimum": 1,
       "maximum": 100,
-      "description": "How many lines a page holds. Default 50."
+      "description": "Default 50."
     },
     "max_message_bytes": {
       "type": "integer",
       "minimum": 0,
-      "description": "Cut each message at this many bytes. Default 2048; 0 for the most Kubetail keeps of a message, 16 KiB."
+      "description": "Default 2048; 0 for 16 KiB."
     },
     "max_page_bytes": {
       "type": "integer",
       "minimum": 1,
       "maximum": 16384,
-      "description": "The page's messages together, in bytes. Default 16384."
+      "description": "Default 16384."
     },
     "cursor": {
       "type": "string",
-      "description": "A prev, next or follow token a read printed, copied whole and exactly. It names the sources, filters, grep and window, so send it with page_size, max_message_bytes, max_page_bytes and description alone."
+      "description": "A prev, next or follow token a read printed, copied exactly. Send only page_size, max_message_bytes, max_page_bytes and description with it."
     }
   }
 }
@@ -711,13 +697,12 @@ Watch logs in the background and be told once, when the watch ends: one or more 
   "properties": {
     "description": {
       "type": "string",
-      "description": "What the watch waits for, in plain words (5-10 words). The user reads it on the watch's card, and you in its notice."
+      "description": "What the watch waits for, in 5-10 words. The user sees it on its card."
     },
     "sources": {
       "type": "array",
       "minItems": 1,
       "maxItems": 100,
-      "description": "What to watch. Lines from every source are merged by timestamp. A source with no pods yet is watched until it has some.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -727,27 +712,26 @@ Watch logs in the background and be told once, when the watch ends: one or more 
         ],
         "properties": {
           "namespace": {
-            "type": "string",
-            "description": "The namespace the resource is in"
+            "type": "string"
           },
           "resource": {
             "type": "string",
-            "description": "The resource as <kind>/<name>: pods/webapp-7f9c, deployments/webapp, statefulsets/db, daemonsets/agent, jobs/backfill, cronjobs/nightly, replicasets/webapp-7f9c"
+            "description": "<kind>/<name>, such as deployments/web"
           },
           "containers": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "Containers to read, by exact name. Omit for the default container, as kubectl logs does; the header names the others."
+            "description": "By exact name. Omit for the default container."
           },
           "all_containers": {
             "type": "boolean",
-            "description": "Read every container of the pod, as kubectl logs --all-containers does. Not with containers."
+            "description": "Not with containers."
           },
           "previous": {
             "type": "boolean",
-            "description": "Read the instance before the last restart instead of the running one, as kubectl logs --previous does. It is finished: nothing arrives on it."
+            "description": "The instance before the last restart."
           }
         }
       }
@@ -755,77 +739,72 @@ Watch logs in the background and be told once, when the watch ends: one or more 
     "filters": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Keep only lines from these nodes. Each is a list of values allowed; omit a key for any.",
+      "description": "Keep only lines from nodes with these names, or region, zone, os or arch labels.",
       "properties": {
         "node": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node names"
+          }
         },
         "region": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node regions (topology.kubernetes.io/region)"
+          }
         },
         "zone": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node zones (topology.kubernetes.io/zone)"
+          }
         },
         "os": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node operating systems (kubernetes.io/os)"
+          }
         },
         "arch": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node architectures (kubernetes.io/arch)"
+          }
         }
       }
     },
     "grep": {
       "type": "string",
-      "description": "A regular expression each line's message must match. Omit to be told of any line."
+      "description": "A regular expression the message must match. Omit for any line."
     },
     "since": {
       "type": "string",
-      "description": "Where the watch starts: an RFC 3339 time, its first nanosecond, or an ISO 8601 duration back from now such as PT10M, not after now; its lines count at once. Omit to start now. Not with cursor."
+      "description": "Where the watch starts: an RFC 3339 time, or a duration back from now such as PT10M. Omit for now. Not with cursor."
     },
     "until": {
       "type": "string",
-      "description": "When the watch ends on time alone: an RFC 3339 time, its last nanosecond, or an ISO 8601 duration from now such as PT2H. At most a day from now, the default."
+      "description": "When the watch ends: an RFC 3339 time, or a duration from now such as PT2H. At most a day, the default."
     },
     "cursor": {
       "type": "string",
-      "description": "A next or follow token a read printed, copied whole and exactly: the watch goes on from where that page stopped, with no line repeated or missed, over the token's sources. Not with sources, filters, grep or since."
+      "description": "A next or follow token a read printed, copied exactly: the watch goes on from there. Not with sources, filters, grep or since."
     },
     "limit": {
       "type": "integer",
       "minimum": 1,
       "maximum": 100,
-      "description": "How many matching lines end the watch. Default 1: the first match."
+      "description": "Matching lines that end the watch. Default 1."
     },
     "max_bytes": {
       "type": "integer",
       "minimum": 1,
       "maximum": 16384,
-      "description": "How many bytes of matching lines end the watch. Default 16384."
+      "description": "Bytes of matching lines that end the watch. Default 16384."
     },
     "max_message_bytes": {
       "type": "integer",
       "minimum": 0,
-      "description": "Cut each message at this many bytes. Default 2048; 0 for the most Kubetail keeps of a message, 16 KiB."
+      "description": "Default 2048; 0 for 16 KiB."
     }
   }
 }
