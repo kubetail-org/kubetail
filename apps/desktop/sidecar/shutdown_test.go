@@ -283,7 +283,7 @@ func deepen(depth int, started *testutil.Signal, release <-chan struct{}) {
 	deepen(depth-1, started, release)
 }
 
-// wedgedLoop is the frame the dump must name first. It marks itself started, since
+// wedgedLoop is the frame the dump must hold. It marks itself started, since
 // a goroutine still descending through deepen has no wedgedLoop frame to dump.
 //
 //go:noinline
@@ -331,7 +331,7 @@ func records(t *testing.T, raw string) []map[string]any {
 
 // The dump survives the production logger: its redacting handler cuts every string
 // at 2 KiB, so the dump is one record per goroutine after a record that counts
-// them, and the wedged goroutine's record names its blocked frame first. Redaction
+// them, and a record's stack starts at its goroutine's top frame. Redaction
 // is in the path too: a frame it altered would fail the first-frame check. The
 // wedged seam runs before the dump: the dump can outlast the host's kill.
 func TestTheDumpIsOneRecordPerGoroutine(t *testing.T) {
@@ -371,16 +371,20 @@ func TestTheDumpIsOneRecordPerGoroutine(t *testing.T) {
 	if total := len(strings.Join(stacks, "")); total <= 2048 {
 		t.Fatalf("the dump is %d bytes; the test needs one past the 2 KiB cut", total)
 	}
-	// The package is main, but a test binary names its functions by import path.
+	// The dumping goroutine's record is first, and its top frame is dump: the wedged
+	// goroutine may not have parked yet. The package is main, but a test binary
+	// names its functions by import path.
+	if !strings.HasPrefix(stacks[0], "github.com/kubetail-org/kubetail/apps/desktop/sidecar.(*shutdown).dump(") {
+		t.Errorf("the first stack record starts at %q, want dump", stacks[0][:min(80, len(stacks[0]))])
+	}
 	named := 0
 	for _, st := range stacks {
-		first, _, _ := strings.Cut(st, "\n")
-		if strings.HasPrefix(first, "github.com/kubetail-org/kubetail/apps/desktop/sidecar.wedgedLoop(") {
+		if strings.Contains(st, "sidecar.wedgedLoop(") {
 			named++
 		}
 	}
 	if named != 1 {
-		t.Errorf("%d stack records start at wedgedLoop, want 1", named)
+		t.Errorf("%d stack records hold wedgedLoop, want 1", named)
 	}
 }
 
