@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# Sourced by scripts/cover-changed.sh, from the repo root. Sets what the
+# Sourced by scripts/*-changed.sh, from the repo root. Sets what the
 # working tree changes since the branch left main: committed, staged, unstaged
 # and untracked.
 #
@@ -30,8 +30,25 @@ changed=$({
 
 has() { grep -qE "$1" <<<"$changed"; }
 
+# has_code <regex>: a changed file other than Markdown matches.
+has_code() { awk -v re="$1" '$0 ~ re && !/\.md$/ { found = 1 } END { exit !found }' <<<"$changed"; }
+
 # A deleted file has nothing to check, and vitest refuses a path that isn't there.
 existing() { while read -r f; do [ -e "$f" ] && echo "$f"; done; }
+
+# run <command>...: prints the command, then runs it.
+run() {
+  echo "→ $*"
+  "$@"
+}
+
+# run_in <dir> <command>...: as run, in the directory.
+run_in() {
+  local dir=$1
+  shift
+  echo "→ cd $dir && $*"
+  (cd "$dir" && "$@")
+}
 
 # The Go workspace's modules, as go.work lists them.
 go_modules='^(cli|cluster/api|dashboard|libs/go-common)/'

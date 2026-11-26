@@ -18,12 +18,12 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/cli/cmd.version=
 
 # No target names a file it makes, and build/ is a directory.
 .PHONY: build build-dashboard-ui clean help generate check-generated \
-	lint-cli vet-cli test-cli cover-cli-changed \
-	lint-libs vet-libs test-libs cover-libs-changed \
-	lint-cluster-api vet-cluster-api test-cluster-api cover-cluster-api-changed \
-	lint-cluster-agent vet-cluster-agent test-cluster-agent cover-cluster-agent-changed \
-	lint-web vet-web test-web cover-web-changed \
-	generate-desktop build-desktop lint-desktop vet-desktop test-desktop cover-desktop-changed \
+	lint-cli vet-cli test-cli test-cli-changed cover-cli-changed \
+	lint-libs vet-libs test-libs test-libs-changed cover-libs-changed \
+	lint-cluster-api vet-cluster-api test-cluster-api test-cluster-api-changed cover-cluster-api-changed \
+	lint-cluster-agent vet-cluster-agent test-cluster-agent test-cluster-agent-changed cover-cluster-agent-changed \
+	lint-web vet-web test-web test-web-changed cover-web-changed \
+	generate-desktop build-desktop lint-desktop vet-desktop test-desktop test-desktop-changed cover-desktop-changed \
 	build-desktop-sidecar build-desktop-sidecar-dev build-desktop-bwrap build-desktop-pasta \
 	build-desktop-embedded-sources generate-desktop-prompts generate-desktop-icons \
 	test-desktop-livecache test-desktop-liveswitch status-desktop-design record-desktop-design \
@@ -90,6 +90,10 @@ vet-cli: ## Run go vet for the host and Windows, the go fix check and staticchec
 test-cli: ## Test cli/ and dashboard/ with the race detector
 	$(call test-go,cli dashboard)
 
+# One test-<area>-changed per area, each a wrapper around scripts/test-changed.sh.
+test-cli-changed: ## Run the tests in cli/ and dashboard/ the change reaches: narrows test-cli, never replaces it before a PR
+	bash scripts/test-changed.sh cli
+
 # One cover target per CI coverage area, each a wrapper around
 # scripts/cover-changed.sh. Each coverage-*.yml's Gate in CI has the last word.
 cover-cli-changed: ## List the changed lines in cli/ and dashboard/ no test covers (FULL=1 runs every test)
@@ -106,6 +110,9 @@ vet-libs: ## Run go vet for the host and Windows, the go fix check and staticche
 test-libs: ## Test libs/go-common/ with the race detector
 	$(call test-go,libs/go-common)
 
+test-libs-changed: ## Run the tests in libs/go-common/ the change reaches: narrows test-libs, never replaces it before a PR
+	bash scripts/test-changed.sh libs
+
 cover-libs-changed: ## List the changed lines in libs/go-common/ no test covers (FULL=1 runs every test)
 	bash scripts/cover-changed.sh libs
 
@@ -119,6 +126,9 @@ vet-cluster-api: ## Run go vet for the host and Windows, the go fix check and st
 
 test-cluster-api: ## Test cluster/api/ with the race detector
 	$(call test-go,cluster/api)
+
+test-cluster-api-changed: ## Run the tests in cluster/api/ the change reaches: narrows test-cluster-api, never replaces it before a PR
+	bash scripts/test-changed.sh cluster-api
 
 cover-cluster-api-changed: ## List the changed lines in cluster/api/ no test covers (FULL=1 runs every test)
 	bash scripts/cover-changed.sh cluster-api
@@ -138,6 +148,9 @@ vet-cluster-agent: ## Run clippy on cluster/agent/
 test-cluster-agent: ## Test cluster/agent/
 	cd $(CLUSTER_AGENT_DIR) && cargo test
 
+test-cluster-agent-changed: ## Run the tests in cluster/agent/ the change reaches: narrows test-cluster-agent, never replaces it before a PR
+	bash scripts/test-changed.sh cluster-agent
+
 cover-cluster-agent-changed: ## List the changed lines in cluster/agent/ no test covers (needs cargo-llvm-cov)
 	bash scripts/cover-changed.sh cluster-agent
 
@@ -155,6 +168,9 @@ vet-web: ## Type-check apps/web/ and its tests
 
 test-web: ## Test apps/web/
 	cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm test run
+
+test-web-changed: ## Run the tests in apps/web/ the change reaches: narrows test-web, never replaces it before a PR
+	bash scripts/test-changed.sh web
 
 cover-web-changed: ## List the changed lines in apps/web/ no test covers
 	bash scripts/cover-changed.sh web
@@ -250,6 +266,9 @@ test-desktop: build-desktop-sidecar ## Test the desktop app's sidecar with the r
 		go test -race -short -gcflags='modernc.org/...=-d=checkptr=0' ./...
 	cd $(DESKTOP_DIR)/src-tauri && cargo test
 	cd $(DESKTOP_DIR) && pnpm install && pnpm test --run
+
+test-desktop-changed: ## Run the tests in apps/desktop/ the change reaches: narrows test-desktop, never replaces it before a PR
+	bash scripts/test-changed.sh desktop
 
 # Each reaches the vendors and spends real tokens, so nothing runs it
 # automatically: run it before a catalog change, or a change to how a wire
