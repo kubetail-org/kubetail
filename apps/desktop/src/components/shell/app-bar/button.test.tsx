@@ -18,17 +18,20 @@ import { describe, expect, it } from 'vitest';
 import { AppBarButton } from './button';
 
 describe('AppBarButton', () => {
-  it('is a 28px ghost square with the bar’s hover wash', () => {
+  it('is a 28px round ghost button with the bar’s hover wash', () => {
     render(<AppBarButton aria-label="Bell" />);
     const button = screen.getByRole('button', { name: 'Bell' });
-    expect(button).toHaveClass('size-7', 'text-muted-foreground', 'hover:bg-app-bar-hover');
+    expect(button).toHaveClass('size-7', 'rounded-full', 'text-muted-foreground', 'hover:bg-app-bar-hover');
     // No outline: only hover paints.
     expect(button).toHaveClass('border-transparent');
   });
 
   it('takes a caller’s class over its own', () => {
-    render(<AppBarButton aria-label="Back" className="size-7.5 rounded-full" />);
-    expect(screen.getByRole('button', { name: 'Back' })).toHaveClass('size-7.5', 'rounded-full');
-    expect(screen.getByRole('button', { name: 'Back' })).not.toHaveClass('size-7');
+    render(<AppBarButton aria-label="Back" className="size-7.5 rounded-md" />);
+    const button = screen.getByRole('button', { name: 'Back' });
+    expect(button).toHaveClass('size-7.5', 'rounded-md');
+    // One class per assertion: `not.toHaveClass` with several passes when any is missing.
+    expect(button).not.toHaveClass('size-7');
+    expect(button).not.toHaveClass('rounded-full');
   });
 });

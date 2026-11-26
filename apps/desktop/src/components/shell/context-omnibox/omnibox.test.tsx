@@ -120,17 +120,25 @@ describe('ContextOmnibox', () => {
   it('is a 38px white pill with a shadow', () => {
     render(<ContextOmnibox />);
     const box = screen.getByTestId('context-omnibox');
-    expect(box).toHaveClass('h-9.5', 'w-full', 'rounded-full', 'px-1', 'py-0.75', 'gap-1');
+    expect(box).toHaveClass('h-9.5', 'max-w-105', 'min-w-0', 'rounded-full', 'px-1', 'py-0.75', 'gap-3');
     expect(box).toHaveClass('bg-white', 'dark:bg-input/30', 'shadow-pill');
   });
 
-  it('holds the cluster chip, a divider, then the Chat and Dashboard tabs', () => {
+  // It fits its content, so the container that compacts it is the column around it.
+  it('fits its content, centred in a container that fills the column', () => {
     render(<ContextOmnibox />);
-    const [chip, divider, tabs] = Array.from(screen.getByTestId('context-omnibox').children);
+    const box = screen.getByTestId('context-omnibox');
+    expect(box).not.toHaveClass('w-full');
+    expect(box).not.toHaveClass('@container');
+    expect(box.parentElement).toHaveClass('@container', 'w-full', 'justify-center');
+  });
+
+  it('holds the cluster chip, then the Chat and Dashboard tabs', () => {
+    render(<ContextOmnibox />);
+    const [chip, tabs] = Array.from(screen.getByTestId('context-omnibox').children);
     expect(chip).toBe(screen.getByTestId('cluster-chip'));
     expect(chip.contains(statusButton())).toBe(true);
     expect(chip.contains(trigger())).toBe(true);
-    expect(divider).toHaveClass('h-4.5', 'w-px', 'bg-sidebar-border');
     expect(tabs).toBe(screen.getByRole('navigation', { name: 'View' }));
     expect(screen.getByRole('link', { name: 'Chat' })).toHaveAttribute('href', '/chat');
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/dashboard');
@@ -138,27 +146,43 @@ describe('ContextOmnibox', () => {
 
   it('draws the chip as the status button and a left-aligned, semibold 13px name', () => {
     render(<ContextOmnibox />);
-    expect(screen.getByTestId('cluster-chip')).toHaveClass('h-8', 'rounded-full', 'pl-1.5', 'hover:bg-app-bar-hover');
+    expect(screen.getByTestId('cluster-chip')).toHaveClass('h-8', 'pl-1.5', 'gap-0.5');
     expect(statusButton()).toHaveClass('size-7', 'rounded-full', 'text-muted-foreground');
     const name = screen.getByTestId('cluster-trigger-name');
     expect(name).toHaveClass('truncate', 'font-semibold', 'text-foreground');
     expect(name.parentElement).toHaveClass('text-[13px]');
-    expect(trigger()).toHaveClass('pr-2.5');
+    expect(name.parentElement).not.toHaveClass('justify-center');
+    expect(trigger()).toHaveClass('pl-1.5', 'pr-1.5');
+  });
+
+  // The two controls in the chip hover apart, each its own round wash.
+  it('gives the status button and the trigger a hover each, not the chip', () => {
+    render(<ContextOmnibox />);
+    expect(screen.getByTestId('cluster-chip')).not.toHaveClass('hover:bg-app-bar-hover');
+    expect(statusButton()).toHaveClass('rounded-full', 'hover:bg-app-bar-hover');
+    expect(trigger()).toHaveClass('rounded-full', 'hover:bg-app-bar-hover');
   });
 
   // A strip of the pill outside every control would take a press and open nothing.
   it('covers the pill’s padding and gaps with its controls’ hit areas', () => {
     render(<ContextOmnibox />);
     // From inside the status button's own 1px border: the chip's 6px and the pill's 4px to
-    // its left, and the chip's 2px and the pill's 3px above and below.
-    expect(statusButton()).toHaveClass('border', 'border-transparent', 'after:-left-2.75', 'after:-inset-y-1.5');
-    // The trigger holds the chip's gap and right padding; its hit area reaches the divider
-    // and the pill's top and bottom.
-    expect(trigger()).toHaveClass('h-full', 'after:-right-1', 'after:-inset-y-0.75');
-    // The track's reaches back over the divider and the gap after it, and to the pill's edge.
+    // its left, half the 2px gap to its right, and the chip's 2px and the pill's 3px above
+    // and below.
+    expect(statusButton()).toHaveClass(
+      'border',
+      'border-transparent',
+      'after:-left-2.75',
+      'after:-right-0.5',
+      'after:-inset-y-1.5',
+    );
+    // The trigger's reaches the other half of that gap, half the 12px gap before the tabs and
+    // the pill's top and bottom.
+    expect(trigger()).toHaveClass('h-full', 'after:-left-px', 'after:-right-1.5', 'after:-inset-y-0.75');
+    // The track's reaches back over the other half of the gap, and to the pill's edge.
     expect(screen.getByRole('navigation', { name: 'View' })).toHaveClass(
-      'flex-1',
-      'after:-left-1.25',
+      'shrink-0',
+      'after:-left-1.5',
       'after:-right-1',
       'after:-inset-y-0.75',
     );
@@ -176,16 +200,16 @@ describe('ContextOmnibox', () => {
   it('compacts to a narrow pill, keeping every control and the TLS warning', () => {
     serveContexts(['prod'], { clusterEntry: { server: 'https://prod:6443', insecureSkipTLSVerify: true } });
     render(<ContextOmnibox />);
-    expect(screen.getByTestId('context-omnibox')).toHaveClass('@container');
+    expect(screen.getByTestId('context-omnibox').parentElement).toHaveClass('@container');
     expect(screen.getByTestId('cluster-chip')).toHaveClass('@max-[14rem]:pl-0');
     expect(statusButton()).toHaveClass('@max-[14rem]:after:-left-1.25');
     expect(screen.getByTestId('cluster-trigger-name')).toHaveClass('truncate');
     expect(screen.getByTestId('cluster-trigger-name').parentElement).toHaveClass('@max-[14rem]:gap-1');
     // The words give way to an icon, the warning's tooltip and spoken name kept.
     const badge = screen.getByTitle(/insecure-skip-tls-verify/);
-    expect(badge).toHaveClass('shrink-0', '@max-[14rem]:px-0.5');
-    expect(badge.querySelector('svg')).toHaveClass('hidden', '@max-[14rem]:block');
-    expect(screen.getByText('Unverified TLS')).toHaveClass('@max-[14rem]:sr-only');
+    expect(badge).toHaveClass('shrink-0', '@max-sm:px-0.5');
+    expect(badge.querySelector('svg')).toHaveClass('hidden', '@max-sm:block');
+    expect(screen.getByText('Unverified TLS')).toHaveClass('@max-sm:sr-only');
   });
 
   it('opts out of the app bar’s drag region', () => {

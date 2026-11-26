@@ -26,6 +26,7 @@ import { ContextOmnibox } from '@/components/shell/context-omnibox';
 import { isMacOS } from '@/lib/platform';
 import { dismissPopupsOnWindowDrag } from '@/lib/window-drag';
 
+import { AppBarCapsule } from './button';
 import { HistoryNav } from './history-nav';
 import { LeftSidebarToggle } from './left-sidebar-toggle';
 import { AppMenu } from './menu';
@@ -34,10 +35,11 @@ import { RightSidebarToggle } from './right-sidebar-toggle';
 import { SettingsButton } from './settings-button';
 
 // The narrowest the omnibox's column goes before the omnibox leaves the centre line: the
-// pill with an empty name and icon-only tabs. Its 133px are the pill's 8px of padding, the
-// chip's 44px (the status button and the trigger's 10px of right padding), 9px of divider
-// and gaps, and the tab track's 72px. Under it the shorter end gives up its spare space.
-const OMNIBOX_MIN_WIDTH = '8.5rem';
+// pill with an empty name and icon-only tabs. Its 152px are the pill's 8px of padding, the
+// chip's 48px (its 6px of padding, the status button, a 2px gap and the trigger's 12px of
+// padding), the 12px gap and the tab track's 84px. Under it the shorter end gives up its
+// spare space.
+const OMNIBOX_MIN_WIDTH = '9.5rem';
 
 // An end's column: at least its own content, and at least the other end's while that
 // leaves the omnibox `OMNIBOX_MIN_WIDTH`, so equal ends centre the omnibox when there is
@@ -91,11 +93,18 @@ export function AppBar() {
       className="grid h-14 shrink-0 transform-gpu bg-app-bar"
       style={{ gridTemplateColumns: columns }}
     >
-      <div ref={startRef} data-testid="app-bar-start" className="flex items-stretch gap-1.5 justify-self-start">
-        {mac ? <TrafficLightGutter /> : <AppMenu />}
-        <div data-testid="app-bar-controls" className="flex items-center gap-1.5">
-          <HistoryNav />
+      <div ref={startRef} data-testid="app-bar-start" className="flex items-stretch gap-2 justify-self-start">
+        {mac ? (
+          <TrafficLightGutter />
+        ) : (
+          // 8px in, so the mark sits 14px from the edge, as the panel toggle does on the right.
+          <div className="flex items-center pl-2">
+            <AppMenu />
+          </div>
+        )}
+        <div data-testid="app-bar-controls" className="flex items-center gap-2">
           <LeftSidebarToggle />
+          <HistoryNav />
         </div>
       </div>
       <div className="flex min-w-0 items-center">
@@ -103,9 +112,12 @@ export function AppBar() {
       </div>
       <div ref={endRef} data-testid="app-bar-end" className="flex items-stretch justify-self-end">
         {/* Accounts are not part of the MVP, so `AccountAvatar` is left out. */}
-        <div data-testid="app-bar-actions" className="flex items-center gap-1 pr-3">
-          <NotificationButton />
-          <SettingsButton />
+        {/* The panel toggle stands apart from the capsule; its inset mirrors the traffic lights'. */}
+        <div data-testid="app-bar-actions" className="flex items-center gap-3 pr-3.5">
+          <AppBarCapsule data-testid="app-bar-global">
+            <NotificationButton />
+            <SettingsButton />
+          </AppBarCapsule>
           <RightSidebarToggle />
         </div>
         {!mac && <WindowControls />}

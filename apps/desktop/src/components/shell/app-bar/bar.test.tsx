@@ -120,11 +120,11 @@ describe('AppBar', () => {
     render(<AppBar />);
     const bar = screen.getByTestId('app-bar');
     // Flexible ends, each at least its own content and the other end's while that leaves
-    // the omnibox 8.5rem, around a column of at most 420px that gives way first.
+    // the omnibox 9.5rem, around a column of at most 420px that gives way first.
     expect(bar).toHaveClass('grid');
     expect(bar.style.gridTemplateColumns).toBe(
-      'minmax(max(260px, min(112px, 100% - 112px - 8.5rem)), 1fr) minmax(0px, 420px) ' +
-        'minmax(max(112px, min(260px, 100% - 260px - 8.5rem)), 1fr)',
+      'minmax(max(260px, min(112px, 100% - 112px - 9.5rem)), 1fr) minmax(0px, 420px) ' +
+        'minmax(max(112px, min(260px, 100% - 260px - 9.5rem)), 1fr)',
     );
     expect(screen.getByTestId('app-bar-start')).toHaveClass('justify-self-start');
     expect(screen.getByTestId('app-bar-end')).toHaveClass('justify-self-end');
@@ -135,24 +135,25 @@ describe('AppBar', () => {
   });
 
   // The Chat/Dashboard switch is the omnibox's.
-  it('lays out the left group: history, then the sidebar toggle', () => {
+  it('lays out the left group: the sidebar toggle, then history', () => {
     render(<AppBar />);
     const controls = screen.getByTestId('app-bar-controls');
-    expect(controls).toHaveClass('gap-1.5');
+    expect(controls).toHaveClass('gap-2');
     expect(Array.from(controls.children)).toEqual([
-      screen.getByTestId('history-nav'),
       screen.getByTestId('left-sidebar-toggle'),
+      screen.getByTestId('history-nav'),
     ]);
   });
 
-  it('lays out the right group: notifications, settings, then the right sidebar toggle', () => {
+  it('lays out the right group: notifications and settings in a capsule, then the right sidebar toggle', () => {
     render(<AppBar />);
     const actions = screen.getByTestId('app-bar-actions');
-    expect(actions).toHaveClass('gap-1', 'pr-3');
-    expect(Array.from(actions.children)).toEqual([
+    expect(actions).toHaveClass('gap-3', 'pr-3.5');
+    const global = screen.getByTestId('app-bar-global');
+    expect(Array.from(actions.children)).toEqual([global, screen.getByTestId('right-sidebar-toggle')]);
+    expect(Array.from(global.children)).toEqual([
       screen.getByTestId('notification-button'),
       screen.getByTestId('settings-button'),
-      screen.getByTestId('right-sidebar-toggle'),
     ]);
   });
 

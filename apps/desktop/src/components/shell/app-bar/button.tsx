@@ -17,12 +17,23 @@ import { Button } from '@kubetail/ui/elements/button';
 import { cn } from '@kubetail/ui/lib/utils';
 import type { ComponentProps } from 'react';
 
-import { APP_BAR_HOVER_CLASS } from '@/lib/control-style';
+import { APP_BAR_CAPSULE_CLASS, APP_BAR_HOVER_CLASS } from '@/lib/control-style';
 
 // `ghost` has no resting fill, so the bar's tint shows through and only hover paints;
-// `icon-sm` is the 28px square. The icon is gray.
+// `icon-sm` is 28px, drawn round to match the bar's capsules and omnibox. The icon is gray.
 const VARIANTS = { variant: 'ghost', size: 'icon-sm' } as const;
 
 export function AppBarButton({ className, ...props }: ComponentProps<typeof Button>) {
-  return <Button {...VARIANTS} className={cn('text-muted-foreground', APP_BAR_HOVER_CLASS, className)} {...props} />;
+  return (
+    <Button
+      {...VARIANTS}
+      className={cn('rounded-full text-muted-foreground', APP_BAR_HOVER_CLASS, className)}
+      {...props}
+    />
+  );
+}
+
+// Groups related app bar buttons in one track.
+export function AppBarCapsule({ className, ...props }: ComponentProps<'div'>) {
+  return <div className={cn(APP_BAR_CAPSULE_CLASS, className)} {...props} />;
 }
