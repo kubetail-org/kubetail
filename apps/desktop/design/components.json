@@ -7,16 +7,16 @@
       "figma": {
         "node": "7:227",
         "name": "AppMark",
-        "hash": "f6bcd2269d073d49"
+        "hash": "9be5a667e7a6e1eb"
       },
       "code": [
         {
           "path": "src/components/primitives/app-mark.tsx",
-          "blob": "2891b513bd3d06579c710080e0d7b85027eb3abd"
+          "blob": "0296fe718789f239cafda00f48bd85db01b79c7e"
         }
       ],
       "notes": [
-        "The tile is color/primary and the glyph color/primary-foreground; the masters are src-icons/app-light.svg and app-dark.svg."
+        "The tile is color/app-mark-tile and the glyph color/app-mark-glyph, each holding its master's colour per mode; the masters are src-icons/app-light.svg and app-dark.svg."
       ]
     },
     {
@@ -24,12 +24,12 @@
       "figma": {
         "node": "7:231",
         "name": "AppLogo",
-        "hash": "c8fc5bc0355836f3"
+        "hash": "8b82a80f7498f666"
       },
       "code": [
         {
           "path": "src/components/primitives/app-logo.tsx",
-          "blob": "d0a586d4c2233b56e9fdf3f203614c9c774cc919"
+          "blob": "1fd093f362fbe6c314e32eb0d6ee99e82c1e98a7"
         }
       ]
     },
@@ -38,12 +38,12 @@
       "figma": {
         "node": "9:93",
         "name": "SectionHeading",
-        "hash": "00fe4f91706eef22"
+        "hash": "7744b8b773e4a44b"
       },
       "code": [
         {
           "path": "src/components/primitives/section-heading.tsx",
-          "blob": "4a49d2cce769fd88700b664f2919f5bab9104118"
+          "blob": "bb533306fe41a059d3660d78c242aac634e19a1c"
         }
       ]
     },
@@ -52,12 +52,12 @@
       "figma": {
         "node": "22:164",
         "name": "WindowControls",
-        "hash": "ca84be1c2d1439c3"
+        "hash": "17511f78bcc15b9a"
       },
       "code": [
         {
           "path": "src/components/primitives/window-controls.tsx",
-          "blob": "02166409b1dbebb638df900f4da1e2c96a57f82b"
+          "blob": "dffbe502038305de38874e2bb13375e2d9bf833c"
         }
       ],
       "notes": [
@@ -69,12 +69,12 @@
       "figma": {
         "node": "22:228",
         "name": "WindowFrame",
-        "hash": "3b99d2cb98cc90d5"
+        "hash": "88990412f950fdc9"
       },
       "code": [
         {
           "path": "src/components/primitives/window-frame.tsx",
-          "blob": "6932fe1133b090d029c7299517b40392a8c0b397"
+          "blob": "06dd88c2e104d816aec7bec3e6610f0dc883fcc4"
         }
       ],
       "notes": [
@@ -86,12 +86,12 @@
       "figma": {
         "node": "7:248",
         "name": "HistoryNav",
-        "hash": "0b32f922ec5c2209"
+        "hash": "599a08badf1556fc"
       },
       "code": [
         {
           "path": "src/components/shell/app-bar/history-nav.tsx",
-          "blob": "99944c5aec7cba93d8d23de434c03113a46d96e8"
+          "blob": "45f28f61702a5964cb654489773fc31389b4d109"
         }
       ]
     },
@@ -100,12 +100,12 @@
       "figma": {
         "node": "7:262",
         "name": "AppBar/Actions",
-        "hash": "2b33f254b58237bd"
+        "hash": "04ab13be67e33b55"
       },
       "code": [
         {
           "path": "src/components/shell/app-bar/bar.tsx",
-          "blob": "5d41e00f28aa6792ab645925b7fb15fce77da2d5"
+          "blob": "9fe34843ff065dff1920236e599ec00acce71861"
         }
       ]
     },
@@ -114,12 +114,12 @@
       "figma": {
         "node": "22:159",
         "name": "AppMenu",
-        "hash": "352b54dcee01a847"
+        "hash": "4f70d8c3b1f639ff"
       },
       "code": [
         {
           "path": "src/components/shell/app-bar/menu.tsx",
-          "blob": "4fd3270a4d753b9be01794df99976d264f8427a8"
+          "blob": "a6b6842b8744bb5c832356221246177de8be8012"
         }
       ]
     },
@@ -128,12 +128,12 @@
       "figma": {
         "node": "7:264",
         "name": "ContextOmnibox",
-        "hash": "f41a47a16b715464"
+        "hash": "197e63cde51da056"
       },
       "code": [
         {
           "path": "src/components/shell/context-omnibox/omnibox.tsx",
-          "blob": "bca57f83d64c66e029edede61628bf96f007b029"
+          "blob": "c66c00bb3be78b93f21ed416b5a68ddcfa8c8350"
         }
       ]
     },
@@ -141,21 +141,41 @@
       "id": "shell/mode-nav",
       "figma": {
         "node": "9:92",
-        "name": "ModeNav",
-        "hash": "7437d5b85db6cb46"
-      }
+        "name": "ModeTabs",
+        "hash": "58e0feba2f8863a3"
+      },
+      "code": [
+        {
+          "path": "src/components/shell/context-omnibox/mode-tabs.tsx",
+          "blob": "ad29aacba01b1174ee1dea49e4b028be31ceb936"
+        }
+      ]
     },
     {
       "id": "shell/app-bar",
       "figma": {
         "node": "22:203",
         "name": "AppBar",
-        "hash": "e794b22b235ebfa4"
+        "hash": "48b193ae26c2c9d7"
       },
       "code": [
         {
           "path": "src/components/shell/app-bar/bar.tsx",
-          "blob": "5d41e00f28aa6792ab645925b7fb15fce77da2d5"
+          "blob": "9fe34843ff065dff1920236e599ec00acce71861"
+        }
+      ]
+    },
+    {
+      "id": "dashboard/dashboard-breadcrumb-bar",
+      "figma": {
+        "node": "3060:14938",
+        "name": "DashboardBreadcrumbBar",
+        "hash": "bab23d57ce005db8"
+      },
+      "code": [
+        {
+          "path": "src/components/dashboard/breadcrumb-bar/bar.tsx",
+          "blob": "535763f738f181b1064def9c60d56adea1470a55"
         }
       ]
     },
@@ -164,12 +184,12 @@
       "figma": {
         "node": "9:130",
         "name": "ScopeTrigger",
-        "hash": "205cb5942689c16a"
+        "hash": "9216b8e2e8122d42"
       },
       "code": [
         {
           "path": "src/components/dashboard/breadcrumb-bar/scope-menu.tsx",
-          "blob": "f2e070b495ca1cbc5846ee9df0f870ec7da016ff"
+          "blob": "729da665127077fec6de98518b6e53f5fb9f7d9c"
         }
       ]
     },
@@ -178,12 +198,12 @@
       "figma": {
         "node": "9:148",
         "name": "StatusPill",
-        "hash": "445770d086fdebc9"
+        "hash": "944cabc2bc37d8ab"
       },
       "code": [
         {
           "path": "src/components/dashboard/status-pill.tsx",
-          "blob": "49e431f248ba3d3233018996a7d257f92329ee52"
+          "blob": "9728f80c7b2a585ee5527f17986ba1c988752713"
         }
       ]
     },
@@ -192,12 +212,12 @@
       "figma": {
         "node": "9:149",
         "name": "PageHeader",
-        "hash": "d5cf9cac9a56d721"
+        "hash": "6ebdcf87d72ad36f"
       },
       "code": [
         {
           "path": "src/components/dashboard/page-header.tsx",
-          "blob": "93ed76a1bd279e1c4569ac23154709a776ca9325"
+          "blob": "1c5d2aa60c2d7c13c9dd84cd59dedcf118596490"
         }
       ]
     },
@@ -206,12 +226,12 @@
       "figma": {
         "node": "9:129",
         "name": "NavGroup",
-        "hash": "fdebdc4c55200b59"
+        "hash": "abc0d23215a8ceea"
       },
       "code": [
         {
           "path": "src/components/dashboard/dashboard-resource-nav/nav-group.tsx",
-          "blob": "4925db01c2f0b707ee1e0b08579c8f6f4ce3bfbe"
+          "blob": "229e8dafc342a1951e94fd0ab5d2a7f522e15961"
         }
       ]
     },
@@ -220,12 +240,12 @@
       "figma": {
         "node": "9:113",
         "name": "NavItem",
-        "hash": "adbd7ceb6dd332d3"
+        "hash": "6d168d5675750cbf"
       },
       "code": [
         {
           "path": "src/components/dashboard/dashboard-resource-nav/nav-item.tsx",
-          "blob": "7a430c52d24cc332eccee4fbffc5a17c12dbf759"
+          "blob": "ebd73003ed1b0cf37cb8c68cdd9be869d79ade74"
         }
       ]
     },
@@ -234,17 +254,17 @@
       "figma": {
         "node": "10:91",
         "name": "ObjectsTable/Header",
-        "hash": "84454b955dfbf891"
+        "hash": "b0eede219aec6f62"
       },
       "code": [
         {
           "path": "src/components/dashboard/virtual-table.tsx",
-          "blob": "a810692a1876577b92002a8f0a3e7af3b2457557"
+          "blob": "c2bffbcc872310abcc26fdb61c940709716849a3"
         },
         {
           "path": "src/components/dashboard/objects-table/table.tsx",
           "symbol": "HEADER",
-          "blob": "6646fa8acea7e17ae9a7422800d1a40ed5cf7e2b"
+          "blob": "d09afcc15e5b6b939dda49ea1d8b6a12d3dd4b14"
         }
       ]
     },
@@ -253,16 +273,16 @@
       "figma": {
         "node": "10:128",
         "name": "ObjectsTable/PodRow",
-        "hash": "32a0e43e531fb1ee"
+        "hash": "48cba8085a7c70c3"
       },
       "code": [
         {
           "path": "src/components/dashboard/objects-table/columns/pods.tsx",
-          "blob": "e1d01b5d4c965652c62dd2fd7f4db18581347232"
+          "blob": "95f2e81dc2c391c2b30c48b52b22cc86d34c07f8"
         },
         {
           "path": "src/components/dashboard/objects-table/table.tsx",
-          "blob": "6646fa8acea7e17ae9a7422800d1a40ed5cf7e2b"
+          "blob": "d09afcc15e5b6b939dda49ea1d8b6a12d3dd4b14"
         }
       ]
     },
@@ -271,12 +291,12 @@
       "figma": {
         "node": "10:156",
         "name": "ObjectsTable/Footer",
-        "hash": "aba6c2e5ec80a95b"
+        "hash": "76a9e97d4af7e0bf"
       },
       "code": [
         {
           "path": "src/components/dashboard/objects-table/table.tsx",
-          "blob": "6646fa8acea7e17ae9a7422800d1a40ed5cf7e2b"
+          "blob": "d09afcc15e5b6b939dda49ea1d8b6a12d3dd4b14"
         }
       ]
     },
@@ -285,12 +305,12 @@
       "figma": {
         "node": "29:238",
         "name": "ClusterDot",
-        "hash": "37d1e56b6d1793c4"
+        "hash": "ccf983e5a7fe8af8"
       },
       "code": [
         {
           "path": "src/components/cluster/cluster-dot.tsx",
-          "blob": "8a13e879c9a81cb0c29fb85804423eab1077a244"
+          "blob": "51333b4b5becf32def17b8c9ecc71d3e5e97bce7"
         }
       ]
     },
@@ -299,12 +319,12 @@
       "figma": {
         "node": "29:239",
         "name": "DataRateSparkline",
-        "hash": "48ea40deb7e39f72"
+        "hash": "673b1eede49696ea"
       },
       "code": [
         {
           "path": "src/components/cluster/data-rate-sparkline.tsx",
-          "blob": "596c7f52d4cf95a87660b9696f0b61b47a5e53c0"
+          "blob": "b4c6dac0445adfd6f41fadf539cd19ac2c5e2dc7"
         }
       ],
       "notes": [
@@ -317,12 +337,12 @@
       "figma": {
         "node": "36:1324",
         "name": "UnverifiedTLSBadge",
-        "hash": "6be74378983ac25f"
+        "hash": "066ff0bc60051e01"
       },
       "code": [
         {
           "path": "src/components/cluster/unverified-tls-badge.tsx",
-          "blob": "5bfa4d906bd3732647635fe28cee55e4ea2e7807"
+          "blob": "e8c60485f38abef77cf6fff82f4df17928ada37b"
         }
       ]
     },
@@ -331,13 +351,13 @@
       "figma": {
         "node": "29:259",
         "name": "ClusterStatus/Pill",
-        "hash": "c69a0fdc6969d854"
+        "hash": "8347301a7c86558c"
       },
       "code": [
         {
           "path": "src/components/cluster/cluster-status/popover.tsx",
           "symbol": "PILL",
-          "blob": "a318ac98369984e6db6459239ab46bb0e1a3e15c"
+          "blob": "3199167f1fb29f26764f5974c08d513f003b92ac"
         }
       ]
     },
@@ -346,13 +366,13 @@
       "figma": {
         "node": "29:276",
         "name": "ClusterStatus/Verdict",
-        "hash": "2557bbb81aebd98c"
+        "hash": "bc7d430c12f14482"
       },
       "code": [
         {
           "path": "src/components/cluster/cluster-status/popover.tsx",
           "symbol": "Verdict",
-          "blob": "a318ac98369984e6db6459239ab46bb0e1a3e15c"
+          "blob": "3199167f1fb29f26764f5974c08d513f003b92ac"
         }
       ]
     },
@@ -361,13 +381,13 @@
       "figma": {
         "node": "29:277",
         "name": "ClusterStatus/Stat",
-        "hash": "7d0056f4af18c79b"
+        "hash": "2fa4038d5426cf52"
       },
       "code": [
         {
           "path": "src/components/cluster/cluster-status/popover.tsx",
           "symbol": "Stat",
-          "blob": "a318ac98369984e6db6459239ab46bb0e1a3e15c"
+          "blob": "3199167f1fb29f26764f5974c08d513f003b92ac"
         }
       ]
     },
@@ -376,12 +396,12 @@
       "figma": {
         "node": "31:985",
         "name": "ClusterStatus",
-        "hash": "58136650949028f4"
+        "hash": "299b0540325fd104"
       },
       "code": [
         {
           "path": "src/components/cluster/cluster-status/popover.tsx",
-          "blob": "a318ac98369984e6db6459239ab46bb0e1a3e15c"
+          "blob": "3199167f1fb29f26764f5974c08d513f003b92ac"
         }
       ],
       "notes": [
@@ -396,12 +416,12 @@
       "figma": {
         "node": "36:1326",
         "name": "ClusterPicker/Row",
-        "hash": "4ff5398686ab9b0f"
+        "hash": "1a5eb5eb122b20ba"
       },
       "code": [
         {
           "path": "src/components/cluster/cluster-picker/list.tsx",
-          "blob": "521c85f5f257690e3ef7a371785766f756ea0cf4"
+          "blob": "de8b9d566d7593625087ff0008e33e27c063df8a"
         }
       ],
       "notes": [
@@ -413,12 +433,12 @@
       "figma": {
         "node": "36:1666",
         "name": "ClusterPicker",
-        "hash": "cf52933509cbe254"
+        "hash": "49879b1e8864e078"
       },
       "code": [
         {
           "path": "src/components/cluster/cluster-picker/popover.tsx",
-          "blob": "465f9bb3f73f3ba173917979f926d3992572a217"
+          "blob": "85647cc405c50eb18eeb5dc7782de5889f9af2e5"
         }
       ],
       "notes": [
@@ -431,13 +451,13 @@
       "figma": {
         "node": "2767:2576",
         "name": "Memory/Row",
-        "hash": "3a7fbcf3f816f788"
+        "hash": "467f48a6f405ffea"
       },
       "code": [
         {
           "path": "src/components/cluster/memory-list.tsx",
           "symbol": "Row",
-          "blob": "df8d77730e0a4f44707f6f47843fcf43c3ca4007"
+          "blob": "b3d2093e993d00c3f99e72c9f20509e61672ec68"
         }
       ],
       "notes": [
@@ -453,12 +473,12 @@
       "figma": {
         "node": "2767:2637",
         "name": "Memory/Instructions",
-        "hash": "c45f3abd57159b05"
+        "hash": "01ec40fd14e5900c"
       },
       "code": [
         {
           "path": "src/components/cluster/memory-instructions.tsx",
-          "blob": "afca99ab784e543742881b3d607894537ed35ad7"
+          "blob": "a9379b06d3b4a471aa8aefeacae9783335aaa1be"
         }
       ],
       "notes": [
@@ -468,42 +488,30 @@
       ]
     },
     {
-      "id": "cluster/memory-popover",
-      "figma": {
-        "node": "2767:3301",
-        "name": "MemoryPopover",
-        "hash": "46057f00f9a5fddf"
-      },
-      "code": [
-        {
-          "path": "src/components/cluster/memory-instructions.tsx",
-          "blob": "afca99ab784e543742881b3d607894537ed35ad7"
-        },
-        {
-          "path": "src/components/cluster/memory-list.tsx",
-          "blob": "df8d77730e0a4f44707f6f47843fcf43c3ca4007"
-        }
-      ],
-      "notes": [
-        "Sample data.",
-        "Open memory settings leads nowhere yet.",
-        "The popup takes the omnibox's width; Figma draws it at 640px, the omnibox's.",
-        "The fade is a color/popover fill under a gradient mask: a gradient stop bound to a variable takes its alpha too.",
-        "The scroller keeps the system's overlay scrollbar, as the other popups do, not table-scrollbar.",
-        "Memory text is model-writable: it is drawn as text, never as Markdown."
-      ]
-    },
-    {
       "id": "chat/chat-nav/row",
       "figma": {
         "node": "20:132",
         "name": "ChatNav/Row",
-        "hash": "c790d0143c051f2c"
+        "hash": "5a75540c03426169"
       },
       "code": [
         {
           "path": "src/components/chat/chat-nav.tsx",
-          "blob": "71ab3e2affc1969ce8888a3da7b5bf5a85815cdd"
+          "blob": "a435904dfbcf1a74c5a4585355c74146c9ee61bf"
+        }
+      ]
+    },
+    {
+      "id": "chat/chat-header",
+      "figma": {
+        "node": "3079:12448",
+        "name": "ChatHeader",
+        "hash": "fc8e981f347de866"
+      },
+      "code": [
+        {
+          "path": "src/components/chat/chat-header.tsx",
+          "blob": "b2b978e230483a5c5471dece8cc98a4c728cdca0"
         }
       ]
     },
@@ -512,12 +520,12 @@
       "figma": {
         "node": "2177:2257",
         "name": "Chat/UserMessage",
-        "hash": "3979783a91fb80aa"
+        "hash": "40a4a8a1b6cd557b"
       },
       "code": [
         {
           "path": "src/components/chat/chat-transcript/transcript.tsx",
-          "blob": "2dd6696eb8cdac1d92d9809ca53166274a210638"
+          "blob": "fdb11f56235a988a8155db8ca01a98e85681c247"
         }
       ]
     },
@@ -526,17 +534,17 @@
       "figma": {
         "node": "2161:546",
         "name": "Chat/CallRow",
-        "hash": "0aee5f4ab0b5db5b"
+        "hash": "4730bc86d747fa10"
       },
       "code": [
         {
           "path": "src/components/chat/chat-transcript/transcript.tsx",
           "symbol": "ToolCalls",
-          "blob": "2dd6696eb8cdac1d92d9809ca53166274a210638"
+          "blob": "fdb11f56235a988a8155db8ca01a98e85681c247"
         },
         {
           "path": "src/components/chat/chat-transcript/kube-query.tsx",
-          "blob": "c033c99ddbd5cad73dfdd71822174b0a827ce31b"
+          "blob": "cd8e4294f23e3ce77e086abea5208c20cd38faa5"
         }
       ],
       "security": true,
@@ -549,18 +557,18 @@
       "figma": {
         "node": "2106:10949",
         "name": "Chat/UserTurn",
-        "hash": "9589cc2bde4a5b16"
+        "hash": "e2c1e31725b4e266"
       },
       "code": [
         {
           "path": "src/components/chat/chat-transcript/transcript.tsx",
           "symbol": "Message",
-          "blob": "2dd6696eb8cdac1d92d9809ca53166274a210638"
+          "blob": "fdb11f56235a988a8155db8ca01a98e85681c247"
         },
         {
           "path": "src/components/chat/chat-transcript/turn-actions.tsx",
           "symbol": "TurnActions",
-          "blob": "f12382403eae41251ee9529f4d198d71c8d1ca09"
+          "blob": "abf82c036b5b0896201c21aee47ad5afa9b435c2"
         }
       ]
     },
@@ -569,18 +577,18 @@
       "figma": {
         "node": "2106:10963",
         "name": "Chat/AgentTurn",
-        "hash": "0a2cc451e24899cd"
+        "hash": "ca974ceff88bee5f"
       },
       "code": [
         {
           "path": "src/components/chat/chat-transcript/transcript.tsx",
           "symbol": "Message",
-          "blob": "2dd6696eb8cdac1d92d9809ca53166274a210638"
+          "blob": "fdb11f56235a988a8155db8ca01a98e85681c247"
         },
         {
           "path": "src/components/chat/chat-transcript/turn-actions.tsx",
           "symbol": "TurnActions",
-          "blob": "f12382403eae41251ee9529f4d198d71c8d1ca09"
+          "blob": "abf82c036b5b0896201c21aee47ad5afa9b435c2"
         }
       ]
     },
@@ -589,13 +597,13 @@
       "figma": {
         "node": "2106:10986",
         "name": "Chat/CodeFence",
-        "hash": "9eed2c47902f2cc9"
+        "hash": "3cd7b89390a6d07e"
       },
       "code": [
         {
           "path": "src/components/primitives/markdown/markdown.tsx",
           "symbol": "CodeBlock",
-          "blob": "e4b1874a50e20c243150bcb2d01716790a638989"
+          "blob": "e047db987ce20df758e9e8803ca4ad4057760ffa"
         }
       ]
     },
@@ -604,13 +612,13 @@
       "figma": {
         "node": "2150:420",
         "name": "Chat/Work",
-        "hash": "898308ffb8e3d92a"
+        "hash": "1fecf8518bb58488"
       },
       "code": [
         {
           "path": "src/components/chat/chat-transcript/transcript.tsx",
           "symbol": "Work",
-          "blob": "2dd6696eb8cdac1d92d9809ca53166274a210638"
+          "blob": "fdb11f56235a988a8155db8ca01a98e85681c247"
         }
       ]
     },
@@ -619,13 +627,13 @@
       "figma": {
         "node": "20:232",
         "name": "Chat/ApprovalRequest",
-        "hash": "bd8f6c24c2c80d5e"
+        "hash": "0a94d4e056c2b9dd"
       },
       "code": [
         {
           "path": "src/components/chat/chat-transcript/transcript.tsx",
           "symbol": "ApprovalRequest",
-          "blob": "2dd6696eb8cdac1d92d9809ca53166274a210638"
+          "blob": "fdb11f56235a988a8155db8ca01a98e85681c247"
         }
       ],
       "security": true
@@ -635,12 +643,12 @@
       "figma": {
         "node": "20:263",
         "name": "Chat/LogsViewCard",
-        "hash": "950026a2a67c4488"
+        "hash": "3b89f3894c33f7c7"
       },
       "code": [
         {
           "path": "src/components/chat/log-cards/view-card.tsx",
-          "blob": "96e0a8faaa6f6b15e820e8fff5af58e64e4c2c52"
+          "blob": "d37f8a7f6f0334f93c779b477c1eab98cb52510f"
         }
       ],
       "security": true
@@ -650,16 +658,16 @@
       "figma": {
         "node": "20:224",
         "name": "ChatComposer",
-        "hash": "942edb916fad6023"
+        "hash": "a6b2b962b67e6b89"
       },
       "code": [
         {
           "path": "src/components/chat/chat-composer/composer.tsx",
-          "blob": "10627a7b1f6adb08f1ededa14898e55718e5b944"
+          "blob": "2520b84def580d21afcbc6673551436bde7bd24f"
         },
         {
           "path": "src/components/chat/chat-composer/context-popover.tsx",
-          "blob": "13d88b114dc39d42e8af262b55a4331942503d5b"
+          "blob": "11af047c5d866392d221cb30a8f04c6c73f596e3"
         }
       ]
     },
@@ -668,13 +676,13 @@
       "figma": {
         "node": "2030:2196",
         "name": "ModelPicker/ProviderMark",
-        "hash": "d9142107b2cd8a89"
+        "hash": "6951c917be6ad9be"
       },
       "code": [
         {
           "path": "src/components/chat/chat-composer/model-picker.tsx",
           "symbol": "ProviderMark",
-          "blob": "3581fc51ed3c40b750f53f1141e0a2193d83df51"
+          "blob": "a66bd95fb459f16c398b1998fa8a71e8f041205b"
         }
       ],
       "notes": [
@@ -687,12 +695,12 @@
       "figma": {
         "node": "2030:2205",
         "name": "ModelPicker/Segment",
-        "hash": "19d1dd8d1ae7b397"
+        "hash": "62920bff06439d67"
       },
       "code": [
         {
           "path": "src/components/chat/chat-composer/model-picker.tsx",
-          "blob": "3581fc51ed3c40b750f53f1141e0a2193d83df51"
+          "blob": "a66bd95fb459f16c398b1998fa8a71e8f041205b"
         }
       ],
       "notes": [
@@ -705,12 +713,12 @@
       "figma": {
         "node": "2030:2222",
         "name": "ModelPicker/ModelRow",
-        "hash": "81c89bc4263c6cb7"
+        "hash": "83cfc147f314c39b"
       },
       "code": [
         {
           "path": "src/components/chat/chat-composer/model-picker.tsx",
-          "blob": "3581fc51ed3c40b750f53f1141e0a2193d83df51"
+          "blob": "a66bd95fb459f16c398b1998fa8a71e8f041205b"
         }
       ],
       "notes": [
@@ -722,12 +730,12 @@
       "figma": {
         "node": "2034:2328",
         "name": "ModelPicker/Menu",
-        "hash": "830d16b1c01f6971"
+        "hash": "b95a7391556d5cc0"
       },
       "code": [
         {
           "path": "src/components/chat/chat-composer/model-picker.tsx",
-          "blob": "3581fc51ed3c40b750f53f1141e0a2193d83df51"
+          "blob": "a66bd95fb459f16c398b1998fa8a71e8f041205b"
         }
       ],
       "notes": [
@@ -737,50 +745,20 @@
       ]
     },
     {
-      "id": "chat/sandbox-popover/badge",
-      "figma": {
-        "node": "2049:2298",
-        "name": "SandboxPopover/Badge",
-        "hash": "e223c11c697ae4d5"
-      },
-      "notes": [
-        "@kubetail/ui has no Badge, so this follows shadcn's: h-5 rounded-md px-2 gap-1 text-xs font-medium.",
-        "Variant secondary is bg-secondary text-secondary-foreground; outline is border text-foreground.",
-        "Secondary marks a folder's access; outline is an allowed domain, and Removable shows its X."
-      ]
-    },
-    {
-      "id": "chat/sandbox-popover/folder-row",
-      "figma": {
-        "node": "2049:2299",
-        "name": "SandboxPopover/FolderRow",
-        "hash": "189fc248cf33d9f8"
-      },
-      "notes": [
-        "h-8 rounded-md px-2, as ModelPicker/ModelRow: the path (text-sm, truncated) and its access.",
-        "The access is a secondary SandboxPopover/Badge: Read, or Read & write."
-      ]
-    },
-    {
       "id": "chat/sandbox-popover/menu",
       "figma": {
-        "node": "2050:2384",
+        "node": "3073:5543",
         "name": "SandboxPopover/Menu",
-        "hash": "cbda27dbae3819bb"
+        "hash": "13c7df46b759e8cc"
       },
       "code": [
         {
           "path": "src/components/chat/chat-composer/sandbox-popover.tsx",
-          "blob": "4647d9e88a1af873d691b72c744800555d8a5dca"
+          "blob": "caf3d78020d0659265c7dbe8d060ff8c01900156"
         }
       ],
       "notes": [
-        "Sample data.",
-        "A header (Sandbox and its state, a secondary Badge), then sections split by a border line, each under a SectionHeading with a muted count or mode on its right.",
-        "Network: the allowed domains as removable outline badges, and Add domain, an outline Button xs.",
-        "Files: a SandboxPopover/FolderRow per granted folder.",
-        "Two settings: a label and hint beside a Select (sm) or a Switch.",
-        "The footer (border-t bg-muted/50 px-3 py-2, as ModelPicker/Menu) sums up what the next request carries, beside Inspect payload, an outline Button xs.",
+        "A placeholder popup: the code's `bg-popover` `w-72` panel with a title and one muted line, as ContextPopover.",
         "Hangs 8px from the trigger, its left edge on the trigger's: below it on a new chat, above it on an open one."
       ]
     },
@@ -789,12 +767,12 @@
       "figma": {
         "node": "2087:2455",
         "name": "ContextPopover",
-        "hash": "ad2fc457a002c4cf"
+        "hash": "a35cfe80c28f6400"
       },
       "code": [
         {
           "path": "src/components/chat/chat-composer/context-popover.tsx",
-          "blob": "13d88b114dc39d42e8af262b55a4331942503d5b"
+          "blob": "11af047c5d866392d221cb30a8f04c6c73f596e3"
         }
       ],
       "notes": [
@@ -806,12 +784,12 @@
       "figma": {
         "node": "22:226",
         "name": "LogsWindowBar",
-        "hash": "9d3551ea2f33fb44"
+        "hash": "3685ac979b241bb1"
       },
       "code": [
         {
           "path": "src/components/logs/log-window/bar.tsx",
-          "blob": "18f4e7a227a2c942e25a4c677b6f91b44b6dae99"
+          "blob": "dbacb47d71da78d290ec4ff9c6ac4a7bdfba7202"
         }
       ]
     },
@@ -820,12 +798,12 @@
       "figma": {
         "node": "18:522",
         "name": "LogsViewHeader",
-        "hash": "f62d51eba80d44da"
+        "hash": "da7370d490e2dae2"
       },
       "code": [
         {
           "path": "src/components/logs/log-panel.tsx",
-          "blob": "5dfe016ed72d646a16f525183a19452e2889327b"
+          "blob": "b30b25c3f51739755812b69c093b00a555dd1a4b"
         }
       ]
     },
@@ -834,12 +812,12 @@
       "figma": {
         "node": "18:527",
         "name": "LogViewer/Toolbar",
-        "hash": "6179221e4ce700b2"
+        "hash": "76aa9fd42f0244c2"
       },
       "code": [
         {
           "path": "src/components/logs/log-viewer/toolbar.tsx",
-          "blob": "0e8d6e1e834c12c6d0856c1672c01f032ab91dad"
+          "blob": "93201eddde00459b1017c6a83d8d078989ec4c8d"
         }
       ]
     },
@@ -848,12 +826,12 @@
       "figma": {
         "node": "18:566",
         "name": "LogViewer/Header",
-        "hash": "38b36b59199ee858"
+        "hash": "2aa1e77ce217039a"
       },
       "code": [
         {
           "path": "src/components/logs/log-viewer/header.tsx",
-          "blob": "db07726175710e7f8c6b8b1ead507bfc2ac49219"
+          "blob": "7eedf8eaf98eef6fe98658744180c38025ea90be"
         }
       ]
     },
@@ -862,12 +840,12 @@
       "figma": {
         "node": "18:591",
         "name": "LogViewer/Row",
-        "hash": "59dde08ad4bbe904"
+        "hash": "c099367b858ab1d1"
       },
       "code": [
         {
           "path": "src/components/logs/log-viewer/row.tsx",
-          "blob": "24d66a7a4aa9e822ecdc89f2563d98483102d56d"
+          "blob": "b21e0b9dc5b0a0bb7458b0f6a0b30ec092f89add"
         }
       ],
       "notes": [
@@ -879,13 +857,13 @@
       "figma": {
         "node": "18:592",
         "name": "LogViewer/GapNotice",
-        "hash": "d14eda4701e89d75"
+        "hash": "1407e343690d3271"
       },
       "code": [
         {
           "path": "src/components/logs/log-viewer/row.tsx",
           "symbol": "GapNotice",
-          "blob": "24d66a7a4aa9e822ecdc89f2563d98483102d56d"
+          "blob": "b21e0b9dc5b0a0bb7458b0f6a0b30ec092f89add"
         }
       ]
     },
@@ -894,12 +872,12 @@
       "figma": {
         "node": "2235:2287",
         "name": "FolderGrantForm",
-        "hash": "af3a3f245417b489"
+        "hash": "8722acc0cc7a634c"
       },
       "code": [
         {
           "path": "src/components/settings/folder-grant-form.tsx",
-          "blob": "06db8b20ac0fdf79058b435eed85996478512628"
+          "blob": "8a3de62e6e2477c7112037a3327dad89c0c947e2"
         }
       ],
       "notes": [
@@ -909,48 +887,64 @@
     {
       "id": "settings/settings-dialog",
       "figma": {
-        "node": "2235:2307",
+        "node": "3048:2973",
         "name": "SettingsDialog",
-        "hash": "b4340e714e18d969"
+        "hash": "d8e886c2f5a07f6c"
       },
       "code": [
         {
           "path": "src/components/settings/settings-dialog/dialog.tsx",
-          "blob": "e1021b70b5672c7f7b027e7939f511f542f18dfb"
+          "blob": "9d100ce1dd0bc4dd1e3032070412ef71df7040e8"
         },
         {
           "path": "src/components/settings/settings-dialog/sandbox.tsx",
-          "blob": "35937f20c8ec407d46ec29a61e3e3e4f89bb93fe"
+          "blob": "6e0e404f9fdd2c71dedd689ba493ecc6c88c8f9c"
         },
         {
           "path": "src/components/settings/settings-dialog/clusters.tsx",
-          "blob": "22b1f4fca02fec320ac432df76e76299fa93ffba"
+          "blob": "5b245975166d1f0e9696d614ed503e2555aed452"
         },
         {
           "path": "src/components/settings/settings-dialog/permissions.tsx",
-          "blob": "9a60f1fcba8f18b1cd28d0deae72667dcd8b62f1"
+          "blob": "273eb00b3f78aa599173efecb1491f7a1c94c8bd"
         },
         {
           "path": "src/components/settings/settings-dialog/memory.tsx",
-          "blob": "c23afb1381f1a90b624eecf99bb9b1e3dfd54936"
+          "blob": "a6097024b56e8f3ce673a5060dc465f120688663"
         },
         {
           "path": "src/components/settings/settings-dialog/monitoring.tsx",
-          "blob": "f444c5da6ed00482d44a9eb059c6e9d20a811d18"
+          "blob": "b3d3f86520c236b1190062e1aac4c4f1dee4d097"
         },
         {
           "path": "src/components/settings/settings-dialog/tools.tsx",
-          "blob": "e98fc1d60faba97c4868c2935b95da964e02e82d"
+          "blob": "fde5c5cef69e56a3ae347ee0918cf72c0a79d038"
+        },
+        {
+          "path": "src/components/settings/settings-dialog/general.tsx",
+          "blob": "8c00fe2aaa21d574aab4fc468d36d1f9168873f5"
+        },
+        {
+          "path": "src/components/settings/settings-dialog/connectors.tsx",
+          "blob": "dc9ab598de70c320ee1a4f58d013e699467c10c9"
+        },
+        {
+          "path": "src/components/settings/settings-dialog/providers.tsx",
+          "blob": "9e13953e4d3f1effb68beafd481aeb43ba7e4cd9"
+        },
+        {
+          "path": "src/components/settings/settings-dialog/environment.tsx",
+          "blob": "ac42e15391b9082a5e4ab859be9a1f5b612ae9e7"
         }
       ],
       "security": true,
       "notes": [
         "Sample data.",
-        "Drawn with the sandbox available, so the Sandbox fields and Permissions show.",
+        "Drawn on macOS with the sandbox available, so Sandbox's folders and Permissions' modes show.",
+        "A Tab variant per tab, at the code's fixed h-160 w-220; a pane taller than the dialog clips, as its overflow-y-auto scrolls it.",
         "The panel is DialogContent's classes on a local frame: kubetail-ui's Dialog holds its body in a text slot.",
-        "Memory's scope items draw no note count: nothing counts a scope's notes yet.",
-        "Tabs/Trigger has no icon slot, so the Appearance picker's Monitor, Sun and Moon icons are not drawn.",
-        "The component is as tall as its content; an instance set shorter clips the Body, as max-h-[85vh] scrolls it."
+        "The colour scheme tiles use the code's literal colours, which are not tokens.",
+        "The ring is color/dialog-ring, ring-foreground/10 with the alpha in the variable: a bound paint at 10% drew opaque here."
       ]
     }
   ],
@@ -960,16 +954,16 @@
       "figma": {
         "node": "22:2516",
         "name": "Platforms",
-        "hash": "f4120a1dfc230c0f"
+        "hash": "073d68a2b5841bdb"
       },
       "code": [
         {
           "path": "src/layouts/app-layout.tsx",
-          "blob": "4c9f3248de91885a0e6f9b4608093595d4435c8b"
+          "blob": "0227463de78822d7c89637d97e4b08e22634d571"
         },
         {
           "path": "src/routes/__root.tsx",
-          "blob": "5c9b6ef720deffa7ea34459e0c1958b7867e2c25"
+          "blob": "6c601e4e2c8704bde6b1db73815f41ce61800741"
         }
       ]
     },
@@ -978,12 +972,12 @@
       "figma": {
         "node": "42:10238",
         "name": "Popups on Shell",
-        "hash": "eb3ed577a9cfea30"
+        "hash": "755a58764a58ba31"
       },
       "code": [
         {
           "path": "src/layouts/app-layout.tsx",
-          "blob": "4c9f3248de91885a0e6f9b4608093595d4435c8b"
+          "blob": "0227463de78822d7c89637d97e4b08e22634d571"
         }
       ],
       "notes": [
@@ -995,12 +989,12 @@
       "figma": {
         "node": "42:10239",
         "name": "ClusterStatus",
-        "hash": "cb53841a91163fd9"
+        "hash": "da44dcbdeafb0425"
       },
       "code": [
         {
           "path": "src/components/cluster/cluster-status/popover.tsx",
-          "blob": "a318ac98369984e6db6459239ab46bb0e1a3e15c"
+          "blob": "3199167f1fb29f26764f5974c08d513f003b92ac"
         }
       ]
     },
@@ -1009,26 +1003,12 @@
       "figma": {
         "node": "42:10240",
         "name": "ClusterPicker",
-        "hash": "08a6e6144fcb7db6"
+        "hash": "849e96f95f19a270"
       },
       "code": [
         {
           "path": "src/components/cluster/cluster-picker/popover.tsx",
-          "blob": "465f9bb3f73f3ba173917979f926d3992572a217"
-        }
-      ]
-    },
-    {
-      "id": "screens/popups-on-shell/memory-popover",
-      "figma": {
-        "node": "42:10241",
-        "name": "MemoryPopover",
-        "hash": "11677f43722aa7c2"
-      },
-      "code": [
-        {
-          "path": "src/components/cluster/omnibox-popover.tsx",
-          "blob": "70fe1e72dbecc81a66b51a552e801a93f26bf667"
+          "blob": "85647cc405c50eb18eeb5dc7782de5889f9af2e5"
         }
       ]
     },
@@ -1037,12 +1017,12 @@
       "figma": {
         "node": "43:9226",
         "name": "AppMenu",
-        "hash": "c13cd3d6ccec5635"
+        "hash": "f4321c346fbe07c3"
       },
       "code": [
         {
           "path": "src/components/shell/app-bar/menu.tsx",
-          "blob": "4fd3270a4d753b9be01794df99976d264f8427a8"
+          "blob": "a6b6842b8744bb5c832356221246177de8be8012"
         }
       ]
     },
@@ -1051,16 +1031,16 @@
       "figma": {
         "node": "42:10242",
         "name": "Dashboard / Pods",
-        "hash": "5144db3a688286ce"
+        "hash": "a808151dcbc6237d"
       },
       "code": [
         {
           "path": "src/layouts/app-layout.tsx",
-          "blob": "4c9f3248de91885a0e6f9b4608093595d4435c8b"
+          "blob": "0227463de78822d7c89637d97e4b08e22634d571"
         },
         {
           "path": "src/routes/dashboard.tsx",
-          "blob": "e87b246bb4aa2ff19446ab250d5a007072f229b2"
+          "blob": "eda680aff41d034d372f00acc9b615a78a361c08"
         }
       ]
     },
@@ -1069,20 +1049,20 @@
       "figma": {
         "node": "42:10243",
         "name": "Chat / New",
-        "hash": "afbd7dcb344cda55"
+        "hash": "df68e9ac31a344eb"
       },
       "code": [
         {
           "path": "src/layouts/app-layout.tsx",
-          "blob": "4c9f3248de91885a0e6f9b4608093595d4435c8b"
+          "blob": "0227463de78822d7c89637d97e4b08e22634d571"
         },
         {
           "path": "src/routes/chat.tsx",
-          "blob": "24776e21becba9e2201d9eaf6a44ca4f4a7b883d"
+          "blob": "aea2181c24b049823438863a9a8e2bb3f8dc7555"
         },
         {
           "path": "src/components/chat/chat-pane.tsx",
-          "blob": "af2bba4c70aef8908f9948e5b0cff9e644280ac0"
+          "blob": "9e9c06441faf37bbd2dea48cb2aa198e5c600772"
         }
       ]
     },
@@ -1091,20 +1071,20 @@
       "figma": {
         "node": "42:10244",
         "name": "Chat / Open",
-        "hash": "434921055665755e"
+        "hash": "e61a4d7cecf076cd"
       },
       "code": [
         {
           "path": "src/layouts/app-layout.tsx",
-          "blob": "4c9f3248de91885a0e6f9b4608093595d4435c8b"
+          "blob": "0227463de78822d7c89637d97e4b08e22634d571"
         },
         {
           "path": "src/routes/chat-id.tsx",
-          "blob": "521c4919c468893b6b0200b7ed256bedbe9a53d7"
+          "blob": "5e927f5bf253f715936173a563b6d8ec55829759"
         },
         {
           "path": "src/components/chat/chat-pane.tsx",
-          "blob": "af2bba4c70aef8908f9948e5b0cff9e644280ac0"
+          "blob": "9e9c06441faf37bbd2dea48cb2aa198e5c600772"
         }
       ]
     },
@@ -1113,12 +1093,12 @@
       "figma": {
         "node": "2031:6729",
         "name": "Chat / Model picker open",
-        "hash": "ff70ab7671e1a546"
+        "hash": "5ec629b68c02a119"
       },
       "code": [
         {
           "path": "src/components/chat/chat-composer/model-picker.tsx",
-          "blob": "3581fc51ed3c40b750f53f1141e0a2193d83df51"
+          "blob": "a66bd95fb459f16c398b1998fa8a71e8f041205b"
         }
       ]
     },
@@ -1127,12 +1107,12 @@
       "figma": {
         "node": "2050:7406",
         "name": "Chat / Sandbox open",
-        "hash": "e0251bf5b5d75cd7"
+        "hash": "862eb33b6d4d0e62"
       },
       "code": [
         {
           "path": "src/components/chat/chat-composer/sandbox-popover.tsx",
-          "blob": "4647d9e88a1af873d691b72c744800555d8a5dca"
+          "blob": "caf3d78020d0659265c7dbe8d060ff8c01900156"
         }
       ]
     },
@@ -1141,12 +1121,12 @@
       "figma": {
         "node": "2087:8438",
         "name": "Chat / Context open",
-        "hash": "b9542b082dcfb372"
+        "hash": "4ecf23a47658dadf"
       },
       "code": [
         {
           "path": "src/components/chat/chat-composer/context-popover.tsx",
-          "blob": "13d88b114dc39d42e8af262b55a4331942503d5b"
+          "blob": "11af047c5d866392d221cb30a8f04c6c73f596e3"
         }
       ]
     },
@@ -1155,16 +1135,16 @@
       "figma": {
         "node": "42:10245",
         "name": "Log window",
-        "hash": "f9f8e6d993d17e92"
+        "hash": "c214be9dfee46e42"
       },
       "code": [
         {
           "path": "src/layouts/logs-window-layout.tsx",
-          "blob": "955e43c932c87d90e9537f8f10d9a3e95f5d5c8b"
+          "blob": "11bf18f68408ab23b5ce00b68f6a146204cb22bf"
         },
         {
           "path": "src/components/logs/log-window/window.tsx",
-          "blob": "77fea868242868317b7aaf11249a2e3c8f37961b"
+          "blob": "eeefc9a5d3252734d4ce2f4ef9dc9108c2bea99f"
         }
       ]
     },
@@ -1173,20 +1153,20 @@
       "figma": {
         "node": "2178:6011",
         "name": "Chat / Working",
-        "hash": "6022d31f393906b1"
+        "hash": "fb3041e6f17e11ab"
       },
       "code": [
         {
           "path": "src/layouts/app-layout.tsx",
-          "blob": "4c9f3248de91885a0e6f9b4608093595d4435c8b"
+          "blob": "0227463de78822d7c89637d97e4b08e22634d571"
         },
         {
           "path": "src/routes/chat-id.tsx",
-          "blob": "521c4919c468893b6b0200b7ed256bedbe9a53d7"
+          "blob": "5e927f5bf253f715936173a563b6d8ec55829759"
         },
         {
           "path": "src/components/chat/chat-pane.tsx",
-          "blob": "af2bba4c70aef8908f9948e5b0cff9e644280ac0"
+          "blob": "9e9c06441faf37bbd2dea48cb2aa198e5c600772"
         }
       ]
     },
@@ -1195,20 +1175,20 @@
       "figma": {
         "node": "2178:5891",
         "name": "Chat / Waiting",
-        "hash": "14e96643c907d526"
+        "hash": "a27a85e411619376"
       },
       "code": [
         {
           "path": "src/layouts/app-layout.tsx",
-          "blob": "4c9f3248de91885a0e6f9b4608093595d4435c8b"
+          "blob": "0227463de78822d7c89637d97e4b08e22634d571"
         },
         {
           "path": "src/routes/chat-id.tsx",
-          "blob": "521c4919c468893b6b0200b7ed256bedbe9a53d7"
+          "blob": "5e927f5bf253f715936173a563b6d8ec55829759"
         },
         {
           "path": "src/components/chat/chat-pane.tsx",
-          "blob": "af2bba4c70aef8908f9948e5b0cff9e644280ac0"
+          "blob": "9e9c06441faf37bbd2dea48cb2aa198e5c600772"
         }
       ]
     },
@@ -1217,16 +1197,16 @@
       "figma": {
         "node": "2236:8530",
         "name": "Settings",
-        "hash": "fa6a040b5b48ed10"
+        "hash": "3e8912db06f178c2"
       },
       "code": [
         {
           "path": "src/components/primitives/dialog.tsx",
-          "blob": "b8b062aeede1a164a574576421f0bd5faf5c5c26"
+          "blob": "ec5eb485c2aaae43f51ef8b1f42fff47de87cae4"
         },
         {
           "path": "src/components/shell/app-dialogs.tsx",
-          "blob": "fe4b890a0c702674b205cfce843dbdd060180600"
+          "blob": "827e89b95232d5edbe333a06c1fcfc4695a9e8fd"
         }
       ],
       "notes": [
