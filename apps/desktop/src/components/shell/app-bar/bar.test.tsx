@@ -119,12 +119,12 @@ describe('AppBar', () => {
     });
     render(<AppBar />);
     const bar = screen.getByTestId('app-bar');
-    // Flexible ends, each at least its own content and the other end's while that leaves
-    // the omnibox 9.5rem, around a column of at most 420px that gives way first.
+    // Ends as wide as their own content and the other end's while that leaves the omnibox
+    // 8.625rem, around a column taking the rest, which gives way first.
     expect(bar).toHaveClass('grid');
     expect(bar.style.gridTemplateColumns).toBe(
-      'minmax(max(260px, min(112px, 100% - 112px - 9.5rem)), 1fr) minmax(0px, 420px) ' +
-        'minmax(max(112px, min(260px, 100% - 260px - 9.5rem)), 1fr)',
+      'max(260px, min(112px, 100% - 112px - 8.625rem)) minmax(0px, 1fr) ' +
+        'max(112px, min(260px, 100% - 260px - 8.625rem))',
     );
     expect(screen.getByTestId('app-bar-start')).toHaveClass('justify-self-start');
     expect(screen.getByTestId('app-bar-end')).toHaveClass('justify-self-end');

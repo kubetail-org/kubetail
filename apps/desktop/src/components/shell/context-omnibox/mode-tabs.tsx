@@ -12,39 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The omnibox's Chat/Dashboard tabs: a muted track holding two labelled tabs, the active
-// one white. Router links, not local state, so each mode is a real deep-linkable route;
-// the active one is styled off the router's `data-status`.
+// The omnibox's Chat/Dashboard tabs: a muted track holding two icon tabs, each named in its
+// tooltip, the active one white. Router links, not local state, so each mode is a real
+// deep-linkable route; the active one is styled off the router's `data-status`.
 import { Tooltip, TooltipContent, TooltipTrigger } from '@kubetail/ui/elements/tooltip';
 import { cn } from '@kubetail/ui/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { LayoutDashboard, MessageCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useRef, useState } from 'react';
 
 import { APP_BAR_CAPSULE_CLASS } from '@/lib/control-style';
 
 const TAB_CLASS = cn(
-  'flex h-7 items-center justify-center gap-1.5 rounded-full px-3 py-0.75',
-  'text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground',
+  'flex h-7 items-center justify-center rounded-full px-3',
+  'text-muted-foreground transition-colors hover:text-foreground',
   'data-[status=active]:bg-background data-[status=active]:text-foreground data-[status=active]:shadow-pill',
 );
 
 function Tab({ to, label, icon: Icon }: { to: '/chat' | '/dashboard'; label: string; icon: LucideIcon }) {
-  // The tooltip says the label only while the label is hidden. Container queries are
-  // CSS's alone, so ask the label whether it is drawn.
-  const labelRef = useRef<HTMLSpanElement>(null);
-  const [open, setOpen] = useState(false);
-  const onOpenChange = (next: boolean) => setOpen(next && labelRef.current?.getClientRects().length === 0);
-
   return (
-    <Tooltip open={open} onOpenChange={onOpenChange}>
+    <Tooltip>
       <TooltipTrigger render={<Link to={to} aria-label={label} className={TAB_CLASS} />}>
-        <Icon className="size-3.75 shrink-0" aria-hidden />
-        {/* Under 20rem (`xs`) of omnibox the tab is its icon alone. */}
-        <span ref={labelRef} className="@max-xs:hidden">
-          {label}
-        </span>
+        <Icon className="size-3.75" aria-hidden />
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>

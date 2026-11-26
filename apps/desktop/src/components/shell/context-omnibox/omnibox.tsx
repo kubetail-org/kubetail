@@ -94,12 +94,13 @@ function StatusButton({ anchorRef }: { anchorRef: RefObject<HTMLElement | null> 
 
 // The rest of the chip after the status button, reading the window's cluster with its TLS
 // badge, or why there is none. A button of its own, with its own hover: it fills the chip's
-// height, its 6px padding even on both sides; its hit area reaches over the pill's 3px above
-// and below, half the 2px gap after the status button and half the 12px gap before the
-// tabs, so a press anywhere there lands on it. In a narrow omnibox the name truncates first
-// and the badge shrinks to its icon, so the warning stays; the connecting and empty states
-// draw their icon alone, their words left to the button's name. With no cluster it also
-// draws the bare icon, where the status button would be.
+// height, its padding 6px on the left and 4px on the right, so a truncated name ends just
+// short of the tabs. Its hit area reaches over the pill's 3px above and below, half the 2px
+// gap after the status button and the room after the chip, so a press anywhere there lands
+// on it; where that room has closed, the tabs, drawn later, take the press. In a narrow
+// omnibox the name truncates first and the badge shrinks to its icon, so the warning stays;
+// the connecting and empty states draw their icon alone, their words left to the button's
+// name. With no cluster it also draws the bare icon, where the status button would be.
 function ClusterTrigger({ anchorRef }: { anchorRef: RefObject<HTMLElement | null> }) {
   const { context, active, noneSelected, phase } = useActiveKubeContext();
   const hasCluster = context !== '';
@@ -143,7 +144,7 @@ function ClusterTrigger({ anchorRef }: { anchorRef: RefObject<HTMLElement | null
         aria-label={name}
         className={cn(
           HIT_AREA_CLASS,
-          'flex h-full min-w-0 items-center rounded-full pr-1.5 after:-inset-y-0.75 after:-right-1.5',
+          'flex h-full min-w-0 items-center rounded-full pr-1 after:-inset-y-0.75 after:-right-2',
           APP_BAR_HOVER_CLASS,
           // With no status button, the bare icon takes its place and the hit area its
           // reach over the chip's and the pill's left padding.
@@ -163,10 +164,15 @@ function ClusterTrigger({ anchorRef }: { anchorRef: RefObject<HTMLElement | null
   );
 }
 
-// The status button and the trigger, 2px apart so their hovers never touch.
+// The status button and the trigger, 2px apart so their hovers never touch. It never
+// shrinks, only caps at its group's width, so the room after it closes before the name
+// truncates.
 function ClusterChip({ anchorRef }: { anchorRef: RefObject<HTMLElement | null> }) {
   return (
-    <div data-testid="cluster-chip" className="flex h-8 min-w-0 items-center gap-0.5 pl-1.5 @max-[14rem]:pl-0">
+    <div
+      data-testid="cluster-chip"
+      className="flex h-8 max-w-full shrink-0 items-center gap-0.5 pl-1.5 @max-[14rem]:pl-0"
+    >
       <StatusButton anchorRef={anchorRef} />
       <ClusterTrigger anchorRef={anchorRef} />
     </div>
@@ -178,8 +184,8 @@ export function ContextOmnibox() {
   const boxRef = useRef<HTMLDivElement>(null);
 
   return (
-    // The container fills the bar's middle column, at most 420px, so the controls compact to
-    // the room there is. The pill can't be the container: it fits its content, which an
+    // The container fills the bar's middle column, so the controls compact to the room
+    // there is. The pill can't be the container: it fits its content, which an
     // inline-size container can't.
     <div className="@container flex w-full min-w-0 justify-center">
       <div
@@ -188,17 +194,21 @@ export function ContextOmnibox() {
         // Opts out of the app bar's drag region: this is a control, and pressing
         // it should no more move the window than a browser's address bar.
         data-tauri-drag-region="false"
-        // As wide as the cluster's name and the tabs, up to the column; past that the name
-        // truncates. The tabs keep their width.
+        // As wide as the cluster's name, 12px of room and the tabs, up to the column, so it
+        // grows with the window until the whole name shows. Narrower, the room closes to the
+        // trigger's 4px, then the name truncates against the tabs, which keep their width.
         className={cn(
-          'flex h-9.5 max-w-105 min-w-0 items-center gap-3 rounded-full px-1 py-0.75',
+          'flex h-9.5 min-w-0 items-center rounded-full px-1 py-0.75',
           'bg-white shadow-pill dark:bg-input/30',
         )}
       >
-        <ClusterChip anchorRef={boxRef} />
-        {/* Its hit area covers the other half of the gap before it, the pill's right padding,
-        and its 3px above and below. */}
-        <ModeTabs className={cn(HIT_AREA_CLASS, 'shrink-0 after:-inset-y-0.75 after:-right-1 after:-left-1.5')} />
+        <div data-testid="cluster-chip-group" className="flex min-w-0 items-center">
+          <ClusterChip anchorRef={boxRef} />
+          {/* With the trigger's 4px of padding, the 12px of room after the name. */}
+          <span aria-hidden className="w-2" />
+        </div>
+        {/* Its hit area covers the pill's right padding and its 3px above and below. */}
+        <ModeTabs className={cn(HIT_AREA_CLASS, 'shrink-0 after:-inset-y-0.75 after:-right-1 after:left-0')} />
       </div>
     </div>
   );
