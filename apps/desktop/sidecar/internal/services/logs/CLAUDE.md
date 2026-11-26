@@ -8,7 +8,7 @@ the model only through `logline.ForModel`**: `LogsRead`, a `LogsWatch` notice an
 action](../../../../docs/adr/2026-10-18-a-rich-view-is-a-tool-calls-action.md).
 
 A **tail** is the cursor tail a caller opens (`TailFromCursor`, `cursorTail`,
-[`docs/read-contracts/`](../../../../docs/read-contracts/README.md)). A **tailer** is one
+[`docs/read-contracts/go.md`](../../../../docs/read-contracts/go.md)). A **tailer** is one
 stream's following read beneath it, shared by every tail of that stream.
 
 Each sub-package (`logline`, `refusal`, `iso8601`, `kubelet`, `logstore`, `logstest`) is a leaf

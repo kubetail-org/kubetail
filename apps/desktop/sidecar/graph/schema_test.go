@@ -64,7 +64,7 @@ func TestEveryQueryFieldHasACaller(t *testing.T) {
 }
 
 // A query field ends in its contract's verb, and its description opens with the
-// contract (docs/read-contracts/README.md).
+// contract (docs/read-contracts/graphql.md).
 func TestEveryQueryFieldIsNamedForItsContract(t *testing.T) {
 	opening := map[string]string{"Get": "A Get of ", "List": "A List of ", "Fetch": "A Fetch of "}
 	for _, f := range parsedSchema.Query.Fields {

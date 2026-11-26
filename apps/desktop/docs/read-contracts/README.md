@@ -1,17 +1,23 @@
 # Read contracts
 
-A read is an API through which a consumer observes data a source owns: a **query**
-returns once, and a **subscription** keeps delivering after the call returns. This covers Go
-service methods, GraphQL fields, gRPC methods and the TypeScript that consumes them. An API that
-starts something new (a probe, a mutation, a background task) is not a read.
+A read is an API through which a consumer observes data a source owns: a **query** returns
+once, and a **subscription** keeps delivering after the call returns. An API that starts
+something new (a probe, a mutation, a background task) is not a read.
 
 Every read has a contract, its **read contract**, and is named for it. The contract follows
 from what the data is and what the consumer does with it, never from the transport or the
 serialized type.
 
-The first half of this document is what a change needs: the taxonomy, how to choose a contract,
-how to name it, and the steps. The second half is the reference: each
-[query](#queries) and [subscription](#subscriptions) contract in full.
+This document defines the contracts. Each surface a read is written on has a guide that says
+how to write one there:
+
+- [Go and gRPC](go.md)
+- [GraphQL](graphql.md)
+- [The webview](webview.md)
+
+The first half of this document is what a change needs: the taxonomy, how to choose a
+contract, the naming rules every surface shares, and the steps. The second half is the
+reference: each [query](#queries) and [subscription](#subscriptions) contract in full.
 
 ## Terms
 
@@ -19,7 +25,7 @@ how to name it, and the steps. The second half is the reference: each
 | --- | --- |
 | Family | What the consumer holds: a state, a collection, a history, a sequence, or nothing |
 | Kind | What one element of the data is: a value, an item, an event, a sample, an entry, a notice |
-| Contract | Exactly what an operation returns or delivers, and when. Each has a name: Get, collection watch |
+| Contract | Exactly what a read returns or delivers, and when. Each has a name: Get, collection watch |
 | Value | A complete logical state |
 | Item | A collection element with its own identity |
 | Sample | One timestamped measurement. The timestamp says when it was taken and is neither its identity nor its order: a wall clock that steps can repeat or reverse timestamps |
@@ -98,69 +104,20 @@ reads once and leaves. Never add a query only to initialize a subscription.
 
 ## Naming
 
-Each family's subscriptions share a verb: **Watch** for State and Collection, **Subscribe** for
-History, **Tail** for Sequence and **Listen** for Notification. Go puts the verb first. GraphQL
-puts the subject first, as its mutations do. gRPC methods are named as Go's are, and a
-subscription there is a server stream.
+A read's name is its subject and its contract. Each surface guide gives the form the name takes
+there. These rules hold on every surface:
 
-| Contract | Go method | GraphQL field | Result or frame type |
-| --- | --- | --- | --- |
-| Get | `Get<Noun>` | `<noun>Get` | The value itself |
-| List | `List<Noun>s` | `<noun>List` | A list of the element |
-| Fetch | `Fetch<Noun>` | `<noun>Fetch` | `<Noun>FetchResult` |
-| State watch | `Watch<Noun>State` | `<noun>StateWatch` | The value itself |
-| Keyed state watch | `Watch<Noun>KeyedState` | `<noun>KeyedStateWatch` | The value, carrying its key |
-| Collection watch | `Watch<Noun>Collection` | `<noun>CollectionWatch` | `<Noun>CollectionWatchFrame` |
-| Event feed | `Subscribe<Noun>EventFeed` | `<noun>EventFeed` | `EventFeedFrame` |
-| Sample feed | `Subscribe<Noun>SampleFeed` | `<noun>SampleFeed` | `<Noun>SampleFeedFrame` |
-| Cursor tail | `Tail<Noun>FromCursor` | `<noun>Tail` | `<Noun>TailFrame` |
-| Change notification | `ListenFor<Noun>Changes` | Go only | The key alone |
-| Broadcast notification | `ListenFor<Noun>Notifications` | Go only | `<Noun>Notification` |
-
-A frame is an envelope around the data, so only the contracts that need one have a frame type.
-
-The names each contract gives a subject. The table shows the pattern, not what exists: the
-schema and the services are the list of the operations there are.
-
-| Subject | Go query | Go subscription | GraphQL query | GraphQL subscription |
-| --- | --- | --- | --- | --- |
-| Models | `GetModels` | `WatchModelsState` | `modelsGet` | `modelsStateWatch` |
-| Environment variables | `GetEnvVars` | `WatchEnvVarsState` | `envVarsGet` | `envVarsStateWatch` |
-| Cache health | `GetCacheHealth` | `WatchCacheHealthKeyedState` | `clusterCacheHealthGet` | `clusterCacheHealthKeyedStateWatch` |
-| Clusters | `ListClusters` | `WatchClusterCollection` | `clusterList` | `clusterCollectionWatch` |
-| Cluster events | `ListClusterEvents` | `SubscribeClusterEventFeed` | `clusterEventList` | `clusterEventFeed` |
-| Cluster data rate | `ListClusterDataRateSamples` | `SubscribeClusterDataRateSampleFeed` | `clusterDataRateSampleList` | `clusterDataRateSampleFeed` |
-| Logs | `FetchLogs` | `TailLogsFromCursor` | `logsFetch` | `logsTail` |
-
-Rules that apply to every contract:
-
-- **The noun is in its natural number.** A collection's noun is one item, so it is singular in
-  GraphQL: `clusterCollectionWatch`. A state's noun is the value, so it is plural when the value
-  is a list or a set: `modelsStateWatch`.
-- **A Go method drops the noun when it is its receiver's subject**: `Clusters().List()`,
-  `Clusters().WatchCollection()`. A GraphQL field always carries it.
-- **A scope is a `By<Scope>` suffix in Go and an argument in GraphQL.**
+- **A query takes its contract's name as its verb**: Get, List or Fetch.
+- **Each family's subscriptions share a verb**: Watch for State and Collection, Subscribe for
+  History, Tail for Sequence and Listen for Notification.
+- **The noun is in its natural number.** A collection's noun is one item, so it is singular: the
+  cluster collection watch. A state's noun is the value, so it is plural when the value is a
+  list or a set: the models state watch.
 - **A qualifier is never repeated.** A noun that already ends in `State` takes no second one:
-  `authStateWatch`. A noun of Kubetail's own ending in `Status` is renamed to end in `State`.
-- **A service or store method that opens with `Get`, `List`, `Fetch`, `Watch`, `Tail` or
-  `Listen` has that verb's contract.** So does a feed method that opens with `Subscribe`;
-  generic pub/sub code may use `Subscribe` freely. A method that starts something new to produce
-  its answer takes another verb (`Probe`, `Resolve`), as does a poller or a background task;
-  reading, filtering and shaping stored data starts nothing. An accessor on a value in memory is
-  not a read and is named as Go names it.
-- **`Query` and `Subscription` are the generic nouns, for the transport and nothing else**:
-  GraphQL's own `query` and `subscription` keywords, the host's `graphql_query`,
-  `graphql_subscribe`, `graphql_unsubscribe` and `log_window_subscribe` commands, and the
-  webview's `subscribe-exchange.ts` and `useFoldedSubscription`.
+  the watch of the auth state is the auth state watch. A noun of Kubetail's own ending in
+  `Status` is renamed to end in `State`.
 - **A name from outside keeps its meaning**: a Kubernetes watch or list, the kubelet's `follow`
-  parameter, the browser's `fetch`, `net.Listen` and a library's `Subscribe`.
-- **A GraphQL field's description opens with its contract**: `"A Get of …"`,
-  `"A collection watch of …"`.
-
-In the webview, an operation is named for its field, Pascal-cased (`ClusterCollectionWatch`),
-its document constant adds `Document`, and a hook that serves the operation alone is `use` plus
-the operation name (`useClusterCollectionWatch`). A provider's hook that joins, sorts or shapes
-what it holds is named for what it returns (`useClusters`, `useChats`).
+  parameter, the browser's `fetch`, a socket's listen and a library's `Subscribe`.
 
 ## Kubetail's policies
 
@@ -171,46 +128,32 @@ These are this project's rules, not properties of the contracts.
   Fetch.
 - **A query with no caller is removed.**
 - **A mutation that writes a Get's value returns that value**, so the caller needs no second
-  read: `envVarSet` returns what `envVarsGet` does.
+  read: setting an environment variable returns what the Get of the environment variables does.
 - **Notifications stay inside the sidecar.** Nothing on the wire tells a client to re-read.
 - **A collection never embeds another.** The consumer joins collections by id.
 - **A collection watch never filters.** An item awaiting deletion arrives as an ordinary
   `Modified` carrying its mark. `Deleted` means it is gone, and only the `Deleted` is promised.
 
-## In the webview
-
-- **Each subscription contract has one reducer, named for it**: `stateWatchReducer`,
-  `keyedStateWatchReducer`, `collectionWatchReducer`, `eventFeedReducer`, `sampleFeedReducer`
-  and `cursorTailReducer`. Fold a subscription with its contract's reducer and no other.
-- **Detect a frame by its `type`, never by which field is missing.** A nested non-null field
-  that errors nulls its parent, so a null item also arrives on ordinary changes: a `Bookmark` is
-  `type === 'Bookmark'`. A change that carries no item is dropped, not folded.
-- **One stream is shared among the consumers of an operation**, so a consumer that mounts late
-  joins a stream already past its first delivery. Such a consumer subscribes unshared
-  (`useFoldedSubscription`'s `unshared`) or reads from a provider that holds the one
-  subscription. A sample feed is always subscribed unshared.
-
-## Adding an operation
+## Adding a read
 
 1. Choose the contract with [Choosing a contract](#choosing-a-contract), and check
    [Pairing a query with a subscription](#pairing-a-query-with-a-subscription) that a query is
    needed at all.
-2. Name the method, the field and the result or frame type from [Naming](#naming). A query
-   beside a subscription takes its subject and its types.
+2. Name it on each surface it is written on, from that surface's guide: [Go and gRPC](go.md),
+   [GraphQL](graphql.md), [the webview](webview.md). A query beside a subscription takes its
+   subject and its types.
 3. Implement the contract in full, from its section below. A subscription that sends a snapshot
    with no `Bookmark`, or a state watch that sends nothing until the first change, is a
    different contract and misleads every consumer written against the name.
-4. In the webview, fold a subscription with the reducer for its contract.
-5. Test a query's result and its empty result. Test a subscription's first delivery, one later
+4. Test a query's result and its empty result. Test a subscription's first delivery, one later
    delivery and its ending, each on its own.
 
-## Changing an operation
+## Changing a read
 
-- **The name is the contract.** Read an operation's contract from its name, never from its
-  return type, its transport or its storage, and keep the contract when changing the
-  implementation.
+- **The name is the contract.** Take a read's contract from its name, never from its return
+  type, its transport or its storage, and keep the contract when changing the implementation.
 - **Code that breaks its named contract is a bug, not a precedent.** Fix it or report it; never
-  copy it into a new operation or write a consumer that depends on it.
+  copy it into a new read or write a consumer that depends on it.
 - **A change in what the consumer must do is a change of contract.** Choose the new contract,
   and change the name and every consumer in the same change.
 
@@ -227,7 +170,7 @@ use, such as `Search` to find matching items, `BatchGet` to get several the call
 
 | Contract | Returns | Nothing to return | The caller's job |
 | --- | --- | --- | --- |
-| **Get** | One whole value, or one item by id or key | The transport's not-found result | Replace |
+| **Get** | One whole value, or one item by id or key | The surface's not-found result | Replace |
 | **List** | The elements of a collection or a retained history, or a page of them | An empty list | Enumerate |
 | **Fetch** | A bounded batch of a sequence's entries, with continuation cursors | An empty batch, with its cursors | Append or prepend |
 
@@ -238,9 +181,8 @@ still a Get when the caller treats the list as one value and not as items it man
 
 Three answers are distinct, and none of them is an error:
 
-- **Absent:** the item or key does not exist. That is the transport's not-found result: a null
-  field or a not-found error in GraphQL, `(value, false)` or a not-found error in Go,
-  `NOT_FOUND` in gRPC.
+- **Absent:** the item or key does not exist. Each surface has a not-found result for it, which
+  its guide names.
 - **Unknown:** the value exists but is not yet available. The value says so itself
   (`Restoring`). A singleton state is never absent, only unknown.
 - **Empty:** the value is known and holds nothing, as a list of no models is.
@@ -280,7 +222,7 @@ from it.
 | Broadcast notification | Nothing | Each occurrence, in order, never merged | The oldest occurrences, once the subscriber falls behind the buffer | React to each | Nothing is replayed | When the publisher closes |
 
 "Never" means the contract has no ending of its own. Every subscription still stops when its
-context is cancelled, and a broken source ends one with an error (see
+subscriber cancels it, and a broken source ends one with an error (see
 [Endings and failures](#endings-and-failures)).
 
 Two rules hold for every contract that has a first delivery:
@@ -380,8 +322,7 @@ state the publisher gave it: an entry, once delivered, is the subscriber's.
 
 ### Change notification
 
-The subscriber is told that something changed and nothing about what the state now is. A Go API
-inside the sidecar.
+The subscriber is told that something changed and nothing about what the state now is.
 
 - **A notice carries the key that changed and no value.** A value handed through a queue that
   coalesces would be written from a state that has already moved on.
@@ -390,40 +331,33 @@ inside the sidecar.
 - **Listen first, then read.** A change that lands between a read and a later listen is missed.
 - **On each notice, re-read the source for that key.** The read is the truth; the notice is only
   the reason to make it.
-- **The receiver closes when the publisher does.** Close it when done.
+- **The subscription closes when the publisher does.** Close it when done.
 
 ### Broadcast notification
 
-The subscriber is told that something happened, with nothing behind it to re-read. A Go API
-inside the sidecar.
+The subscriber is told that something happened, with nothing behind it to re-read.
 
 - **One delivery per occurrence, in order, each with its own payload**: what happened and when.
   Occurrences are never merged.
 - **The publisher never blocks.** Its buffer is bounded, so a subscriber that falls further
   behind than the buffer loses the oldest occurrences, and nothing says so. Keep up: do slow
   work elsewhere. If missing an occurrence would be wrong, the contract is the wrong one.
-- **The channel closes when the publisher does, or when the subscriber cancels.** Cancel when
-  done; an abandoned channel leaks its feeder.
+- **The subscription closes when the publisher does, or when the subscriber cancels.** Cancel
+  when done; an abandoned subscription leaks its feeder.
 
 ### Endings and failures
 
-- **Go.** A Watch, Feed or Tail whose source can fail returns a `*Stream[T]`: `Frames`, plus
-  `Err()`. `Frames` closes on every exit, and `Err()` is read after it closes. A nil `Err()` is a
-  clean end. A subscribe that fails before the first frame returns the error from the method
-  instead.
-- **GraphQL.** A resolver over a `*Stream` uses `subscriptionStream`, which turns a non-nil
-  `Err()` into one terminal errors-only frame marked `extensions: {"subscriptionFailed": true}`.
-  The webview's subscribe exchange treats that frame, and any completion, as a drop: it reports,
-  marks the subscription disconnected and reconnects.
+- **A broken source ends a subscription with an error, which its subscriber treats as a drop.**
+  Each surface guide says how the error is reported there.
 - **A reconnect is a new subscription.** The first delivery is sent again, and the subscriber
   starts from nothing: an empty map, an empty history. A cursor tail is the exception: it
   resumes from its cursor.
-- **The only ending that is part of a contract is a tail's `Ended`.** The exchange would
-  reconnect on the completion that follows it, so the tail's subscriber unsubscribes on `Ended`
-  and the tail is not opened again.
+- **The only ending that is part of a contract is a tail's `Ended`.** A tail that sent it is not
+  opened again.
 
 → [ADR: name every read for its family, kind and operation](../adr/2026-11-25-name-every-data-access-for-its-family-kind-and-operation.md),
 [ADR: call a query or a subscription a read](../adr/2026-11-26-call-a-query-or-a-subscription-a-read-and-its-contract-a-read-contract.md),
+[ADR: write the read contracts once and each surface's rules beside them](../adr/2026-11-26-write-the-read-contracts-once-and-each-surfaces-rules-beside-them.md),
 [ADR: delta-watch protocol](../adr/2026-08-09-delta-watch-protocol.md),
 [ADR: watch failure reporting](../adr/2026-08-14-watch-failure-reporting.md),
 [ADR: a series is a third kind of stream](../adr/2026-11-02-a-series-is-a-third-kind-of-stream-and-the-pool-owns-its-clock.md).
