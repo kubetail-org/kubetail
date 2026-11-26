@@ -48,6 +48,7 @@ func fullFacts() Facts {
 				{APIVersion: "networking.istio.io/v1", Kind: "VirtualService", Resource: "virtualservices", Reason: "Watching"},
 				{APIVersion: "networking.istio.io/v1beta1", Kind: "VirtualService", Resource: "virtualservices", Reason: "Watching"},
 				{APIVersion: "networking.istio.io/v1", Kind: "Gateway", Resource: "gateways", Reason: "Watching"},
+				{APIVersion: "metrics.k8s.io/v1beta1", Kind: "PodMetrics", Resource: "pods", Reason: "Watching"},
 			},
 			Namespaces: []string{"kube-system", "default", "payments"},
 		},
@@ -60,10 +61,7 @@ const golden = "## Cluster\n\n```json\n" +
 	`"freshness":{"status":"watching"},` +
 	`"inventory":{` +
 	`"namespaces":{"status":"watching","names":["default","kube-system","payments"]},` +
-	`"apiGroups":{"status":"discovered","groups":[` +
-	`{"name":"apps","kinds":["Deployment"]},` +
-	`{"name":"core","kinds":["Namespace","Node","Pod"]},` +
-	`{"name":"networking.istio.io","kinds":["Gateway","VirtualService"]}]}}}` +
+	`"apiGroups":{"status":"discovered","names":["metrics.k8s.io","networking.istio.io"]}}}` +
 	"\n```"
 
 func TestRenderGoldenCard(t *testing.T) {
@@ -309,7 +307,7 @@ func TestRenderDiscoveryVerdictHeadsTheCatalog(t *testing.T) {
 			} else {
 				assert.Nil(t, g["reason"])
 			}
-			_, listed := g["groups"]
+			_, listed := g["names"]
 			assert.Equal(t, tc.wantList, listed)
 		})
 	}
@@ -355,7 +353,7 @@ func TestRenderAnUnreachableClusterListsWhatItLastKnew(t *testing.T) {
 	assert.Equal(t, map[string]any{"status": "last-known", "reason": "NoConnection", "names": []any{"default", "kube-system", "payments"}}, inventoryPart(t, got, "namespaces"))
 	g := inventoryPart(t, got, "apiGroups")
 	assert.Equal(t, "last-known", g["status"])
-	assert.Len(t, g["groups"], 3)
+	assert.Len(t, g["names"], 2)
 }
 
 // adversarial is every list at its worst and names of a megabyte.
@@ -407,11 +405,8 @@ func TestRenderAdversarialLengthsStayUnderBudget(t *testing.T) {
 	}
 	assert.Equal(t, 50000.0, kept(part(t, got, "freshness")["notWatching"].(map[string]any), "names"))
 	g := inventoryPart(t, got, "apiGroups")
-	assert.Equal(t, 501.0, kept(g, "groups"))
-	assert.Greater(t, len(g["groups"].([]any)), 4, "the catalog still names several groups")
-	first := g["groups"].([]any)[0].(map[string]any)
-	assert.Equal(t, 100.0, kept(first, "kinds"))
-	assert.NotEmpty(t, first["kinds"], "a group names some of its kinds before the marker")
+	assert.Equal(t, 500.0, kept(g, "names"))
+	assert.Greater(t, len(g["names"].([]any)), 4, "the catalog still names several groups")
 }
 
 // The budget holds because each part stays inside its share: the head with its
@@ -437,26 +432,29 @@ func TestRenderPartsStayInsideTheirShares(t *testing.T) {
 	assert.LessOrEqual(t, size(partial.Freshness.NotWatching), notWatchingShare)
 	assert.LessOrEqual(t, size(c.Inventory.Namespaces), namespacesShare)
 	assert.LessOrEqual(t, size(c.Inventory.APIGroups), groupsShare)
-	for _, g := range c.Inventory.APIGroups.Groups {
-		assert.LessOrEqual(t, size(g), groupMax)
+	for _, name := range c.Inventory.APIGroups.Names {
+		assert.LessOrEqual(t, size(name), groupMax)
 	}
 }
 
-func TestRenderAGroupKeepsItsNameAndCountsItsKinds(t *testing.T) {
+func TestRenderLeavesOutTheBuiltInGroups(t *testing.T) {
 	f := fullFacts()
-	f.Cache.Kinds = nil
-	for k := range 60 {
-		f.Cache.Kinds = append(f.Cache.Kinds, Kind{APIVersion: "istio/v1", Kind: fmt.Sprintf("Kind%02d", k), Resource: "x", Reason: "Watching"})
+	f.Cache.Kinds = []Kind{
+		{APIVersion: "v1", Kind: "Pod", Resource: "pods", Reason: "Watching"},
+		{APIVersion: "apps/v1", Kind: "Deployment", Resource: "deployments", Reason: "Watching"},
+		{APIVersion: "rbac.authorization.k8s.io/v1", Kind: "Role", Resource: "roles", Reason: "Watching"},
+		{APIVersion: "gateway.networking.k8s.io/v1", Kind: "Gateway", Resource: "gateways", Reason: "Watching"},
+		{APIVersion: "argoproj.io/v1alpha1", Kind: "Rollout", Resource: "rollouts", Reason: "Watching"},
 	}
-	g := inventoryPart(t, Render(f), "apiGroups")["groups"].([]any)[0].(map[string]any)
-	assert.Equal(t, "istio", g["name"])
-	assert.Equal(t, 60.0, kept(g, "kinds"))
-	assert.Greater(t, g["more"], 0.0)
+	g := inventoryPart(t, Render(f), "apiGroups")
+	assert.Equal(t, []any{"argoproj.io", "gateway.networking.k8s.io"}, g["names"])
+
+	f.Cache.Kinds = f.Cache.Kinds[:3]
+	assert.Equal(t, map[string]any{"status": "discovered"}, inventoryPart(t, Render(f), "apiGroups"), "a cluster with no add-ons names none")
 
 	f.Cache.Kinds = []Kind{{APIVersion: strings.Repeat("<", 300) + "/v1", Kind: "K", Resource: "ks", Reason: "Watching"}}
-	g = inventoryPart(t, Render(f), "apiGroups")["groups"].([]any)[0].(map[string]any)
-	assert.True(t, strings.HasSuffix(g["name"].(string), "…"))
-	assert.Equal(t, []any{"K"}, g["kinds"])
+	name := inventoryPart(t, Render(f), "apiGroups")["names"].([]any)[0].(string)
+	assert.True(t, strings.HasSuffix(name, "…"))
 }
 
 // cut measures what marshal will write — quotes and escapes — and never lands

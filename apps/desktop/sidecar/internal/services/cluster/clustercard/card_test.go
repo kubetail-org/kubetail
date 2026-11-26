@@ -158,6 +158,7 @@ func healthy() *fakeService {
 			{APIVersion: "v1", Kind: "Namespace", Resource: "namespaces", Scope: "Cluster"},
 			{APIVersion: "v1", Kind: "Node", Resource: "nodes", Scope: "Cluster", Count: 3},
 			{APIVersion: "v1", Kind: "Pod", Resource: "pods", Scope: "Namespaced"},
+			{APIVersion: "networking.istio.io/v1", Kind: "VirtualService", Resource: "virtualservices", Scope: "Namespaced"},
 		},
 		names: []string{"default", "kube-system"},
 	}
@@ -171,7 +172,7 @@ func TestCardReadsTheActiveCache(t *testing.T) {
 
 	assert.Equal(t, []cluster.ClusterCacheID{11}, f.asked, "the cache the reading handed")
 	assert.Contains(t, got, `{"cluster":{"name":"prod","context":"prod-admin","kubernetes":"v1.31.2"},"connection":{"status":"Connected","tls":"verified"},"freshness":{"status":"watching"},"inventory":{"namespaces":{"status":"watching","names":["default","kube-system"]},"apiGroups":`)
-	assert.Contains(t, got, `{"name":"core","kinds":["Namespace","Node","Pod"]}`)
+	assert.Contains(t, got, `"apiGroups":{"status":"discovered","names":["networking.istio.io"]}`)
 }
 
 // The posture is read the way client-go will dial: an explicit scheme is taken as

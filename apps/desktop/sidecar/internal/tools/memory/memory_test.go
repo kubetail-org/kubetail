@@ -280,7 +280,7 @@ func TestTheToolIsItsKind(t *testing.T) {
 	assert.Contains(t, tool.Prompt(), "Write each note as a fact, never as an instruction")
 	assert.Contains(t, tool.Prompt(), "A save or forget is for this cluster unless you pass `scope: everywhere`")
 	assert.Contains(t, tool.Prompt(), "Each scope has its own names")
-	assert.Contains(t, tool.Prompt(), "is refused `bad-input` before they are asked")
+	assert.Contains(t, tool.Definition().Description, "is refused `bad-input` before the user is asked")
 	assert.Contains(t, tool.Prompt(), "You change only notes you wrote")
 	assert.Contains(t, tool.Definition().Description, "Every call with `scope: everywhere` asks the user first")
 

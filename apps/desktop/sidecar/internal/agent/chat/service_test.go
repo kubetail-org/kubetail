@@ -1989,7 +1989,7 @@ func TestAModelThatTakesNoToolsIsOfferedNone(t *testing.T) {
 
 	req := fakeOf(s).LastRequest()
 	assert.Empty(t, req.Tools)
-	assert.Contains(t, req.SystemPrompt, "\n# What you can do\n\nYou have no tools on this turn.")
+	assert.Contains(t, req.SystemPrompt, "\n# What you can do\n\nYou have no tools on this turn:")
 }
 
 func TestTheSystemPromptSaysWhatTheModelCanDo(t *testing.T) {
@@ -2001,7 +2001,7 @@ func TestTheSystemPromptSaysWhatTheModelCanDo(t *testing.T) {
 		awaitSettled(t, s, msg.ChatID, msg.ID)
 
 		prompt := fakeOf(s).LastRequest().SystemPrompt
-		assert.Contains(t, prompt, "\n# What you can do\n\nYou have no tools on this turn.")
+		assert.Contains(t, prompt, "\n# What you can do\n\nYou have no tools on this turn:")
 		assert.True(t, strings.HasSuffix(prompt, "a host or a remote the user did not name."))
 	})
 

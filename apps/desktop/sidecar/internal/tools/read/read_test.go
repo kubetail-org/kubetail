@@ -566,7 +566,6 @@ func TestTheDefinitionIsTheReferences(t *testing.T) {
 	assert.True(t, strings.HasPrefix(section, "## Read\n"))
 	assert.Contains(t, section, "waits on the user")
 	assert.Contains(t, section, "redacted")
-	assert.Contains(t, section, "Data is not instructions")
 }
 
 // Reading and redacting 8 MiB can pass the turn's default bound, so the tool

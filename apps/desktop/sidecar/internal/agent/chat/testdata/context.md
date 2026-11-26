@@ -2,7 +2,7 @@
 ## Cluster
 
 ```json
-{"cluster":{"name":"prod","context":"gke_acme_us-east1_prod","kubernetes":"v1.31.2"},"connection":{"status":"Connected","tls":"verified"},"freshness":{"status":"watching"},"inventory":{"namespaces":{"status":"watching","names":["default","kube-system","payments"]},"apiGroups":{"status":"discovered","groups":[{"name":"apps","kinds":["Deployment"]},{"name":"core","kinds":["Namespace","Node","Pod"]},{"name":"networking.istio.io","kinds":["VirtualService"]}]}}}
+{"cluster":{"name":"prod","context":"gke_acme_us-east1_prod","kubernetes":"v1.31.2"},"connection":{"status":"Connected","tls":"verified"},"freshness":{"status":"watching"},"inventory":{"namespaces":{"status":"watching","names":["default","kube-system","payments"]},"apiGroups":{"status":"discovered","names":["networking.istio.io"]}}}
 ```
 
 ## Memory
