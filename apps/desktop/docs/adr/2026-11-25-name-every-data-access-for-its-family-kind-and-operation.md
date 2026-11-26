@@ -3,6 +3,7 @@ title: Name every data access for its family, kind and operation
 date: 2026-11-25
 scope: cross-cutting
 status: Accepted
+amended_by: [Call a query or a subscription a read, and its contract a read contract](2026-11-26-call-a-query-or-a-subscription-a-read-and-its-contract-a-read-contract.md)
 ---
 
 # Name every data access for its family, kind and operation
@@ -26,7 +27,7 @@ two halves were not described as one system:
 
 ## Decision
 
-[`docs/data-access.md`](../data-access.md) replaces `docs/subscriptions.md` and covers queries and
+[`docs/read-contracts/README.md`](../read-contracts/README.md) replaces `docs/subscriptions.md` and covers queries and
 subscriptions in one document. The pairing rules (a Get returns what its state watch delivers, a
 List what its collection watch or feed delivers, a Fetch what its tail delivers) belong to
 neither half alone.

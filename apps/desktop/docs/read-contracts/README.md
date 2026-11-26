@@ -1,12 +1,13 @@
-# Data access
+# Read contracts
 
-A data access is an API through which a consumer observes data a source owns: a **query**
+A read is an API through which a consumer observes data a source owns: a **query**
 returns once, and a **subscription** keeps delivering after the call returns. This covers Go
 service methods, GraphQL fields, gRPC methods and the TypeScript that consumes them. An API that
-starts something new (a probe, a mutation, a background task) is not a data access.
+starts something new (a probe, a mutation, a background task) is not a read.
 
-Every data access has a contract, and is named for it. The contract follows from what the data
-is and what the consumer does with it, never from the transport or the serialized type.
+Every read has a contract, its **read contract**, and is named for it. The contract follows
+from what the data is and what the consumer does with it, never from the transport or the
+serialized type.
 
 The first half of this document is what a change needs: the taxonomy, how to choose a contract,
 how to name it, and the steps. The second half is the reference: each
@@ -146,7 +147,7 @@ Rules that apply to every contract:
   generic pub/sub code may use `Subscribe` freely. A method that starts something new to produce
   its answer takes another verb (`Probe`, `Resolve`), as does a poller or a background task;
   reading, filtering and shaping stored data starts nothing. An accessor on a value in memory is
-  not a data access and is named as Go names it.
+  not a read and is named as Go names it.
 - **`Query` and `Subscription` are the generic nouns, for the transport and nothing else**:
   GraphQL's own `query` and `subscription` keywords, the host's `graphql_query`,
   `graphql_subscribe`, `graphql_unsubscribe` and `log_window_subscribe` commands, and the
@@ -421,7 +422,8 @@ inside the sidecar.
   reconnect on the completion that follows it, so the tail's subscriber unsubscribes on `Ended`
   and the tail is not opened again.
 
-→ [ADR: name every data access for its family, kind and operation](adr/2026-11-25-name-every-data-access-for-its-family-kind-and-operation.md),
-[ADR: delta-watch protocol](adr/2026-08-09-delta-watch-protocol.md),
-[ADR: watch failure reporting](adr/2026-08-14-watch-failure-reporting.md),
-[ADR: a series is a third kind of stream](adr/2026-11-02-a-series-is-a-third-kind-of-stream-and-the-pool-owns-its-clock.md).
+→ [ADR: name every read for its family, kind and operation](../adr/2026-11-25-name-every-data-access-for-its-family-kind-and-operation.md),
+[ADR: call a query or a subscription a read](../adr/2026-11-26-call-a-query-or-a-subscription-a-read-and-its-contract-a-read-contract.md),
+[ADR: delta-watch protocol](../adr/2026-08-09-delta-watch-protocol.md),
+[ADR: watch failure reporting](../adr/2026-08-14-watch-failure-reporting.md),
+[ADR: a series is a third kind of stream](../adr/2026-11-02-a-series-is-a-third-kind-of-stream-and-the-pool-owns-its-clock.md).

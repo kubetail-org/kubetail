@@ -8,8 +8,8 @@ the model only through `logline.ForModel`**: `LogsRead`, a `LogsWatch` notice an
 action](../../../../docs/adr/2026-10-18-a-rich-view-is-a-tool-calls-action.md).
 
 A **tail** is the cursor tail a caller opens (`TailFromCursor`, `cursorTail`,
-[`docs/data-access.md`](../../../../docs/data-access.md)). A **tailer** is one stream's following
-read beneath it, shared by every tail of that stream.
+[`docs/read-contracts/`](../../../../docs/read-contracts/README.md)). A **tailer** is one
+stream's following read beneath it, shared by every tail of that stream.
 
 Each sub-package (`logline`, `refusal`, `iso8601`, `kubelet`, `logstore`, `logstest`) is a leaf
 beneath `logs`; none imports it. The root `.gitignore` ignores `logs` folders, so this package

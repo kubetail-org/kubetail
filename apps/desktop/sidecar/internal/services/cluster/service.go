@@ -79,7 +79,7 @@ import (
 // object, sits at the top level.
 //
 // Every method that keeps delivering is named for its contract, as
-// docs/data-access.md states: Watch…Collection, Watch…State, Watch…KeyedState,
+// docs/read-contracts/README.md states: Watch…Collection, Watch…State, Watch…KeyedState,
 // Subscribe…EventFeed, Subscribe…SampleFeed. Each ends when ctx ends.
 //
 // WatchCollectionByID runs the same protocol as WatchCollection, over one id: snapshot,

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The fold every keyed state watch shares. See docs/data-access.md, *Keyed state watch*.
+// The fold every keyed state watch shares. See docs/read-contracts/README.md, *Keyed state watch*.
 import type { Keyed } from './collection-watch';
 import type { SubscriptionReducer } from './use-folded-subscription';
 

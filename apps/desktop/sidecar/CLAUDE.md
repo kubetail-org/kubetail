@@ -261,8 +261,8 @@ codegen; implement the panicking stubs gqlgen appends to `schema.resolvers.go`. 
 file is a two-pass regen: delete the old `*.resolvers.go` between passes and check no body came
 through as `panic("not implemented")`.
 
-**A data access is named for its contract**; choose the contract first from
-[`docs/data-access.md`](../docs/data-access.md).
+**A read is named for its contract**; choose the contract first from
+[`docs/read-contracts/`](../docs/read-contracts/README.md).
 
 | Contract | Go method | GraphQL field |
 | --- | --- | --- |

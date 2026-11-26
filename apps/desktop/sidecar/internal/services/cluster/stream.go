@@ -69,7 +69,7 @@ func sendFrame[T any](ctx context.Context, out chan<- T, frame T) bool {
 // becomes a frame, how a removal does, and the bookmark that closes a snapshot. The
 // pumps below are the rest, and are the same for every kind — which is the point, since
 // the bookmark discipline is a protocol rule rather than a per-kind choice.
-// See docs/data-access.md.
+// See docs/read-contracts/README.md.
 type collectionWatch[Spec, Status, Frame any] struct {
 	// frame projects one object into a frame of the given type. Fallible because a
 	// projection reads the owner edge, which is a store read.

@@ -47,8 +47,8 @@ func TestAuthProjectionCarriesNoTokens(t *testing.T) {
 	}
 }
 
-// A query with no caller is removed (docs/data-access.md): each field here has a document in the
-// webview.
+// A query with no caller is removed (docs/read-contracts/README.md): each field here has a
+// document in the webview.
 func TestEveryQueryFieldHasACaller(t *testing.T) {
 	var got []string
 	for _, f := range parsedSchema.Query.Fields {
@@ -64,7 +64,7 @@ func TestEveryQueryFieldHasACaller(t *testing.T) {
 }
 
 // A query field ends in its contract's verb, and its description opens with the
-// contract (docs/data-access.md).
+// contract (docs/read-contracts/README.md).
 func TestEveryQueryFieldIsNamedForItsContract(t *testing.T) {
 	opening := map[string]string{"Get": "A Get of ", "List": "A List of ", "Fetch": "A Fetch of "}
 	for _, f := range parsedSchema.Query.Fields {

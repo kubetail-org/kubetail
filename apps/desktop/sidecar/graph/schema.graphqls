@@ -2370,7 +2370,7 @@ type SandboxConsole {
 
 type Query {
   # Every field is named for its contract (Get, List or Fetch), and its description opens
-  # with it. The contracts are docs/data-access.md.
+  # with it. The contracts are docs/read-contracts/README.md.
 
   # --- Sandbox ---
   "A Get of whether this machine offers sandboxed Bash, and why."
@@ -2586,8 +2586,8 @@ type Mutation {
 
 type Subscription {
   # Every field is named for its contract, and its description opens with it. The
-  # contracts and what each delivers are docs/data-access.md. None of them ends on its own but the
-  # cursor tail, whose last frame is `Ended`.
+  # contracts and what each delivers are docs/read-contracts/README.md. None of them ends
+  # on its own but the cursor tail, whose last frame is `Ended`.
 
   # --- Any object ---
   "An event feed of a cache's or a per-kind record's timeline — `ClusterCache`, `ClusterCachedKind`: runs upserted by `Event.id`, the snapshot closed by one `Bookmark` (`EventFeedFrameType`). Optionally one `category`. The point read is that record's own `events` field; a cluster's timeline is `clusterEventFeed`."

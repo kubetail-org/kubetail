@@ -213,3 +213,4 @@ What differs here:
 | 2026-11-25 | [Name every data access for its family, kind and operation](2026-11-25-name-every-data-access-for-its-family-kind-and-operation.md) | cross-cutting | Accepted |
 | 2026-11-25 | [A window fixes its cluster, and Kubetail never falls back from an unreachable one](2026-11-25-a-window-fixes-its-cluster-and-never-falls-back.md) | cross-cutting | Accepted |
 | 2026-11-25 | [Import Kstack without its history and reset its migrations](2026-11-25-import-kstack-without-its-history-and-reset-its-migrations.md) | repo | Accepted |
+| 2026-11-26 | [Call a query or a subscription a read, and its contract a read contract](2026-11-26-call-a-query-or-a-subscription-a-read-and-its-contract-a-read-contract.md) | cross-cutting | Accepted |

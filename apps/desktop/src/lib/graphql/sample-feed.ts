@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The fold every sample feed shares. See docs/data-access.md, *Sample feed*.
+// The fold every sample feed shares. See docs/read-contracts/README.md, *Sample feed*.
 import { perFrame } from './use-folded-subscription';
 import type { SubscriptionReducer } from './use-folded-subscription';
 

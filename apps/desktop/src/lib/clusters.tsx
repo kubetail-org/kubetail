@@ -16,7 +16,7 @@
 // (`clusterCollectionWatch`, `clusterCacheCollectionWatch`,
 // `clusterCacheHealthKeyedStateWatch`) into id-keyed maps, then joins client-side — caches
 // onto clusters (active cache = `spec.serverUid` matches `status.server.uid`), the folded
-// sync verdict onto that cache by `cacheID`. See docs/data-access.md, *Collection watch*.
+// sync verdict onto that cache by `cacheID`. See docs/read-contracts/README.md, *Collection watch*.
 //
 // The verdict is the sidecar's rollup over every kind the cache syncs — the cache's
 // own `Synced` condition is deliberately coarse and NOT what the UI reads. Only

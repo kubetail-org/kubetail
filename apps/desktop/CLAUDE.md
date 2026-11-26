@@ -19,9 +19,9 @@ The desktop's ADRs are their own sequence, in [`docs/adr/`](docs/adr/README.md).
 
 Host and sidecar share one Unix socket / named pipe, served by the sidecar's `net/http` as HTTP/1.1 plus h2c (prior knowledge only), with no TLS. **GraphQL** (webview↔sidecar) rides HTTP/1.1 (POST + SSE); **gRPC** (host↔sidecar control: auth state, login/logout, resync poke) rides HTTP/2. The cluster surface is GraphQL-only. → [ADR: single-socket h2c from the standard library](docs/adr/2026-10-26-single-socket-h2c-from-the-standard-library.md).
 
-## Data access
+## Read contracts
 
-**A new query or subscription takes its contract and name from [`docs/data-access.md`](docs/data-access.md)**, which states each contract and what its consumer may assume. → [ADR: name every data access](docs/adr/2026-11-25-name-every-data-access-for-its-family-kind-and-operation.md).
+**A new query or subscription takes its contract and name from [`docs/read-contracts/`](docs/read-contracts/README.md)**, which states each contract and what its consumer may assume. → [ADR: name every read](docs/adr/2026-11-25-name-every-data-access-for-its-family-kind-and-operation.md).
 
 - **Never render an empty state before a collection watch's `Bookmark` lands.**
 - **Detect it as `type === 'Bookmark'`, never as a missing entity**: a nested non-null field that errors nulls its parent, so a null entity also arrives on ordinary changes. A change with no entity is dropped, not folded.
