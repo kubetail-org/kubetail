@@ -65,17 +65,18 @@ Kubetail is organized as a monorepo with one folder per component:
 
 Every check is a `make <verb>-<area>` target, run from the repo root. Run the checks of each area you changed before you open a pull request; CI runs every area on every platform. `make help` lists every target and is the authority if this table falls behind.
 
-| Area | Paths | lint | vet | test | cover |
-|---|---|---|---|---|---|
-| `cli` | `cli/`, `dashboard/` | `lint-cli` | `vet-cli` | `test-cli` | `cover-cli-changed` |
-| `libs` | `libs/go-common/` | `lint-libs` | `vet-libs` | `test-libs` | `cover-libs-changed` |
-| `cluster-api` | `cluster/api/` | `lint-cluster-api` | `vet-cluster-api` | `test-cluster-api` | `cover-cluster-api-changed` |
-| `cluster-agent` | `cluster/agent/` | `lint-cluster-agent` | `vet-cluster-agent` | `test-cluster-agent` | `cover-cluster-agent-changed` |
-| `web` | `apps/web/` | `lint-web` | `vet-web` | `test-web` | `cover-web-changed` |
-| `desktop` | `apps/desktop/` | `lint-desktop` | `vet-desktop` | `test-desktop` | `cover-desktop-changed` |
-| `e2e` | `e2e/` | `lint-e2e` | | `test-e2e` | |
-| `repo` | everything else | `lint-repo` | | `test-repo` | |
+| Area | Paths | while working | lint | vet | test | cover |
+|---|---|---|---|---|---|---|
+| `cli` | `cli/`, `dashboard/` | `vet-cli-changed`, `test-cli-changed` | `lint-cli` | `vet-cli` | `test-cli` | `cover-cli-changed` |
+| `libs` | `libs/go-common/` | `vet-libs-changed`, `test-libs-changed` | `lint-libs` | `vet-libs` | `test-libs` | `cover-libs-changed` |
+| `cluster-api` | `cluster/api/` | `vet-cluster-api-changed`, `test-cluster-api-changed` | `lint-cluster-api` | `vet-cluster-api` | `test-cluster-api` | `cover-cluster-api-changed` |
+| `cluster-agent` | `cluster/agent/` | `vet-cluster-agent-changed`, `test-cluster-agent-changed` | `lint-cluster-agent` | `vet-cluster-agent` | `test-cluster-agent` | `cover-cluster-agent-changed` |
+| `web` | `apps/web/` | `vet-web-changed`, `test-web-changed` | `lint-web` | `vet-web` | `test-web` | `cover-web-changed` |
+| `desktop` | `apps/desktop/` | `vet-desktop-changed`, `test-desktop-changed` | `lint-desktop` | `vet-desktop` | `test-desktop` | `cover-desktop-changed` |
+| `e2e` | `e2e/` | | `lint-e2e` | | `test-e2e` | |
+| `repo` | everything else | `test-repo-changed` | `lint-repo` | | `test-repo` | |
 
+- **`vet-<area>-changed` and `test-<area>-changed`** vet and test what your branch reaches in one area, on this platform, and print each command they run and each suite they skip. Run them while you work: they narrow `vet-<area>` and `test-<area>`, which you still run before a pull request. `test-repo-changed` runs the bats files of the scripts you changed.
 - **`cover-<area>-changed`** lists the lines your branch changed that no test reaches. Cover or mark each one: CI fails a pull request on them.
 - **`lint-repo`** runs `lint-repo-sh`, `lint-repo-md`, `lint-repo-yaml`, `lint-repo-toolchains` and `lint-repo-digests`, which you can also run alone.
 - **A change can reach another area.** The *Checks* section of the root [README](README.md#checks) lists those cases, and each component's README lists what to run while you work.

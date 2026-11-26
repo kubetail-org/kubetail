@@ -11,7 +11,13 @@ A Go/Gin HTTP server: the built UI, a GraphQL API over the Kubernetes API (gqlge
 
 The root guide's *Go modules › Checks* holds the commands every Go module shares. Keep this section in step with the one in `README.md`.
 
-While working, after editing `libs/graphql/dashboard/schema.graphqls`:
+While working:
+
+```sh
+make vet-cli-changed test-cli-changed   # from the repo root: what the change reaches, with cli/
+```
+
+After editing `libs/graphql/dashboard/schema.graphqls`:
 
 ```sh
 go generate ./...                        # gqlgen

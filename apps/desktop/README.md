@@ -48,7 +48,11 @@ pnpm tauri dev
 
 ## Checks
 
-While working, on what you touched: `go test ./internal/<pkg>/...` in `sidecar/`, `pnpm test --run <file>`, `cargo test` in `src-tauri/`.
+While working, from the repo root, on what the change reaches:
+
+```sh
+make vet-desktop-changed test-desktop-changed   # this platform alone; a host-only change runs no Go test
+```
 
 Before a PR, from the repo root:
 

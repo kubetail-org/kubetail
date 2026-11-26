@@ -12,7 +12,13 @@ A Go/Gin GraphQL server that runs in the cluster and answers log queries from th
 
 The root guide's *Go modules › Checks* holds the commands every Go module shares. Keep this section in step with the one in `README.md`.
 
-While working, after editing `libs/graphql/cluster-api/schema.graphqls`:
+While working:
+
+```sh
+make vet-cluster-api-changed test-cluster-api-changed   # from the repo root: what the change reaches
+```
+
+After editing `libs/graphql/cluster-api/schema.graphqls`:
 
 ```sh
 go generate ./...                           # gqlgen

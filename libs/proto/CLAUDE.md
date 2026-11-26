@@ -13,6 +13,8 @@ make generate                     # from the repo root: regenerates the *.pb.go
 cd cluster/agent && cargo build   # needs protoc
 ```
 
+Then, from the repo root, `make vet-<area>-changed test-<area>-changed` for `libs`, `cluster-api` and `cluster-agent`.
+
 Before a PR, the checks of both sides: the root guide's *Go modules › Checks* in `libs/go-common` and `cluster/api`, and `cluster/agent/`'s, which end with:
 
 ```sh

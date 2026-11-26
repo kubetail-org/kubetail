@@ -21,10 +21,10 @@ In `apps/web/`.
 While working:
 
 ```sh
+make vet-web-changed test-web-changed      # from the repo root: what the change reaches
 pnpm format                                # oxfmt: formats and sorts imports
 pnpm lint                                  # oxlint (type-aware), then `oxfmt --check`. A warning fails the run.
 pnpm lint:tailwind                         # the Tailwind classes, after changing any; `--fix` rewrites a spelling
-pnpm exec vitest related --run <file>...   # the tests that import the files you touched
 ```
 
 Before a PR:

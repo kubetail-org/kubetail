@@ -12,6 +12,13 @@ No binary ships from here. `cli`, `dashboard` and `cluster/api` import it, and i
 
 The root guide's *Go modules › Checks* holds the commands every Go module shares. Keep this section in step with the one in `README.md`.
 
+While working, from the repo root:
+
+```sh
+make vet-libs-changed test-libs-changed          # what the change reaches in this module
+make test-cli-changed test-cluster-api-changed   # what it reaches in the modules that import this one
+```
+
 Before a PR:
 
 ```sh

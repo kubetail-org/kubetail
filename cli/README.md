@@ -23,10 +23,11 @@ This builds the Dashboard UI, embeds it and writes the binary to `bin/kubetail`.
 
 [The root guide's *Go modules › Checks*](../CLAUDE.md#checks) holds the commands every Go module shares.
 
-While working, after editing `config/default/cli.*`:
+While working:
 
 ```sh
-go generate ./...          # copies them to assets/; commit both
+make vet-cli-changed test-cli-changed   # from the repo root: what the change reaches, with dashboard/
+go generate ./...                       # after editing config/default/cli.*: copies them to assets/; commit both
 ```
 
 Before a PR:

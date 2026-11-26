@@ -347,7 +347,7 @@ A change in one place can break another component. Also run:
 | `apps/desktop/proto/` or the sidecar's GraphQL schema | `make generate-desktop`, then `make vet-desktop test-desktop` |
 | a `Dockerfile` or a toolchain version | `make lint-repo-toolchains lint-repo-digests` |
 | `.github/` or other YAML | `make lint-repo-yaml` |
-| `scripts/` | `make lint-repo-sh test-repo` |
+| `scripts/` | `make test-repo-changed` while working, `make lint-repo-sh test-repo` before a pull request |
 | `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...`, and `make lint-desktop` for `designsync` or `securitymodel` |
 | Markdown | `make lint-repo-md` |
 | `config/`, `hack/` | CI runs no code job for these: name the checks you ran in the pull request |

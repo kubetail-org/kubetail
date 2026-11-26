@@ -64,11 +64,10 @@ Four modules under the root `go.work`: `cli`, `dashboard`, `cluster/api` and `li
 
 These hold for every module; each module's guide adds its own and names its coverage target.
 
-While working, in the module, on the packages you touched:
+While working, from the repo root, on what the change reaches:
 
 ```sh
-go vet ./pkg/app/...
-go test ./pkg/app/...
+make vet-<area>-changed test-<area>-changed   # this platform alone; never in place of the checks below
 ```
 
 Before a PR:
@@ -154,7 +153,7 @@ Each area's guide adds its tooling and how it waits. → [ADR: test conventions]
 
 ## Checks
 
-Each area's guide has a `## Checks` section: what to run while working, and what to run before a PR, ending with the area's `make cover-<area>-changed` where its coverage is measured. Run the second list of every area you touched before you finish. CI runs every check on every platform and is the backstop. A guide's `## Checks` and the one in the `README.md` beside it say the same; change both together. → [ADR: run each area's own checks locally, with CI as the backstop](docs/adr/2026-11-19-run-each-areas-own-checks-locally-with-ci-as-the-backstop.md)
+Each area's guide has a `## Checks` section: what to run while working, led by the area's `make vet-<area>-changed test-<area>-changed`, and what to run before a PR, ending with the area's `make cover-<area>-changed` where its coverage is measured. Run the second list of every area you touched before you finish. CI runs every check on every platform and is the backstop. A guide's `## Checks` and the one in the `README.md` beside it say the same; change both together. → [ADR: run each area's own checks locally, with CI as the backstop](docs/adr/2026-11-19-run-each-areas-own-checks-locally-with-ci-as-the-backstop.md), [ADR: scope local test and vet runs to what a change reaches](docs/adr/2026-11-26-scope-local-test-and-vet-runs-to-what-a-change-reaches.md)
 
 A change in one place can break another area. Also run:
 
@@ -166,7 +165,7 @@ A change in one place can break another area. Also run:
 | `apps/desktop/proto/` or the sidecar's GraphQL schema | `make generate-desktop`, then `make vet-desktop test-desktop` |
 | a `Dockerfile` or a toolchain version | `make lint-repo-toolchains lint-repo-digests` |
 | `.github/` or other YAML | `make lint-repo-yaml` |
-| `scripts/` | `make lint-repo-sh test-repo` |
+| `scripts/` | `make test-repo-changed` while working, `make lint-repo-sh test-repo` before a PR |
 | `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...`, and `make lint-desktop` for `designsync` or `securitymodel` |
 | Markdown | `make lint-repo-md` |
 | `config/` or `hack/` | CI runs no code job for these: name the checks you ran in the PR |
