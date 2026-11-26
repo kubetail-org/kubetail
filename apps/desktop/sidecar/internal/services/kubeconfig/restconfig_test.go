@@ -450,11 +450,10 @@ func TestRESTConfigPassesAResolutionFailureThrough(t *testing.T) {
 // clientcmd falls back to the current context when the name is empty, which for a
 // record naming no context would silently resolve to somebody else's cluster.
 func TestResolveRejectsAnEmptyContextName(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config")
-	writeKubeconfig(t, path, "prod")
-	svc := newServiceAt(t, path, testInterval)
-	start(t, svc)
-	cfg, _ := svc.Get()
+	cfg := api.NewConfig()
+	cfg.Clusters["prod-cluster"] = &api.Cluster{Server: "https://prod.invalid"}
+	cfg.AuthInfos["prod-user"] = &api.AuthInfo{Token: "t"}
+	cfg.Contexts["prod"] = &api.Context{Cluster: "prod-cluster", AuthInfo: "prod-user"}
 	cfg.CurrentContext = "prod"
 
 	_, err := resolve(cfg, "")
