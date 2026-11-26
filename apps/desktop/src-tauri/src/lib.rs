@@ -263,6 +263,7 @@ fn invoke_handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 's
         commands::graphql_unsubscribe,
         commands::new_window,
         commands::update_host_file,
+        commands::read_host_file,
         app::quit,
         commands::webview_record_error,
         app::open_account_url,

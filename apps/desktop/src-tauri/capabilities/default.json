@@ -19,6 +19,7 @@
     "allow-graphql-unsubscribe",
     "allow-new-window",
     "allow-update-host-file",
+    "allow-read-host-file",
     "allow-quit",
     "allow-webview-record-error",
     "allow-open-account-url",

@@ -84,6 +84,75 @@ describe('updateHostFile', () => {
 });
 
 describe('subscribeHostFile', () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue(undefined);
+  });
+
+  it('reads the file once listening, for a write broadcast before the listener mounted', async () => {
+    invokeMock.mockResolvedValue({ colorSchemePreference: 'dark' });
+    const listen = deferredListen();
+    const onUpdate = vi.fn();
+    subscribeHostFile(onUpdate);
+    expect(invokeMock).not.toHaveBeenCalled();
+    await listen.settle();
+
+    expect(invokeMock).toHaveBeenCalledWith('read_host_file');
+    await vi.waitFor(() => expect(onUpdate).toHaveBeenCalledWith({ colorSchemePreference: 'dark' }));
+  });
+
+  it('drops the read when a broadcast was heard first', async () => {
+    let resolveRead!: (file: unknown) => void;
+    invokeMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRead = resolve;
+      }),
+    );
+    const listen = deferredListen();
+    const onUpdate = vi.fn();
+    subscribeHostFile(onUpdate);
+    await listen.settle();
+
+    listen.emit({ colorSchemePreference: 'light' });
+    resolveRead({ colorSchemePreference: 'dark' });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    expect(onUpdate).toHaveBeenCalledWith({ colorSchemePreference: 'light' });
+  });
+
+  it('drops a read that lands after the unsubscribe', async () => {
+    let resolveRead!: (file: unknown) => void;
+    invokeMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRead = resolve;
+      }),
+    );
+    const listen = deferredListen();
+    const onUpdate = vi.fn();
+    const unsubscribe = subscribeHostFile(onUpdate);
+    await listen.settle();
+
+    unsubscribe();
+    resolveRead({ colorSchemePreference: 'dark' });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it('survives a failed read', async () => {
+    invokeMock.mockRejectedValue(new Error('no host'));
+    const listen = deferredListen();
+    const onUpdate = vi.fn();
+    subscribeHostFile(onUpdate);
+    await listen.settle();
+
+    // An unhandled rejection would fail the suite.
+    await Promise.resolve();
+    listen.emit({ colorSchemePreference: 'dark' });
+    expect(onUpdate).toHaveBeenCalledWith({ colorSchemePreference: 'dark' });
+  });
+
   it('delivers the merged file the host broadcasts', async () => {
     const listen = deferredListen();
     const onUpdate = vi.fn();
@@ -91,7 +160,7 @@ describe('subscribeHostFile', () => {
     await listen.settle();
 
     listen.emit({ colorSchemePreference: 'dark' });
-    expect(onUpdate).toHaveBeenCalledWith({ colorSchemePreference: 'dark' });
+    expect(onUpdate).toHaveBeenLastCalledWith({ colorSchemePreference: 'dark' });
   });
 
   it('reads a payload-less event as an empty file', async () => {

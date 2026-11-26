@@ -22,6 +22,7 @@ const COMMANDS: &[&str] = &[
     "graphql_unsubscribe",
     "new_window",
     "update_host_file",
+    "read_host_file",
     "quit",
     "webview_record_error",
     "open_account_url",

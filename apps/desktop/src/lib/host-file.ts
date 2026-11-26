@@ -15,7 +15,7 @@
 // The webview's client for `host.json`, the host-persisted settings file and its
 // source of truth (`src-tauri/src/host_file.rs`). Owns the whole protocol — boot
 // injection (`readInjectedHostFile`), patch writes (`updateHostFile`), and the
-// post-write broadcast (`subscribeHostFile`) — so a setting's module only picks its
+// post-write broadcast with its catch-up read (`subscribeHostFile`) — so a setting's module only picks its
 // field out. Adding a setting means adding a field here and in the host, not a new
 // command or sync path. See docs/adr/2026-08-09-host-json-settings.md
 import { invoke } from '@tauri-apps/api/core';
@@ -41,8 +41,8 @@ declare global {
 // Hand-mirrors `host_file::UPDATED_EVENT`; carries the merged file.
 const UPDATED_EVENT = 'host-file-updated';
 
-// The host-injected snapshot; empty outside Tauri (plain-browser dev).
-// Synchronous — safe during first paint.
+// The host-injected file, as of the last write before this load; empty outside
+// Tauri (plain-browser dev). Synchronous — safe during first paint.
 export function readInjectedHostFile(): HostFile {
   return window.__KUBETAIL_HOST__ ?? {};
 }
@@ -55,17 +55,30 @@ export function updateHostFile(patch: HostFilePatch): void {
 
 // Subscribe to the host's post-write broadcast. The returned unsubscribe is safe
 // to call before `listen` resolves — a `useEffect` cleanup never awaits registration.
+//
+// A write that landed while this page was loading was broadcast to no listener,
+// so once listening, read the file once. A broadcast heard first is newer.
 export function subscribeHostFile(onUpdate: (file: HostFile) => void): () => void {
   let unlisten: (() => void) | undefined;
   let cancelled = false;
+  let heard = false;
 
-  listen<HostFile>(UPDATED_EVENT, (event) => onUpdate(event.payload ?? {}))
+  listen<HostFile>(UPDATED_EVENT, (event) => {
+    heard = true;
+    onUpdate(event.payload ?? {});
+  })
     .then((fn) => {
       // Unsubscribed while `listen` was still in flight.
-      if (cancelled) fn();
-      else unlisten = fn;
+      if (cancelled) {
+        fn();
+        return undefined;
+      }
+      unlisten = fn;
+      return invoke<HostFile>('read_host_file').then((file) => {
+        if (!cancelled && !heard) onUpdate(file ?? {});
+      });
     })
-    // Absent bridge (plain-browser dev) — no cross-window sync to track.
+    // Absent bridge (plain-browser dev) — no host file to track.
     .catch(() => {});
 
   return () => {

@@ -15,7 +15,7 @@
 use std::time::Instant;
 
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Emitter, Manager, Runtime, State, Webview};
+use tauri::{AppHandle, Emitter, Manager, Runtime, State, Webview, WebviewWindow};
 
 use crate::error::Result;
 use crate::host_file::{self, HostFile, HostFilePatch};
@@ -23,7 +23,7 @@ use crate::log_windows::{self, Call, Frame, Subscribed, View};
 use crate::services::sidecar::GraphqlResponse;
 use crate::state::AppState;
 use crate::webview_log::{self, WebviewRecord};
-use crate::window_manager::on_blocking_pool;
+use crate::window_manager::{self, on_blocking_pool};
 
 /// Probes the sidecar's IPC listener; the frontend's startup gate. `Err`
 /// (frontend `networkError`) once the connect budget elapses.
@@ -43,13 +43,25 @@ pub async fn new_window<R: Runtime>(app: AppHandle<R>) -> Result<()> {
 }
 
 /// Applies a partial update to `host.json` (see `host_file`); adding a setting
-/// extends `HostFilePatch`, not the command list. Broadcasts the merged file to
-/// every window as `host_file::UPDATED_EVENT` and returns it. See
+/// extends `HostFilePatch`, not the command list. Hands the merged file to
+/// every window (`window_manager::host_file_written`), broadcasts it as
+/// `host_file::UPDATED_EVENT` and returns it. See
 /// docs/adr/2026-08-09-host-json-settings.md.
 #[tauri::command]
 pub fn update_host_file<R: Runtime>(app: AppHandle<R>, patch: HostFilePatch) -> Result<HostFile> {
     let file = host_file::update(&host_file::location(&app)?, patch)?;
+    window_manager::host_file_written(&app, &file);
     app.emit(host_file::UPDATED_EVENT, &file)?;
+    Ok(file)
+}
+
+/// Reads `host.json` for a window whose page has just loaded, and brings the
+/// window up to it (`window_manager::send_host_file`). A write that lands
+/// while a window loads reaches neither its new page nor its listener.
+#[tauri::command]
+pub fn read_host_file<R: Runtime>(window: WebviewWindow<R>) -> Result<HostFile> {
+    let file = host_file::read(&host_file::location(window.app_handle())?.path);
+    window_manager::send_host_file(&window, &file);
     Ok(file)
 }
 
@@ -375,6 +387,23 @@ mod tests {
         // Emitted before the command returned.
         let broadcast: serde_json::Value = serde_json::from_str(&rx.try_recv().unwrap()).unwrap();
         assert_eq!(broadcast, file);
+    }
+
+    /// A window that missed a write's broadcast reads the written file.
+    #[test]
+    fn read_host_file_returns_a_write_the_window_never_heard() {
+        let scratch = Scratch::new();
+        let app = mock_app(scratch.path(), SidecarService::without_process(None));
+        let main = window(&app, "main");
+        let patch = host_file::HostFilePatch {
+            color_scheme_preference: Some(host_file::ColorSchemePreference::Dark),
+        };
+        let written =
+            host_file::update(&host_file::location(app.handle()).unwrap(), patch).unwrap();
+
+        let file = invoke(&main, "read_host_file", json!({})).unwrap();
+
+        assert_eq!(file, serde_json::to_value(written).unwrap());
     }
 
     /// The label records are paced under is the calling webview's.

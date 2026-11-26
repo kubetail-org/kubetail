@@ -41,7 +41,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::warn;
 
 use crate::error::Result;
-use crate::host_file::{self, ColorSchemePreference};
+use crate::host_file::{self, ColorSchemePreference, HostFile};
 use crate::window_state::{self, Frame, SavedFrame, Size};
 
 /// Label of the primary window (created at startup by `lib.rs`'s `setup`).
@@ -175,6 +175,37 @@ fn background_color_for(preference: Option<ColorSchemePreference>, os_prefers_da
         DARK_BACKGROUND
     } else {
         LIGHT_BACKGROUND
+    }
+}
+
+/// The native background `file`'s color scheme calls for on this machine.
+#[cfg(not(target_os = "linux"))]
+fn native_background(file: &HostFile) -> Color {
+    background_color_for(
+        file.color_scheme_preference,
+        crate::os_theme::prefers_dark(),
+    )
+}
+
+/// Brings every open window up to `file` after a write.
+pub fn host_file_written<R: Runtime>(app: &AppHandle<R>, file: &HostFile) {
+    for window in app.webview_windows().values() {
+        send_host_file(window, file);
+    }
+}
+
+/// Brings `window` up to `file`, so a reload paints its scheme from the first
+/// frame: runs [`host_file::update_script`] in it and, on the opaque
+/// platforms, repaints its native background. A window that fails keeps its
+/// old copy until its page next loads.
+pub fn send_host_file<R: Runtime>(window: &WebviewWindow<R>, file: &HostFile) {
+    let result = window.eval(host_file::update_script(file));
+    #[cfg(not(target_os = "linux"))]
+    let result = result.and(window.set_background_color(Some(native_background(file))));
+    if let Err(err) = result {
+        // coverage:ignore-start the mock runtime never fails a window call
+        warn!(%err, label = window.label(), "failed to bring a window up to host.json");
+        // coverage:ignore-stop
     }
 }
 
@@ -974,11 +1005,7 @@ impl WindowManager {
         //    must stay unset.
         #[cfg(not(target_os = "linux"))]
         {
-            let color = background_color_for(
-                host_file.color_scheme_preference,
-                crate::os_theme::prefers_dark(),
-            );
-            builder = builder.background_color(color);
+            builder = builder.background_color(native_background(&host_file));
         }
 
         let window = builder.build()?;
@@ -1699,6 +1726,7 @@ mod tests {
                 "allow-graphql-unsubscribe",
                 "allow-new-window",
                 "allow-update-host-file",
+                "allow-read-host-file",
                 "allow-quit",
                 "allow-webview-record-error",
                 "allow-open-account-url",

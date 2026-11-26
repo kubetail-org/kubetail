@@ -167,7 +167,8 @@ Kept on disk but never read back as a format, or not kept across a restart:
 - **`<cache>/kubectl/`**: kubectl's own cache, in kubectl's format.
 - **`<cache>/tmp/`, `<runtime>/`**: a run's scratch, swept at start.
 - **`sessionStorage`** `kubetail:history-forward-ceiling`, `kubetail:chatgpt-plan-pending` (a sign-in
-  this window started awaits the plan's confirmation): one window session.
+  this window started awaits the plan's confirmation), `kubetail:host-file` (the host's copy of
+  `host.json` for a reload's first paint): one window session.
 - **Provider API keys from the environment**: passed in at launch (`cfg.LLMKeys`), never written.
   A key saved from the Providers pane is the *Saved provider keys* row.
 - **Provider payloads** inside the message blocks: a cache the provider may invalidate. A payload
