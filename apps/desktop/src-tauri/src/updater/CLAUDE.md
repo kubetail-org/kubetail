@@ -2,7 +2,7 @@
 
 macOS and Windows update in the app; Linux does not. Also owns `scripts/sign-updater.sh` and `release-desktop.yml`'s `sign-updater` job. The host-wide rules are [`src-tauri/CLAUDE.md`](../../CLAUDE.md). → [ADR: the updater trusts a current and a standby key](../../../docs/adr/2026-11-08-the-updater-trusts-a-current-and-a-standby-key.md).
 
-`mod.rs` is the part every platform compiles and tests: the check loop (`find`), the per-key checks (`check_each`), the standby key (`standby`) and the tray's offer (`offer`). `platform.rs` wires `tauri-plugin-updater` (a macOS/Windows-only dependency) and is listed in `.github/codecov.yml`'s `ignore`.
+`mod.rs` is the part every platform compiles and tests: the check loop (`watch`, `Schedule`), the per-key checks (`check_each`), the standby key (`standby`) and the tray's offer (`Offer`, `offer`). `platform.rs` wires `tauri-plugin-updater` (a macOS/Windows-only dependency) and is listed in `.github/codecov.yml`'s `ignore`.
 
 ## The check
 
@@ -21,6 +21,7 @@ macOS and Windows update in the app; Linux does not. Also owns `scripts/sign-upd
 
 - **The updater key is read only by `release-desktop.yml`'s `sign-updater` job** (`scripts/sign-updater.sh`), which installs nothing else. It signs the macOS bundle job's `.app.tar.gz` and the MSIs SignPath signed, and writes one `latest-<key id>.json` per key in the secrets, attached to the release: the current key, which must be the committed `pubkey` and the endpoint's id, and a retired one kept for older apps.
 - **The standby's private key is offline** and signs nothing until a rotation promotes it; the script refuses an unset standby or one it signs with ([`docs/updater-key.md`](../../../docs/updater-key.md)).
+
 ## Publishing
 
 - **Publishing a final copies its manifests to `updates.kubetail.com`** (`publish-desktop-updates.yml`). It refuses a manifest `release-desktop.yml` did not attest at the tag, and replaces a newer live one only when dispatched with `force`.
