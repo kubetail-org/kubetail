@@ -28,11 +28,22 @@ env:
   COUNT: ${{ inputs.count || '3' }}
 
 jobs:
+  # GitHub starts schedule runs in forks too. Outside kubetail-org/kubetail
+  # this job runs only for a dispatch, and every other job needs it, so a
+  # fork's scheduled run skips whole.
+  plan:
+    name: Plan
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-slim
+    steps:
+      - run: "true"
+
   stress:
     # stress-report.yml rebuilds STRESS_ID from the name.
     name: Test (${{ matrix.runner }}, ${{ matrix.race && 'race' || 'norace' }}, cpu ${{ matrix.cpu }})
-    # Forks get no nightly run.
-    if: github.repository == 'kubetail-org/kubetail' || github.event_name == 'workflow_dispatch'
+    needs: plan
     strategy:
       fail-fast: false
       # Keep in step with cli-test in ci-cli.yml; anchors do not cross files.

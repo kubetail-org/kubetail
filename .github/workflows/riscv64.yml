@@ -15,8 +15,8 @@ jobs:
   # GitHub starts schedule runs in forks too. Outside kubetail-org/kubetail
   # this job runs only for a dispatch, and every other job needs it, so a
   # fork's scheduled run skips whole.
-  fork-gate:
-    name: Fork gate
+  plan:
+    name: Plan
     if: >-
       github.repository == 'kubetail-org/kubetail'
       || github.event_name == 'workflow_dispatch'
@@ -29,7 +29,7 @@ jobs:
   # build step reuses the packages the tests compiled.
   go:
     name: Build and Test · Go
-    needs: fork-gate
+    needs: plan
     runs-on: ubuntu-24.04-riscv
     timeout-minutes: 90
     env:
@@ -53,7 +53,7 @@ jobs:
   # aarch64.
   docker:
     name: Build · Docker (cluster-api, ${{ matrix.target }})
-    needs: fork-gate
+    needs: plan
     timeout-minutes: 30
     strategy:
       fail-fast: false

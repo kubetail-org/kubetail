@@ -2,7 +2,7 @@
 # A new guide starts at its size plus about 5%, rounded up to a multiple of 512.
 # Explain an increase in the commit body.
 # A flat map of path to bytes: the script reads it with awk, so keep keys unquoted.
-CLAUDE.md: 37888
+CLAUDE.md: 38144
 apps/desktop/CLAUDE.md: 12288
 apps/desktop/design/CLAUDE.md: 21504
 apps/desktop/sidecar/CLAUDE.md: 32512
