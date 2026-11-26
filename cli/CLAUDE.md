@@ -38,7 +38,6 @@ make cover-cli-changed           # from the repo root; FULL=1 runs every test of
 
 ## logs
 
-- **A source is `[namespace:]<type>/<name>[/<container>]`**, a bare pod name, or `*` for a name or container. Parsing and the type aliases are in `libs/go-common/logs`.
 - **`--backend auto|kubetail|kubernetes`** picks the reader in `selectBackend`. `kubetail` is `internal/clusterapi`: GraphQL through the kube-apiserver, a POST to fetch and a `graphql-transport-ws` WebSocket to follow. `kubernetes` is `logs.NewStream` from `libs/go-common`. In `auto` a 404 from the probe means the Cluster API is not installed and falls back with a warning; any other error is fatal.
 - **The Cluster API client uses client-go's transports** (`rest.TransportFor` and its WebSocket round-tripper), so the kubeconfig's credentials and TLS apply. A plain `http.Client` or dialer would drop them.
 - **`--grep` runs on the server with the Cluster API and in the client without it**, with a warning.

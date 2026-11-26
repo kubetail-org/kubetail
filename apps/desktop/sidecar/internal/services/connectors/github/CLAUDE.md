@@ -6,14 +6,9 @@ provider: it is a granted key, like `openrouter`, and shares `lib/oskeyring` wit
 → [ADR](../../../../../docs/adr/2026-11-19-the-github-connector-signs-in-with-githubs-device-flow.md),
 [security record](../../../../../docs/security/2026-11-19-the-github-connector.md).
 
-- **One store: an entry present is connected.** Account `github-token`, `{"v":1,"token","login"}`.
-  The restore reads it and reaches no network. A newer `v` is left in place; an entry that does
-  not parse is deleted; a keyring that cannot be read writes nothing.
-- **`New` is `Restoring` and makes no keyring call**; the restore reads on a goroutine. Until it
-  publishes, `Token` waits (`Tokens` reaches `gh` only once signed out) and every change answers
-  `ErrRestoring`. `Close` leaves a keyring call that never answers behind.
-- **`Connect` is refused with no client id** (`connectors.ErrNoClient`), during an attempt, while connected
-  and in `Failed{NotDeleted}`. It checks the keyring, asks for a code, publishes `SigningIn` with
+- **Its keyring entry** is account `github-token`, `{"v":1,"token","login"}`.
+- **While `Restoring`**, `Token` waits (`Tokens` reaches `gh` only once signed out).
+- **`Connect` is refused with no client id** (`connectors.ErrNoClient`). After the keyring check it asks for a code, publishes `SigningIn` with
   the `UserCode`, and opens the browser only on a page on `AuthURL`'s origin. It returns once the
   browser opens; polling runs on a goroutine.
 - **Polling follows RFC 8628**: `authorization_pending` waits, `slow_down` adds 5 s or takes
@@ -25,7 +20,6 @@ provider: it is a granted key, like `openrouter`, and shares `lib/oskeyring` wit
 - **`Tokens(fallback)` is the proxy's source**: the connector's token while connected, `gh`'s
   otherwise. `Refused` checks `/user` once at a time; only its own `401` drops the token
   (`KeyRejected`).
-- **`Disconnect` drops the token from memory first**, then deletes the entry; the token stays
-  authorized on GitHub. A refused delete is `Failed{NotDeleted}` and returns the error.
+- **`Disconnect` leaves the token authorized on GitHub.**
 - Test seams are unexported options; tests run against a fake GitHub (`testutil_test.go`) whose
   tokens are not `gho_`-shaped, since `safe` blanks that shape unregistered.
