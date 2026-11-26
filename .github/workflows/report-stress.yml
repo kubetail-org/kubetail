@@ -1,9 +1,10 @@
-name: stress-report
+name: report-stress
 
-# The report job of stress.yml and stress-desktop.yml, which call this after
-# their Test jobs, if any failed. It opens or comments on an issue per failing
-# test, per package that fails outside a test, and one for the jobs that failed
-# outside both, titled outside-title.
+# The report job of each stress-<area>.yml, which calls this after its Test
+# jobs, if any failed. It opens or comments on an issue per failing test, per
+# package that fails outside a test, and one for the jobs that failed outside
+# both, titled outside-title. When stress.yml calls every area, their jobs and
+# artifacts share one run, so each report reads only its own area's.
 
 permissions:
   contents: read
@@ -13,10 +14,11 @@ on:
     inputs:
       stress-id-prefix:
         description: >-
-          What the caller's STRESS_ID puts before
-          <runner>-<race>-cpu<n>, rebuilt from each Test job's name
+          What the caller's STRESS_ID puts before <runner>-<race>-cpu<n>:
+          its area and a dash, distinct per caller and never a prefix of
+          another's
         type: string
-        default: ""
+        required: true
       labels:
         description: The labels of a new issue, comma-separated
         type: string
@@ -24,7 +26,7 @@ on:
       outside-title:
         description: >-
           The title of the issue for jobs that failed outside a test, distinct
-          per caller so the two never comment on each other's
+          per caller so no two comment on each other's
         type: string
         required: true
 
@@ -56,7 +58,7 @@ jobs:
 
           # Each artifact lands in stress/<name>/, even a lone one. The download
           # fails when no job left an artifact; a lost runner leaves none.
-          if ! gh run download "$RUN_ID" --pattern 'stress-*' --dir stress; then
+          if ! gh run download "$RUN_ID" --pattern "stress-$STRESS_ID_PREFIX*" --dir stress; then
             echo '::warning::no stress artifact downloaded'
           fi
 
@@ -74,15 +76,19 @@ jobs:
             fi
           }
 
-          # Every stress job that did not pass, by the STRESS_ID its name
-          # carries, with how it ended. A test step that never concluded means
-          # the runner was lost.
+          # Every stress job of this area that did not pass, by the STRESS_ID
+          # its name carries, with how it ended. Called from stress.yml, a job
+          # is named "<area> / Test (…)", and the area and a dash are its
+          # prefix; run alone, it is "Test (…)", and the run holds one area. A
+          # test step that never concluded means the runner was lost.
           gh api --paginate "repos/$GH_REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs" \
-            | jq -r --arg prefix "$STRESS_ID_PREFIX" '.jobs[] | select(.name | startswith("Test ("))
+            | jq -r --arg prefix "$STRESS_ID_PREFIX" '.jobs[]
+                  | (.name | capture("^((?<area>[^ ]+) / )?Test \\((?<runner>[^,]+), (?<race>[^,]+), cpu (?<cpu>[^)]+)\\)$")) as $m
+                  | (if $m.area then "\($m.area)-" else $prefix end
+                      + "\($m.runner)-\($m.race)-cpu\($m.cpu)") as $id
+                  | select($id | startswith($prefix))
                   | select(.conclusion != "success" and .conclusion != "skipped")
-                  | [$prefix
-                      + (.name | capture("\\((?<runner>[^,]+), (?<race>[^,]+), cpu (?<cpu>[^)]+)\\)$")
-                      | "\(.runner)-\(.race)-cpu\(.cpu)"),
+                  | [$id,
                      (if .conclusion == "cancelled" then "cancelled"
                       elif any(.steps[]; .name == "Run tests under stress" and .conclusion == null) then "lost"
                       else "failed" end)]

@@ -368,7 +368,7 @@ spawned it, as `main` does for a bad flag or root; the host shows it on the star
 - **CI's race step runs `go test -race -short ./...`** with `GORACE=atexit_sleep_ms=0`. A sweep too slow for the race detector shrinks under `testing.Short()`; a test never skips under it. The nightly stress run sets neither `-short` nor `GORACE`, so the full sweep and the exit sleep run.
 - A test outside `services/cluster` that needs a real cache store uses `cluster/clustertest` (`NewStore`, `Apply`, `Delete`, `Mirror`, `Read`); it carries the query views. Its `Connection` is one a test can `Retire`.
 
-**A nightly stress run hunts concurrency bugs** (the root `.github/workflows/stress-desktop.yml`):
+**A nightly stress run hunts concurrency bugs** (the root `.github/workflows/stress-desktop.yml`, which `stress.yml` calls):
 every desktop runner, `-shuffle=on -count=3`, one job per `-cpu` value (1 and 4; the `cpu` dispatch input is a
 JSON array, `[1,4]`), each with `-race` (keeping `checkptr` on for modernc's SQLite) and without.
 A test that hangs under `-cpu 1` is a finding. Each failing test gets an issue with the command that

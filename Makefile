@@ -311,8 +311,8 @@ lint-repo-md: ## Check local paths and anchors in every Markdown file
 # actionlint type-checks the workflows and composite actions and shellchecks
 # their `run:` blocks; zizmor audits them against .github/ci-config/zizmor.yml.
 # zizmor's online audits run only when GH_TOKEN is set, as in CI. tools/go.mod
-# pins actionlint. tools/cicallers checks that ci.yml and coverage.yml call
-# every area workflow beside them.
+# pins actionlint. tools/cicallers checks that ci.yml, coverage.yml and
+# stress.yml call every area workflow beside them.
 lint-repo-yaml: ## Lint every YAML file, then the workflows with actionlint, zizmor and cicallers
 	uv tool run yamllint@1.38.0 --strict .
 	sc=$$(command -v shellcheck) || { echo "shellcheck not found" >&2; exit 1; }; \

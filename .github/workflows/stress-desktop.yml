@@ -1,17 +1,24 @@
 name: stress-desktop
 
-# Runs the desktop sidecar's tests as stress.yml runs the Go workspace's: the
+# Runs the desktop sidecar's tests as stress-cli.yml runs the CLI's: the
 # sidecar is a module outside go.work, tested on the desktop's runners.
+# stress.yml calls this nightly; a dispatch runs it alone.
 # A red run means a concurrency bug was found and nothing else.
 
 permissions:
   contents: read
 
 on:
-  # 06:00 UTC, an hour after stress.yml starts, so the two do not queue for
-  # the macOS and Windows runners at once.
-  schedule:
-    - cron: "0 6 * * *"
+  workflow_call:
+    inputs:
+      count:
+        description: Repetitions of each test (-count)
+        type: string
+        default: "3"
+      cpu:
+        description: GOMAXPROCS values to run each test under (-cpu), as a JSON array
+        type: string
+        default: "[1,4]"
   workflow_dispatch:
     inputs:
       count:
@@ -25,9 +32,10 @@ env:
   COUNT: ${{ inputs.count || '3' }}
 
 jobs:
-  # GitHub starts schedule runs in forks too. Outside kubetail-org/kubetail
-  # this job runs only for a dispatch, and every other job needs it, so a
-  # fork's scheduled run skips whole.
+  # GitHub starts stress.yml's scheduled runs in forks too, and a called
+  # workflow sees the caller's event. Outside kubetail-org/kubetail this job
+  # runs only for a dispatch, and every other job needs it, so a fork's
+  # scheduled run skips whole.
   plan:
     name: Plan
     if: >-
@@ -38,7 +46,7 @@ jobs:
       - run: "true"
 
   stress:
-    # stress-report.yml rebuilds STRESS_ID from the name.
+    # report-stress.yml rebuilds STRESS_ID from the name.
     name: Test (${{ matrix.runner }}, ${{ matrix.race && 'race' || 'norace' }}, cpu ${{ matrix.cpu }})
     needs: plan
     strategy:
@@ -151,7 +159,7 @@ jobs:
     name: report
     needs: stress
     if: failure()
-    uses: ./.github/workflows/stress-report.yml
+    uses: ./.github/workflows/report-stress.yml
     with:
       stress-id-prefix: desktop-
       labels: testing,lang/go,desktop
