@@ -6,14 +6,14 @@ macOS and Windows update in the app; Linux does not. Also owns `scripts/sign-upd
 
 ## The check
 
-- **A release build checks each trusted key's manifest**, `https://updates.kubetail.com/desktop/stable/latest-<key id>.json`, at launch and every 24 hours (`find`, `CHECK_INTERVAL`). The current key's (`plugins.updater` in `tauri.conf.json`) goes first, then the standby's (`updater-standby.json`; absent until promoted, which counts as no update). The first update found wins (`check_each`).
+- **A release build checks each trusted key's manifest**, `https://updates.kubetail.com/desktop/stable/latest-<key id>.json`, at launch and every 12 hours by the wall clock (`watch`, `Schedule`), read on an hourly tick, since Tokio's timers stop while the machine sleeps. The current key's (`plugins.updater` in `tauri.conf.json`) goes first, then the standby's (`updater-standby.json`; absent until promoted, which counts as no update). The first update found wins (`check_each`).
 - **Each check's update is verified against that check's key alone** and, with `requireSignedVersion`, only a signature made for the manifest's version. `the_updater_pins_its_keys_manifests_and_signed_version` holds each endpoint to its key's id.
 - A check that takes over `CHECK_TIMEOUT` (30s) fails like any other.
 - **The check and the download send the sidecar's User-Agent**, `kubetail-desktop/<version> (<GOOS>/<GOARCH>)` (`user_agent`), set in `platform.rs::builder`.
 
 ## The install
 
-- **An update found becomes the tray's first item** (`TraySnapshots::update`, `tray::UPDATE_ID`). Its click downloads, verifies, installs and restarts (`platform.rs::install`). A failed download, or one that receives nothing for `DOWNLOAD_STALL` (60s, the HTTP client's read timeout), puts the offer back.
+- **An update found becomes the tray's first item** (`TraySnapshots::update`, `tray::UPDATE_ID`), and follows each later check (`Offer::checked`): a newer release replaces it, no update withdraws it, a failed check leaves it. Its click downloads, verifies, installs and restarts (`platform.rs::install`). A failed download, or one that receives nothing for `DOWNLOAD_STALL` (60s, the HTTP client's read timeout), puts the offer back.
 - **The install stops the sidecar before it requests the restart.** Tauri lets nothing prevent a restart's `ExitRequested` (`RESTART_EXIT_CODE`), so `install` runs `lib.rs::stop_for_install`, the quit's stop on its own thread, and only then `request_restart`. A quit already under way is left to finish, and the new version runs on the next launch.
 - **On Windows the plugin ends the process itself** after starting `msiexec`, with no `ExitRequested` or `RunEvent::Exit`. Its `on_before_exit` runs `stop_for_install`, then `cleanup_before_exit` and `exited`, whose kill ends a sidecar that outlived the grace period before `msiexec` starts.
 

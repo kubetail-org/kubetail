@@ -1250,7 +1250,7 @@ risk stays distinguishable from an unnoticed one, and is not repeated here.
   and no platform has a notice, so someone who installs a Linux package stays on that version until
   they happen to visit the releases page — including past a security fix. Saying so needs no signing
   key. Shape: the sidecar fetches `updates.kubetail.com`'s `latest-<key id>.json` (H-4b's manifest) on launch and
-  every 24 hours, jittered, compares versions, and publishes the answer on the GraphQL surface; the
+  every 12 hours by the wall clock, jittered, compares versions, and publishes the answer on the GraphQL surface; the
   webview shows a quiet notice whose link opens the release page in the system browser. The check
   belongs in the sidecar because the webview has no network access. It sends the version and nothing
   else — no identity, no machine id, no cluster data — and a failed check is silent, since not

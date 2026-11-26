@@ -16,21 +16,28 @@
 //! the real runtime against a real release. Wiring alone; what it decides is in
 //! `mod.rs` and `lib.rs`. Listed in `.github/codecov.yml`'s `ignore`.
 
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 
 use tauri::plugin::TauriPlugin;
 use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_updater::{Config, Error, Update, Updater, UpdaterExt};
 
+use super::{Found, Offer};
 use crate::state::AppState;
 
-/// The update the tray offers, kept until the user takes it.
+/// The update the tray offers.
 #[derive(Default)]
-struct Pending(Mutex<Option<Update>>);
+struct Pending(Mutex<Offer<Update>>);
 
 impl Pending {
-    fn slot(&self) -> std::sync::MutexGuard<'_, Option<Update>> {
+    fn lock(&self) -> MutexGuard<'_, Offer<Update>> {
         self.0.lock().unwrap_or_else(|p| p.into_inner())
+    }
+}
+
+impl Found for Update {
+    fn version(&self) -> &str {
+        &self.version
     }
 }
 
@@ -41,8 +48,8 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R, Config> {
     tauri_plugin_updater::Builder::new().build()
 }
 
-/// Checks for an update until one is found or the app quits, and offers it in
-/// the tray. A debug build checks nothing: it is not an installed app.
+/// Checks for an update until the app quits, and keeps the tray's offer to the
+/// latest answer. A debug build checks nothing: it is not an installed app.
 pub fn spawn_update_checker(app: &AppHandle, rebuild: fn(&AppHandle)) {
     app.manage(Pending::default());
     if cfg!(debug_assertions) {
@@ -58,14 +65,27 @@ pub fn spawn_update_checker(app: &AppHandle, rebuild: fn(&AppHandle)) {
             }
         };
         let shutdown = app.state::<AppState>().shutdown.clone();
-        let found = super::find(shutdown, super::CHECK_INTERVAL, || {
-            super::check_each(updaters.iter().map(check))
-        })
+        super::watch(
+            shutdown,
+            super::Schedule::wall_clock(),
+            || super::check_each(updaters.iter().map(check)),
+            |found| {
+                let pending = app.state::<Pending>();
+                let mut offer = pending.lock();
+                if !offer.checked(found) {
+                    return;
+                }
+                let version = offer.version().map(str::to_owned);
+                drop(offer);
+                match &version {
+                    Some(version) => tracing::info!(%version, "update available"),
+                    None => tracing::info!("update withdrawn"),
+                }
+                super::offer(&app, version);
+                rebuild(&app);
+            },
+        )
         .await;
-        if let Some(update) = found {
-            tracing::info!(version = %update.version, "update available");
-            offer_update(&app, update, rebuild);
-        }
     });
 }
 
@@ -73,7 +93,7 @@ pub fn spawn_update_checker(app: &AppHandle, rebuild: fn(&AppHandle)) {
 /// installs it, stops the sidecar and restarts. The offer is withdrawn while it
 /// runs and comes back if it fails before the sidecar is stopped.
 pub fn install(app: &AppHandle, rebuild: fn(&AppHandle)) {
-    let Some(update) = app.state::<Pending>().slot().take() else {
+    let Some(update) = app.state::<Pending>().lock().take() else {
         return;
     };
     super::offer(app, None);
@@ -88,7 +108,7 @@ pub fn install(app: &AppHandle, rebuild: fn(&AppHandle)) {
             Ok(bytes) => bytes,
             Err(err) => {
                 tracing::error!(%err, "update download failed");
-                offer_update(&app, update, rebuild);
+                offer_again(&app, update, rebuild);
                 return;
             }
         };
@@ -122,7 +142,7 @@ pub fn install(app: &AppHandle, rebuild: fn(&AppHandle)) {
                     // The sidecar was stopped for an installer that did not start.
                     app.exit(0);
                 } else {
-                    offer_update(&app, update, rebuild);
+                    offer_again(&app, update, rebuild);
                 }
             }
             Err(err) => tracing::error!(%err, "update install did not finish"),
@@ -130,9 +150,9 @@ pub fn install(app: &AppHandle, rebuild: fn(&AppHandle)) {
     });
 }
 
-fn offer_update(app: &AppHandle, update: Update, rebuild: fn(&AppHandle)) {
+fn offer_again(app: &AppHandle, update: Update, rebuild: fn(&AppHandle)) {
     super::offer(app, Some(update.version.clone()));
-    *app.state::<Pending>().slot() = Some(update);
+    app.state::<Pending>().lock().failed(update);
     rebuild(app);
 }
 
