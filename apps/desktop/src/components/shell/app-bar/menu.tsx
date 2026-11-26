@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The hamburger standing in for the menu bar on the frameless platforms. `AppBar`
+// The brand menu standing in for the menu bar on the frameless platforms. `AppBar`
 // mounts it only off macOS, which keeps its native global menu (`src-tauri/app_menu.rs`).
 // Owns the app-wide actions and their shortcuts, since with no native menu nothing
 // else registers them.
@@ -25,8 +25,10 @@ import {
   DropdownMenuTrigger,
 } from '@kubetail/ui/elements/dropdown-menu';
 import { invoke } from '@tauri-apps/api/core';
-import { Menu } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useEffect } from 'react';
+
+import { AppMark } from '@/components/primitives/app-mark';
 
 /** Host commands the menu drives. Keep in sync with `commands.rs`. */
 const NEW_WINDOW_CMD = 'new_window';
@@ -63,9 +65,10 @@ export function AppMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Application menu"
-        className="flex h-full items-center rounded px-2 outline-none hover:bg-app-bar-hover focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex h-8 items-center gap-1 rounded-md px-1.5 outline-none hover:bg-app-bar-hover focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <Menu className="size-4 " aria-hidden />
+        <AppMark size={24} />
+        <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={4} className="min-w-48">
         <DropdownMenuItem onClick={newWindow}>

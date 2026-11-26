@@ -94,7 +94,14 @@ export function AppBar() {
       style={{ gridTemplateColumns: columns }}
     >
       <div ref={startRef} data-testid="app-bar-start" className="flex items-stretch gap-2 justify-self-start">
-        {mac ? <TrafficLightGutter /> : <AppMenu />}
+        {mac ? (
+          <TrafficLightGutter />
+        ) : (
+          // 8px in, so the mark sits 14px from the edge, as the panel toggle does on the right.
+          <div className="flex items-center pl-2">
+            <AppMenu />
+          </div>
+        )}
         <div data-testid="app-bar-controls" className="flex items-center gap-2">
           <LeftSidebarToggle />
           <HistoryNav />
