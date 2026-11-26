@@ -16,6 +16,8 @@ package logsinput
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +29,33 @@ import (
 )
 
 const webapp = `{"sources":[{"namespace":"prod","resource":"deployments/webapp"}]`
+
+// Each log tool's schema offers the sources and filters Parse reads in the same
+// words, so a change to one is made to all three.
+func TestEveryLogToolOffersTheSameSourcesAndFilters(t *testing.T) {
+	t.Parallel()
+	type shared struct {
+		Properties struct {
+			Sources json.RawMessage `json:"sources"`
+			Filters json.RawMessage `json:"filters"`
+		} `json:"properties"`
+	}
+	var want shared
+	for i, tool := range []string{"logsread", "logsview", "logswatch"} {
+		raw, err := os.ReadFile(filepath.Join("..", "..", tool, "prompts", "schema.json"))
+		require.NoError(t, err)
+		var got shared
+		require.NoError(t, json.Unmarshal(raw, &got))
+		require.NotEmpty(t, got.Properties.Sources, tool)
+		require.NotEmpty(t, got.Properties.Filters, tool)
+		if i == 0 {
+			want = got
+			continue
+		}
+		assert.JSONEq(t, string(want.Properties.Sources), string(got.Properties.Sources), tool)
+		assert.JSONEq(t, string(want.Properties.Filters), string(got.Properties.Filters), tool)
+	}
+}
 
 // A tool's own field is read into its destination, by its type; a key that is
 // neither shared nor the tool's own is refused without its name.

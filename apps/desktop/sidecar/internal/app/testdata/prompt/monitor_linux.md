@@ -316,13 +316,12 @@ Read a window of logs yourself: one or more resources merged by timestamp over a
   "properties": {
     "description": {
       "type": "string",
-      "description": "Why you are reading, in plain words (5-10 words). The user reads it above the lines."
+      "description": "Why you are reading, in 5-10 words. The user sees it."
     },
     "sources": {
       "type": "array",
       "minItems": 1,
       "maxItems": 100,
-      "description": "What to read. Lines from every source are merged by timestamp.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -332,27 +331,26 @@ Read a window of logs yourself: one or more resources merged by timestamp over a
         ],
         "properties": {
           "namespace": {
-            "type": "string",
-            "description": "The namespace the resource is in"
+            "type": "string"
           },
           "resource": {
             "type": "string",
-            "description": "The resource as <kind>/<name>: pods/webapp-7f9c, deployments/webapp, statefulsets/db, daemonsets/agent, jobs/backfill, cronjobs/nightly, replicasets/webapp-7f9c"
+            "description": "<kind>/<name>, such as deployments/web"
           },
           "containers": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "Containers to read, by exact name. Omit for the default container, as kubectl logs does; the header names the others."
+            "description": "By exact name. Omit for the default container."
           },
           "all_containers": {
             "type": "boolean",
-            "description": "Read every container of the pod, as kubectl logs --all-containers does. Not with containers."
+            "description": "Not with containers."
           },
           "previous": {
             "type": "boolean",
-            "description": "Read the instance before the last restart instead of the running one, as kubectl logs --previous does. It is finished: nothing arrives on it."
+            "description": "The instance before the last restart."
           }
         }
       }
@@ -360,70 +358,65 @@ Read a window of logs yourself: one or more resources merged by timestamp over a
     "filters": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Keep only lines from these nodes. Each is a list of values allowed; omit a key for any.",
+      "description": "Keep only lines from nodes with these names, or region, zone, os or arch labels.",
       "properties": {
         "node": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node names"
+          }
         },
         "region": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node regions (topology.kubernetes.io/region)"
+          }
         },
         "zone": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node zones (topology.kubernetes.io/zone)"
+          }
         },
         "os": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node operating systems (kubernetes.io/os)"
+          }
         },
         "arch": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Node architectures (kubernetes.io/arch)"
+          }
         }
       }
     },
     "grep": {
       "type": "string",
-      "description": "A regular expression each line's message must match. Omit for every line."
+      "description": "A regular expression the message must match."
     },
     "since": {
       "type": "string",
-      "description": "Where the range starts: an RFC 3339 time at any precision, its first nanosecond, such as 2026-10-21 or 2026-10-21T05:00Z, or an ISO 8601 duration back from now such as PT15M. Omit for the oldest line Kubetail holds."
+      "description": "Range start: an RFC 3339 time, or an ISO 8601 duration back from now such as PT15M. Omit for the oldest line."
     },
     "until": {
       "type": "string",
-      "description": "Where the range ends, in the same forms; a time's last nanosecond, so 2026-10-21T05:00Z takes the whole minute. Omit for the newest line."
+      "description": "Range end, in the same forms. Omit for the newest line."
     },
     "before": {
       "type": [
         "integer",
         "string"
       ],
-      "description": "Context before the range: a number of lines (0 to 500), or an ISO 8601 duration of at most P7D such as PT5M. Its lines are marked [before] and pass the grep unfiltered."
+      "description": "Context before the range: 0 to 500 lines, or a duration up to P7D."
     },
     "after": {
       "type": [
         "integer",
         "string"
       ],
-      "description": "Context after the range, in the same forms. Its lines are marked [after]."
+      "description": "Context after the range, in the same forms."
     },
     "page_from": {
       "type": "string",
@@ -431,28 +424,28 @@ Read a window of logs yourself: one or more resources merged by timestamp over a
         "first",
         "last"
       ],
-      "description": "Which end of the window the page comes from: last (the default) the newest lines, first the oldest."
+      "description": "Default last, the newest lines."
     },
     "page_size": {
       "type": "integer",
       "minimum": 1,
       "maximum": 100,
-      "description": "How many lines a page holds. Default 50."
+      "description": "Default 50."
     },
     "max_message_bytes": {
       "type": "integer",
       "minimum": 0,
-      "description": "Cut each message at this many bytes. Default 2048; 0 for the most Kubetail keeps of a message, 16 KiB."
+      "description": "Default 2048; 0 for 16 KiB."
     },
     "max_page_bytes": {
       "type": "integer",
       "minimum": 1,
       "maximum": 16384,
-      "description": "The page's messages together, in bytes. Default 16384."
+      "description": "Default 16384."
     },
     "cursor": {
       "type": "string",
-      "description": "A prev, next or follow token a read printed, copied whole and exactly. It names the sources, filters, grep and window, so send it with page_size, max_message_bytes, max_page_bytes and description alone."
+      "description": "A prev, next or follow token a read printed, copied exactly. Send only page_size, max_message_bytes, max_page_bytes and description with it."
     }
   }
 }
