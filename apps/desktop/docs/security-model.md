@@ -234,9 +234,9 @@ must reproduce. A row's **Residual** is what its protection leaves open.
 | [The sandbox: files and the fence](security-model/sandbox-files.md) | 41 | 0 | 0 | 6 | 0 | 0 |
 | [The sandbox: network and the run's door](security-model/sandbox-network.md) | 16 | 0 | 0 | 5 | 0 | 0 |
 | [The sandbox: environment, PATH and processes](security-model/sandbox-process.md) | 28 | 0 | 0 | 14 | 0 | 0 |
-| [Supply chain, release and updates](security-model/supply-chain.md) | 14 | 3 | 7 | 8 | 3 | 0 |
+| [Supply chain, release and updates](security-model/supply-chain.md) | 14 | 3 | 8 | 8 | 3 | 0 |
 | [The webview and the windows](security-model/webview.md) | 13 | 0 | 0 | 2 | 0 | 0 |
-| **All** | 423 | 16 | 10 | 143 | 6 | 17 |
+| **All** | 423 | 16 | 11 | 143 | 6 | 17 |
 <!-- index:stop -->
 
 `make lint-desktop` checks every row against the code: each cited test and file exists,

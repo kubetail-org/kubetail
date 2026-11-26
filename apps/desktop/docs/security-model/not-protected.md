@@ -298,11 +298,12 @@ Every row of the model that no test enforces, and every residual an enforced row
 - [SUPPLY-29](supply-chain.md#supply-29), By decision. The twenty-one advisories Tauri's Linux stack, `urlpattern`, the Tauri plugins' zbus 5 and `tauri-utils`' `serde_with` pin are left unresolved.
 - [SUPPLY-30](supply-chain.md#supply-30), By decision. picomatch's ReDoS advisory, unpatched upstream, is left unresolved in build and test tooling.
 - [SUPPLY-31](supply-chain.md#supply-31), Not built. The app tells the user a newer release exists. Residual: Nothing checks, so a user can sit on a version with a known bug indefinitely.
-- [SUPPLY-32](supply-chain.md#supply-32), Built, not yet checked end to end. Signed in-app updates on macOS and Windows: the app installs only an artifact signed by one of the two keys it was built with, current or standby. Residual: The source's status is "Built, not yet checked end to end". Nothing publishes the manifests to `updates.kubetail.com` yet, and the manual check waits on the real key. Linux applies no update.
+- [SUPPLY-32](supply-chain.md#supply-32), Built, not yet checked end to end. Signed in-app updates on macOS and Windows: the app installs only an artifact signed by one of the two keys it was built with, current or standby. Residual: The source's status is "Built, not yet checked end to end". `publish-desktop-updates.yml` copies a final's manifests to `updates.kubetail.com`; the manual check waits on the real key. Linux applies no update.
 - [SUPPLY-33](supply-chain.md#supply-33), Built, not yet checked end to end. An in-app update's signature is bound to the version the manifest names. Residual: As SUPPLY-32.
 - [SUPPLY-34](supply-chain.md#supply-34), Built, not yet checked end to end. Each updater key has its own manifest on `updates.kubetail.com`, and each endpoint is held to its key's id. Residual: As SUPPLY-32.
 - [SUPPLY-35](supply-chain.md#supply-35), Not built. A release is gated on the checks for its own commit. Residual: `release-desktop.yml` grants write permissions to every job, and audits run only per pull request.
 - [SUPPLY-36](supply-chain.md#supply-36), Not built. The macOS bundle grants only the hardened-runtime exceptions it needs. Residual: Three exceptions ship whose necessity has never been tested against a signed build.
+- [SUPPLY-39](supply-chain.md#supply-39), Held by review. `updates.kubetail.com` serves only manifests `release-desktop.yml` attested at their final's tag, and a newer live manifest is replaced only by a dispatch with `force`. Residual: Who can write to the bucket is who can run a job in the `updates` environment, or an administrator of the AWS account.
 
 ## The webview and the windows
 

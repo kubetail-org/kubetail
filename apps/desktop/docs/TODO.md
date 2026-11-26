@@ -1261,12 +1261,8 @@ risk stays distinguishable from an unnoticed one, and is not repeated here.
 
 - **H-4b — the in-app updater is unchecked (medium; release owner).** The updater is built on macOS
   and Windows ([ADR](adr/2026-11-08-the-updater-trusts-a-current-and-a-standby-key.md),
-  [record](security/2026-11-08-in-app-updater.md)); Linux applies no update. Three things remain.
-  **Serve the manifests**, before the second desktop release with the updater is published, or
-  the first one's installs never hear of it: an S3 bucket behind CloudFront on `updates.kubetail.com`,
-  and a workflow on `release: published` that, for a `desktop/v*` final, copies the release's
-  `latest-<key id>.json` files to `desktop/stable/` with a short cache lifetime. It assumes an AWS
-  role through GitHub OIDC that can write to that bucket alone, so no AWS key is stored. Then
+  [record](security/2026-11-08-in-app-updater.md)); Linux applies no update. Publishing a final copies its
+  manifests to `updates.kubetail.com` (`publish-desktop-updates.yml`). Two things remain. First,
   generate the current and the standby keys (`pnpm tauri signer generate`): the current private
   half and its password become the `production` environment's `TAURI_SIGNING_PRIVATE_KEY` and
   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, the standby's stays offline, apart from the current key's

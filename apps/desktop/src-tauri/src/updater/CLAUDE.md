@@ -21,4 +21,7 @@ macOS and Windows update in the app; Linux does not. Also owns `scripts/sign-upd
 
 - **The updater key is read only by `release-desktop.yml`'s `sign-updater` job** (`scripts/sign-updater.sh`), which installs nothing else. It signs the macOS bundle job's `.app.tar.gz` and the MSIs SignPath signed, and writes one `latest-<key id>.json` per key in the secrets, attached to the release: the current key, which must be the committed `pubkey` and the endpoint's id, and a retired one kept for older apps.
 - **The standby's private key is offline** and signs nothing until a rotation promotes it; the script refuses an unset standby or one it signs with ([`docs/updater-key.md`](../../../docs/updater-key.md)).
-- **Publishing a desktop final is meant to copy its manifests to `updates.kubetail.com`**; the host and that workflow are still a TODO (H-4b), so no installed app sees an update yet.
+## Publishing
+
+- **Publishing a final copies its manifests to `updates.kubetail.com`** (`publish-desktop-updates.yml`). It refuses a manifest `release-desktop.yml` did not attest at the tag, and replaces a newer live one only when dispatched with `force`.
+- **The bucket, the distribution and the AWS role are made by hand**; the role trusts only the `updates` environment, which holds no secrets.
