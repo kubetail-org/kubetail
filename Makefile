@@ -242,16 +242,16 @@ lint-desktop: ## Lint the desktop app's webview, Tailwind classes, Go and Rust f
 	cd tools && go run ./designsync check
 	cd tools && go run ./securitymodel check
 
-# Each build the sidecar ships or tags, as scripts/go-builds.sh lists them: the
-# live checks sit behind tags no other target builds, and vetting them keeps
-# them compiling. check-sidecar-deps.sh keeps the typed Kubernetes clients out
-# of the binary.
-vet-desktop: build-desktop-sidecar ## Type-check the desktop's webview, vet its sidecar for every build, check its deps, run go fix and staticcheck, and run clippy on its host
+# go vet checks the sidecar for this platform, untagged and under each tag
+# scripts/go-builds.sh lists: the live checks sit behind tags no other target
+# builds, and vetting them keeps them compiling. CI's desktop-sidecar-vet vets
+# the other platforms, each of which recompiles every dependency. go fix and
+# staticcheck run on every build go-builds.sh lists. check-sidecar-deps.sh
+# keeps the typed Kubernetes clients out of the binary.
+vet-desktop: build-desktop-sidecar ## Type-check the desktop's webview, vet its sidecar for this platform and each tag, check its deps, run go fix and staticcheck, and run clippy on its host
 	cd $(DESKTOP_DIR) && pnpm install && pnpm exec tsc -b
-	cd $(DESKTOP_DIR)/sidecar && GOOS=linux GOARCH=amd64 go vet ./... && GOOS=linux GOARCH=arm64 go vet ./... \
-		&& GOOS=darwin GOARCH=amd64 go vet ./... && GOOS=windows GOARCH=amd64 go vet ./...
-	cd $(DESKTOP_DIR)/sidecar && go vet -tags debug ./... && go vet -tags livecache ./internal/agent/catalog \
-		&& go vet -tags liveswitch ./internal/agent/catalog
+	cd $(DESKTOP_DIR)/sidecar && go vet ./... && go vet -tags debug ./... \
+		&& go vet -tags livecache ./internal/agent/catalog && go vet -tags liveswitch ./internal/agent/catalog
 	sh $(DESKTOP_DIR)/scripts/check-sidecar-deps.sh
 	sh scripts/check-go-fix.sh apps/desktop/sidecar
 	sh scripts/staticcheck.sh apps/desktop/sidecar
