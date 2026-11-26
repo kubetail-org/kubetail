@@ -1,18 +1,17 @@
 name: stress
 
-# Runs every Go test with the CPU count, the order and the repetitions varied,
-# to find ordering bugs a single PR run passes. Each runner gets two jobs per
-# -cpu value: one under the race detector (but windows/arm64, which has none),
-# and one without it, at full speed, where a timing bug the detector's slowdown
-# hides can show. A job runs one -cpu value, so a panic or hang under one value
-# leaves the others' runs intact.
+# The nightly stress run. Each area's jobs are in a workflow of their own,
+# stress-<area>.yml, which this one calls and which a dispatch also runs alone.
+# Each area files its own failures, labelled with its area.
 # A red run means a concurrency bug was found and nothing else.
 
 permissions:
   contents: read
 
 on:
-  # 05:00 UTC, a quiet hour when no one waits on the runners.
+  # 05:00 UTC, a quiet hour when no one waits on the runners. The areas' jobs
+  # queue for the macOS and Windows runners together, and timeout-minutes
+  # counts from when a job starts, so none needs a later start.
   schedule:
     - cron: "0 5 * * *"
   workflow_dispatch:
@@ -24,125 +23,52 @@ on:
         description: GOMAXPROCS values to run each test under (-cpu), as a JSON array
         default: "[1,4]"
 
-env:
-  COUNT: ${{ inputs.count || '3' }}
-
 jobs:
-  # GitHub starts schedule runs in forks too. Outside kubetail-org/kubetail
-  # this job runs only for a dispatch, and every other job needs it, so a
-  # fork's scheduled run skips whole.
-  plan:
-    name: Plan
-    if: >-
-      github.repository == 'kubetail-org/kubetail'
-      || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-slim
-    steps:
-      - run: "true"
-
-  stress:
-    # stress-report.yml rebuilds STRESS_ID from the name.
-    name: Test (${{ matrix.runner }}, ${{ matrix.race && 'race' || 'norace' }}, cpu ${{ matrix.cpu }})
-    needs: plan
-    strategy:
-      fail-fast: false
-      # Keep in step with cli-test in ci-cli.yml; anchors do not cross files.
-      matrix:
-        os:
-          - linux
-          - macos-15
-          - macos-26
-          - windows
-        arch:
-          - amd64
-          - arm64
-        race:
-          - true
-          - false
-        # A JSON array, since an expression cannot split a list.
-        cpu: ${{ fromJSON(inputs.cpu || '[1,4]') }}
-        exclude:
-          - os: macos-26
-            arch: amd64
-          # The race detector does not support windows/arm64.
-          - os: windows
-            arch: arm64
-            race: true
-        include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-          - os: macos-15
-            arch: amd64
-            runner: macos-15-intel
-          - os: macos-15
-            arch: arm64
-            runner: macos-15
-          - os: macos-26
-            arch: arm64
-            runner: macos-26
-          - os: windows
-            arch: amd64
-            runner: windows-2025
-          - os: windows
-            arch: arm64
-            runner: windows-11-arm
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 120
-    env:
-      CPU: ${{ matrix.cpu }}
-      RACE: ${{ matrix.race }}
-      STRESS_ID: ${{ matrix.runner }}-${{ matrix.race && 'race' || 'norace' }}-cpu${{ matrix.cpu }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-environment
-        with:
-          setup-go: "true"
-      # -timeout sits under timeout-minutes, so a hang fails the test binary
-      # with a goroutine dump rather than the runner killing the job.
-      # Each package's result goes to the log as it lands, so a job that dies
-      # before its report still shows which package was running.
-      - name: Run tests under stress
-        shell: bash
-        run: |
-          race_flag=""
-          if [ "$RACE" = true ]; then
-            race_flag=-race
-          fi
-          mkdir -p stress
-          status=0
-          go test $race_flag -cpu "$CPU" -shuffle=on -count="$COUNT" -timeout 90m -json \
-              github.com/kubetail-org/kubetail/... \
-            | tee stress/stress.json \
-            | jq -rR --unbuffered 'fromjson? | select(.Test == null and (.Action == "pass" or .Action == "fail"))
-                | "\(.Action) \(.Package) \(.Elapsed)s"' \
-            || status=$?
-          go run ./scripts/stress.go -cpu "$CPU" -count "$COUNT" -race="$RACE" \
-            -runner "$STRESS_ID" stress/stress.json
-          exit "$status"
-      # On a cancel, too: timeout-minutes cancels the job, and the partial
-      # stress.json is all that says where it stopped.
-      - name: Upload failures
-        if: failure() || cancelled()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: stress-${{ env.STRESS_ID }}
-          path: stress/
-          retention-days: 14
-
-  report:
-    name: report
-    needs: stress
-    if: failure()
-    uses: ./.github/workflows/stress-report.yml
+  # Each job's name is its area's stress-id-prefix without the dash:
+  # report-stress.yml rebuilds each Test job's STRESS_ID from the
+  # "<name> / Test (…)" it carries here. Every area takes the same
+  # permissions: its report reads the run's jobs and artifacts (actions: read)
+  # and files issues (issues: write).
+  cli:
+    name: cli
+    uses: ./.github/workflows/stress-cli.yml
     with:
-      labels: testing,lang/go
-      outside-title: Stress run failed outside a test
+      count: ${{ inputs.count }}
+      cpu: ${{ inputs.cpu }}
     permissions:
+      contents: read
+      actions: read
+      issues: write
+
+  libs:
+    name: libs
+    uses: ./.github/workflows/stress-libs.yml
+    with:
+      count: ${{ inputs.count }}
+      cpu: ${{ inputs.cpu }}
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+
+  cluster:
+    name: cluster
+    uses: ./.github/workflows/stress-cluster.yml
+    with:
+      count: ${{ inputs.count }}
+      cpu: ${{ inputs.cpu }}
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+
+  desktop:
+    name: desktop
+    uses: ./.github/workflows/stress-desktop.yml
+    with:
+      count: ${{ inputs.count }}
+      cpu: ${{ inputs.cpu }}
+    permissions:
+      contents: read
       actions: read
       issues: write

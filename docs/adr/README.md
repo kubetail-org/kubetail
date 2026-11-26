@@ -107,4 +107,5 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-20 | [Lint Tailwind classes in a run of their own](2026-11-20-lint-tailwind-classes-in-a-run-of-their-own.md) | web | Accepted |
 | 2026-11-25 | [Keep a runner set per area in runners.json](2026-11-25-keep-a-runner-set-per-area-in-runners-json.md) | repo | Accepted |
 | 2026-11-25 | [Leave the desktop sidecar outside the fsnotify pin](2026-11-25-leave-the-desktop-sidecar-outside-the-fsnotify-pin.md) | repo | Accepted |
+| 2026-11-26 | [Run the stress tests as one workflow per area](2026-11-26-run-the-stress-tests-as-one-workflow-per-area.md) | repo | Accepted |
 | 2026-11-09 | [Share informers and gate each caller with an access review](2026-11-09-share-informers-and-gate-each-caller-with-an-access-review.md) | shared | Accepted |

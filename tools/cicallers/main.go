@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Command cicallers checks that ci.yml and coverage.yml call every area
-// workflow beside them (ci-*.yml, coverage-*.yml). An area file runs on a pull
-// request only when its caller calls it. `make lint-repo-yaml` runs it.
+// Command cicallers checks that ci.yml, coverage.yml and stress.yml call every
+// area workflow beside them (ci-*.yml, coverage-*.yml, stress-*.yml). An area
+// file runs on a pull request, or nightly, only when its caller calls it.
+// `make lint-repo-yaml` runs it.
 //
 //	go run ./cicallers ../.github/workflows
 package main
@@ -35,6 +36,7 @@ import (
 var callers = map[string]string{
 	"ci.yml":       "ci-*.yml",
 	"coverage.yml": "coverage-*.yml",
+	"stress.yml":   "stress-*.yml",
 }
 
 func main() {

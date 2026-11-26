@@ -63,6 +63,8 @@ func TestRun_NamesTheCaller(t *testing.T) {
 		"ci-a.yml":       "on: workflow_call\n",
 		"coverage.yml":   "jobs:\n  a: {uses: ./.github/workflows/coverage-a.yml}\n",
 		"coverage-a.yml": "on: workflow_call\n",
+		"stress.yml":     "jobs:\n  a: {uses: ./.github/workflows/stress-a.yml}\n",
+		"stress-a.yml":   "on: workflow_call\n",
 	}
 	for name, body := range files {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
@@ -73,8 +75,8 @@ func TestRun_NamesTheCaller(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "ci.yml: no job calls ci-a.yml") {
 		t.Fatalf("err = %v, want ci.yml to miss ci-a.yml", err)
 	}
-	if strings.Contains(err.Error(), "coverage.yml") {
-		t.Errorf("blames coverage.yml: %v", err)
+	if strings.Contains(err.Error(), "coverage.yml") || strings.Contains(err.Error(), "stress.yml") {
+		t.Errorf("blames another caller: %v", err)
 	}
 }
 
