@@ -297,6 +297,17 @@ mod tests {
         times.into_inner()
     }
 
+    #[test]
+    fn the_app_checks_every_12_hours_by_the_system_clock() {
+        let schedule = Schedule::wall_clock();
+        assert_eq!(schedule.interval, Duration::from_secs(12 * 60 * 60));
+        assert_eq!(schedule.tick, Duration::from_secs(60 * 60));
+
+        let before = SystemTime::now();
+        let now = (schedule.now)();
+        assert!(now >= before && now <= SystemTime::now());
+    }
+
     #[tokio::test(start_paused = true)]
     async fn a_check_runs_at_launch_and_again_once_the_interval_has_passed() {
         let wall = Wall::new();
