@@ -134,14 +134,16 @@ pub fn process_output(
                         let Some(line) = cri::parse(text.as_bytes()) else {
                             return;
                         };
-                        let Some(timestamp) = line.timestamp() else {
+                        // Through SystemTime, so a time before 1970 gets the
+                        // non-negative nanos protobuf requires.
+                        let Some(timestamp) =
+                            line.timestamp().and_then(|t| SystemTime::try_from(t).ok())
+                        else {
                             return;
                         };
 
                         let record = LogRecord {
-                            // Through SystemTime, so a time before 1970 gets the
-                            // non-negative nanos protobuf requires.
-                            timestamp: Some(SystemTime::from(timestamp).into()),
+                            timestamp: Some(timestamp.into()),
                             message: String::from_utf8_lossy(line.message).trim_end().to_string(),
                             is_final: line.is_final,
                         };
