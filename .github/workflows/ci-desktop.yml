@@ -347,7 +347,7 @@ jobs:
       # As make test-desktop runs them: checkptr is off for modernc's SQLite,
       # the login shell's tests read SSH_AUTH_SOCK, and GORACE drops the race
       # detector's one-second sleep at each clean exit. -short: a sweep a test
-      # shrinks under it runs whole in the stress workflow.
+      # shrinks under it runs whole in stress-desktop.yml.
       - name: Run race tests
         if: ${{ !(matrix.os == 'windows' && matrix.arch == 'arm64') }}
         working-directory: ./apps/desktop/sidecar
