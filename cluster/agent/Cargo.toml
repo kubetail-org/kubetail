@@ -22,7 +22,7 @@ codegen-units = 1
 unwrap_used = "deny"
 
 [workspace.dependencies]
-jiff = { version = "0.2", default-features = false, features = ["std"] }
+jiff = { version = "1.0", default-features = false, features = ["std"] }
 thiserror = "2.0"
 tempfile = "3.27"
 notify = "8.2"
