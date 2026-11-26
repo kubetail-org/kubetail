@@ -1226,8 +1226,7 @@ risk stays distinguishable from an unnoticed one, and is not repeated here.
   needs (nothing creates a deployment, so that grant just goes). Audits run only on pull requests, so
   an advisory filed against a quiet `main` waits for whoever opens the next one — add a daily
   schedule. And the release job is gated on nothing: add a step that checks the required checks
-  passed **for the commit the tag points at**, not `github.sha`, which on a manual run is whatever
-  ref it was dispatched from. Finally, write a short page on verifying a download — the GPG key,
+  passed for the tag's commit: a release comes only from the tag push. Finally, write a short page on verifying a download — the GPG key,
   `shasum -c`, `codesign`/`spctl`, `signtool`, and plainly that Linux bundles are unsigned — and run
   it ourselves once before telling anyone else to. `.github/ci-config/zizmor.yml` ignores
   `release-desktop.yml`'s `excessive-permissions` finding until this lands; drop the ignore with the fix.

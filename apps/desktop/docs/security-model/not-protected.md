@@ -303,6 +303,8 @@ Every row of the model that no test enforces, and every residual an enforced row
 - [SUPPLY-34](supply-chain.md#supply-34), Built, not yet checked end to end. Each updater key has its own manifest on `updates.kubetail.com`, and each endpoint is held to its key's id. Residual: As SUPPLY-32.
 - [SUPPLY-35](supply-chain.md#supply-35), Not built. A release is gated on the checks for its own commit. Residual: `release-desktop.yml` grants write permissions to every job, and audits run only per pull request.
 - [SUPPLY-36](supply-chain.md#supply-36), Not built. The macOS bundle grants only the hardened-runtime exceptions it needs. Residual: Three exceptions ship whose necessity has never been tested against a signed build.
+- [SUPPLY-37](supply-chain.md#supply-37), Built, not yet run on a tag. A tagged release signs its MSIs with SignPath's release certificate, and fails on an MSI whose Authenticode signature is not `Valid` before the updater key signs it. Residual: No `desktop/v*` tag has run it.
+- [SUPPLY-38](supply-chain.md#supply-38), Held by review. A release comes only from a tag push: a dispatch of `release-desktop.yml` is a dry run on SignPath's test certificate.
 - [SUPPLY-39](supply-chain.md#supply-39), Held by review. `updates.kubetail.com` serves only manifests `release-desktop.yml` attested at their final's tag, and a newer live manifest is replaced only by a dispatch with `force`. Residual: Who can write to the bucket is who can run a job in the `updates` environment, or an administrator of the AWS account.
 
 ## The webview and the windows
