@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
-# A repo on a branch off main, holding the scripts the area runs, with cargo
-# and pnpm stubbed to print their arguments.
+# A repo on a branch off main, holding the scripts the area runs, with bats,
+# cargo and pnpm stubbed to print their arguments.
 setup() {
   repo="$BATS_TEST_TMPDIR/repo"
   mkdir -p "$repo/scripts"
@@ -11,7 +11,7 @@ setup() {
   git -C "$repo" checkout -q -b work
   bin="$BATS_TEST_TMPDIR/bin"
   mkdir -p "$bin"
-  for tool in cargo pnpm; do
+  for tool in bats cargo pnpm; do
     printf '#!/bin/sh\necho "ran %s $* in ${PWD#%s/}"\n' "$tool" "$repo" >"$bin/$tool"
     chmod +x "$bin/$tool"
   done
@@ -182,4 +182,31 @@ test_changed() {
   [[ "$output" == *"ran pnpm -C apps/desktop exec vitest related --run --passWithNoTests src/app.tsx"* ]]
   [[ "$output" == *"Skipped the sidecar's go test: no change reaches a package in apps/desktop/sidecar."* ]]
   [[ "$output" == *"Skipped the host's cargo test: no change in apps/desktop/src-tauri/, apps/desktop/proto/ or the layout fixture."* ]]
+}
+
+@test "repo runs the bats file of a changed script" {
+  touch "$repo/scripts/"{check-release-tag.sh,check-release-tag.bats,install.sh,install.bats}
+  commit_to_main
+  test_changed repo scripts/check-release-tag.sh
+  [ "$status" -eq 0 ]
+  [[ "$output" == "→ bats scripts/check-release-tag.bats"$'\n'"ran bats scripts/check-release-tag.bats in "* ]]
+}
+
+@test "repo says when no changed script has a bats file" {
+  touch "$repo/scripts/check-go-fix.sh"
+  commit_to_main
+  test_changed repo scripts/check-go-fix.sh
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"→"* ]]
+  [[ "$output" == *"Skipped bats: no changed script has a bats file."* ]]
+}
+
+@test "repo runs the stress tool's test on a change to it" {
+  command -v go >/dev/null || skip "needs go"
+  printf 'package main\n\nfunc main() {}\n' >"$repo/scripts/stress.go"
+  printf 'package main\n\nimport "testing"\n\nfunc TestOK(t *testing.T) {}\n' >"$repo/scripts/stress_test.go"
+  commit_to_main
+  test_changed repo scripts/stress.go
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"→ go test scripts/stress.go scripts/stress_test.go"$'\n'"ok  "* ]]
 }

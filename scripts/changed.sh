@@ -130,3 +130,15 @@ go_scope() {
         for (i = 1; i <= n; i++) if (dir == a[i] || index(dir, a[i] "/") == 1) print "./" dir
       }' | sort -u
 }
+
+# bats_scope: the bats files that cover the changed scripts: scripts/<name>.bats
+# for each changed scripts/<name>.sh or .bats and, for a changed helper, for
+# each script that sources it (`. scripts/<name>.sh`, `. "$root/scripts/<name>.sh"`).
+bats_scope() {
+  local f name
+  for f in $(grep -E '^scripts/[^/]+\.(sh|bats)$' <<<"$changed" || true); do
+    name=$(basename "${f%.*}")
+    echo "scripts/$name.bats"
+    grep -lE "^[[:space:]]*\. \"?(\\\$root/)?scripts/$name\.sh\"?$" scripts/*.sh | sed 's/\.sh$/.bats/' || true
+  done | sort -u | existing || true
+}

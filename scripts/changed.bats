@@ -227,3 +227,44 @@ scope() {
   scope apps/desktop/sidecar -- apps/desktop/sidecar/internal/p/p.go libs/go-common/a/a.go
   [ "$output" = $'./apps/desktop/sidecar\n./apps/desktop/sidecar/internal/p' ]
 }
+
+# scripts <file>...: commits each file under scripts/ to main, with the line
+# that sources a helper when the name is <file>=<helper>.
+scripts() {
+  local f
+  for f in "$@"; do
+    if [[ "$f" == *=* ]]; then
+      printf '#!/bin/sh\n%s\n' "${f#*=}" >"$repo/scripts/${f%%=*}"
+    else
+      echo "# $f" >"$repo/scripts/$f"
+    fi
+  done
+  commit_to_main
+}
+
+@test "bats_scope names the bats file of a changed script" {
+  scripts check-release-tag.sh check-release-tag.bats install.sh install.bats
+  changed bats_scope scripts/check-release-tag.sh
+  [ "$output" = "scripts/check-release-tag.bats" ]
+}
+
+@test "bats_scope names a changed bats file" {
+  scripts install.sh install.bats
+  changed bats_scope scripts/install.bats
+  [ "$output" = "scripts/install.bats" ]
+}
+
+@test "bats_scope names the bats files of the scripts that source a changed helper" {
+  scripts changed.bats cover-changed.sh='. scripts/changed.sh' cover-changed.bats \
+    check-go-fix.sh='. "$root/scripts/go-builds.sh"' check-go-fix.bats go-builds.sh install.sh install.bats
+  echo '# x' >>"$repo/scripts/changed.sh"
+  changed bats_scope scripts/go-builds.sh
+  [ "$output" = $'scripts/changed.bats\nscripts/check-go-fix.bats\nscripts/cover-changed.bats' ]
+}
+
+@test "bats_scope names nothing for a changed script without a bats file" {
+  scripts check-go-fix.sh='. "$root/scripts/go-builds.sh"' go-builds.sh
+  changed bats_scope scripts/go-builds.sh scripts/check-go-fix.sh
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
+}

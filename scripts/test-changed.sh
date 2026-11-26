@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: test-changed.sh cli|libs|cluster-api|cluster-agent|web|desktop
+# Usage: test-changed.sh cli|libs|cluster-api|cluster-agent|web|desktop|repo
 #
 # Runs the tests of one area that the working tree's change reaches, since the
 # branch left main, with the flags make test-<area> uses. It prints each
@@ -13,6 +13,8 @@
 #                  lint/, or the whole suite when the toolchain changed
 #   desktop        the sidecar as the Go areas, the webview as web, and the
 #                  host's cargo test when its inputs changed
+#   repo           the bats files of the changed scripts (bats_scope), and
+#                  scripts/stress.go's test when it changed
 #
 # BASE is the ref the branch left, by default upstream/main or else origin/main.
 set -euo pipefail
@@ -23,9 +25,9 @@ case "$area" in
   cli) mods=(cli dashboard) ;;
   libs) mods=(libs/go-common) ;;
   cluster-api) mods=(cluster/api) ;;
-  cluster-agent | web | desktop) ;;
+  cluster-agent | web | desktop | repo) ;;
   *)
-    echo "usage: $0 cli|libs|cluster-api|cluster-agent|web|desktop" >&2
+    echo "usage: $0 cli|libs|cluster-api|cluster-agent|web|desktop|repo" >&2
     exit 2
     ;;
 esac
@@ -82,6 +84,20 @@ case "$area" in
       run_in apps/desktop/src-tauri cargo test
     else
       echo "Skipped the host's cargo test: no change in apps/desktop/src-tauri/, apps/desktop/proto/ or the layout fixture."
+    fi
+    ;;
+  repo)
+    files=$(bats_scope)
+    if [ -n "$files" ]; then
+      # shellcheck disable=SC2086 # one argument per file
+      run bats $files
+    else
+      echo "Skipped bats: no changed script has a bats file."
+    fi
+    if has '^scripts/stress(_test)?\.go$'; then
+      run go test scripts/stress.go scripts/stress_test.go
+    else
+      echo "Skipped scripts/stress.go's test: it did not change."
     fi
     ;;
 esac

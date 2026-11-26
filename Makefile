@@ -29,7 +29,7 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/cli/cmd.version=
 	test-desktop-livecache test-desktop-liveswitch status-desktop-design record-desktop-design \
 	clean-desktop-data clean-desktop-window \
 	lint-e2e test-e2e \
-	lint-repo lint-repo-sh lint-repo-md lint-repo-yaml lint-repo-toolchains lint-repo-digests test-repo
+	lint-repo lint-repo-sh lint-repo-md lint-repo-yaml lint-repo-toolchains lint-repo-digests test-repo test-repo-changed
 
 build: build-dashboard-ui ## Build the kubetail CLI, with the UI embedded, for this platform
 	mkdir -p $(OUTPUT_DIR)
@@ -371,6 +371,9 @@ lint-repo-digests: ## Check every image a Dockerfile pulls is pinned by digest
 test-repo: ## Test the scripts with bats, and scripts/stress.go
 	bats scripts/
 	go test scripts/stress.go scripts/stress_test.go
+
+test-repo-changed: ## Run the bats files of the changed scripts, and stress.go's test if it changed: narrows test-repo, never replaces it before a PR
+	bash scripts/test-changed.sh repo
 
 # scripts/generate.sh
 generate: ## Regenerate the committed protoc, gqlgen, codegen and CLI config output, the desktop's included
