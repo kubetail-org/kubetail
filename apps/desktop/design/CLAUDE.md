@@ -1,24 +1,24 @@
 # Figma
 
-How the webview's design in Figma maps to the code in `src/`, and how agents sync the two through the Figma MCP. Either side can be ahead. [`components.json`](components.json) is the manifest that joins them; [`components.schema.json`](components.schema.json) is its schema. [`README.md`](README.md) walks a person through the workflow. Two Figma files hold the design:
+How the webview's design in Figma maps to the code in `src/`, and how agents sync the two through the Figma MCP. Either side can be ahead. [`components.json`](components.json) is the manifest that joins them. [`README.md`](README.md) walks a person through the workflow. Two Figma files hold the design:
 
 - **[kubetail-ui](https://www.figma.com/design/KoHFVSSKfENrqPidIkJfpO/kubetail-ui)** is the team library: a port of `@kubetail/ui`. Its Cover names the commit it was synced from. An edit there reaches other files only once the library is published.
 - **[Desktop](https://www.figma.com/design/UTfwwz8cyLq5RA6mNFxUsD/Desktop)** is the app.
 
-**This guide holds rules, not inventory.** What the files hold — pages, sections, components, variables and their values, which screens and states are drawn — is read from the live file through the MCP when it is needed. Never record it here: a copy goes stale the moment someone edits the file. A rule may name an example; it never lists what exists.
+**This guide holds rules, not inventory.** What the files hold — pages, sections, components, variables and their values, which screens and states are drawn — is read from the live file through the MCP when it is needed. Never record it here; a rule may name an example.
 
 ## Layout
 
 Every group on a page is a Figma section, laid out so that no two overlap. A new component or screen goes in its group's section, and the section grows to fit it.
 
 - **Components** has one section per folder of `src/components/`. Each section names its folder under its title and stacks its components top to bottom. A popup gets a nested section of its own.
-- **Screens** has one section per area of the app (*Shell*, *Chat*, …), laid out left to right. Each area stacks its screens' sections top to bottom: the area's states first, then the screens that draw a popup open. A screen's section holds its *Kubetail Desktop Light* frame, then its *Kubetail Desktop Dark* frame, and above them its [stamp](#manifest), a text layer named `Stamp`. A screen drawn in several states or platforms gives each one a row, light on the left and dark on the right, so every area reads as a light column beside a dark one. An area section holds only sections, so it is not a screen.
+- **Screens** has one section per area of the app (*Shell*, *Chat*, …), laid out left to right. Each area stacks its screens' sections top to bottom: the area's states first, then the screens that draw a popup open. A screen's section holds its [stamp](#manifest), a text layer named `Stamp`, over its *Kubetail Desktop Light* frame and then its *Kubetail Desktop Dark* frame. A screen drawn in several states or platforms gives each one a row, light on the left and dark on the right. An area section holds only sections, so it is not a screen.
 - The layers panel lists sections in the order the canvas shows them.
 
 ## Tokens
 
 - **The library's `Theme` collection holds Kubetail's colors and fonts** in its *Kubetail Desktop Light* and *Kubetail Desktop Dark* modes, beside kubetail's own *Light* and *Dark*. They mirror `src/index.css`: `font/sans` is `--font-sans` and `font/mono` is `--font-mono`. The library's text styles are bound to them.
-- **Every text layer's font family is bound to `font/sans` or `font/mono`**, in both files, never typed in. The mode picks the face, so Desktop never names a font. Desktop's Components and Screens pages set *Kubetail Desktop Light* with *Light*, so a component draws as the app does.
+- **Every text layer's font family is bound to `font/sans` or `font/mono`**, in both files, never typed in: the mode picks the face. Desktop's Components and Screens pages set *Kubetail Desktop Light* with *Light*, so a component draws as the app does.
 - **Desktop's `Kubetail` collection holds the tokens the library lacks.** Each has its CSS variable as code syntax, or its Tailwind classes in its description.
 - **Every screen sets both collections' modes**: *Kubetail Desktop Light* with *Light*, or *Kubetail Desktop Dark* with *Dark*.
 - A color changed in `src/index.css` is changed by hand in the matching mode.
@@ -26,11 +26,11 @@ Every group on a page is a Figma section, laid out so that no two overlap. A new
 ## Components
 
 - **A `@kubetail/ui` component in the code is a library instance in Figma**, never a detached copy. Every other component in `src/components/` that a screen draws is a local component in Desktop, named as in the code.
-- **A library `Input`, `Textarea` or `SearchBox` becomes the wrapper of the same name from `components/primitives/text-entry.tsx`** in code, never `@kubetail/ui`'s. The wrapper adds attributes only, so the two look the same.
+- **A library `Input`, `Textarea` or `SearchBox` becomes the wrapper of the same name from `components/primitives/text-entry.tsx`** in code, never `@kubetail/ui`'s. The two look the same.
 - **Every icon is a kubetail-ui instance of `Lucide Icons / <name>`**, the name lucide-react's in kebab case (`ServerIcon` is `server`). Desktop never draws an icon or holds one of its own. Find one with `search_design_system`.
 - **An icon the set lacks is added to kubetail-ui**, built like its neighbours from lucide-react's SVG at the version in `pnpm-lock.yaml`: a 24px component holding one `Vector`, its stroke bound to `color/foreground`. A person then publishes the library.
 - **An icon's color is an override on its instance's `Vector`**: the stroke bound to the token's variable, as `text-muted-foreground` is `color/muted-foreground`.
-- **Each component links to its source file on `main`**, and its description holds its [stamp](#manifest) and nothing else. What a component draws is read from its code; what is true of one component alone goes in its entry's `notes`.
+- **Each component links to its source file on `main`**, and its description holds its [stamp](#manifest) and nothing else. What is true of one component alone goes in its entry's `notes`.
 - **Write a description through `descriptionMarkdown`.** Writing `description` stores `'` and `<` as HTML entities. Put JSX in backticks, or Markdown reads it as HTML.
 - **Screens hold instances.** An edit to a component reaches every screen; a screen keeps only its overrides (text, a variant, a color).
 
@@ -52,9 +52,9 @@ Every group on a page is a Figma section, laid out so that no two overlap. A new
 - **`code` lists every file that draws the component**, each with its git blob hash at the last sync. `symbol` names the part of a file that holds several components. A component no code draws yet has no `code`.
 - **`figma.hash`** is the hash `designsync` gave the component at the last sync. It covers what each layer looks like and how it lays out: not the description, and not where the component sits on the canvas.
 - **`security: true`** marks a component under [Security](#security).
-- **`notes`** holds what is true of this one component, in either direction. A rule true of every component goes in this guide.
+- **`notes`** holds what is true of this one component. A rule true of every component goes in this guide.
 
-**A screen is a section of the Screens page that holds something drawn**, not only other sections: each popup's section in *Popups on Shell* is a screen, and so is *Popups on Shell* itself, for the `Shell` component it holds. A screen's entry has the same fields, with three differences:
+**A screen is a section of the Screens page that holds something drawn**, not only other sections (*Popups on Shell* is one, for the `Shell` it holds). A screen's entry differs from a component's in three ways:
 
 - **Its `id` starts with `screens/`**, then its sections' names in kebab case: `screens/popups-on-shell/cluster-status`.
 - **`figma.node` is the section**, so one entry covers every frame in it, light and dark.
@@ -66,26 +66,24 @@ Every group on a page is a Figma section, laid out so that no two overlap. A new
 { "kubetail": 1, "id": "chat/sandbox-popover/menu", "changes": ["The popup is w-100 on the composer's surface."] }
 ```
 
-`changes` lists what the design has that the code lacks, one plain sentence each. It is absent when there is none. A person may write a stamp by hand, spaced as they like. A component with no stamp is new: stamping it adds its entry here.
+`changes` lists what the design has that the code lacks, one plain sentence each, and is absent when there is none. A component with no stamp is new: stamping it adds its entry here.
 
 **A screen's stamp is the same JSON in its section's `Stamp` text layer**, since a section has no description. The layer is a direct child of the section, outside every frame, and locked; the plugin API still writes it.
 
 ### Commands
 
-`tools/designsync` does the bookkeeping. With `FIGMA_TOKEN` set, it reads the Desktop file over Figma's REST API; it never writes to Figma. The token is a personal access token whose only scope is read-only file content. `make status-desktop-design` and `make record-desktop-design` take an unset token from the macOS Keychain item `kubetail-figma-token`. Without a token, `designsync` reads the code side alone. Run it from `tools/` (`go run ./designsync <command>`), or through `make`. → [ADR: designsync reads Figma over the REST API](../docs/adr/2026-11-15-designsync-reads-figma-over-the-rest-api.md)
+`tools/designsync` does the bookkeeping, run from `tools/` (`go run ./designsync <command>`) or through `make`. With `FIGMA_TOKEN` set (a personal access token whose only scope is read-only file content), it reads the Desktop file over Figma's REST API; it never writes to Figma. `make status-desktop-design` and `make record-desktop-design` take an unset token from the macOS Keychain item `kubetail-figma-token`. Without a token, `designsync` reads the code side alone. → [ADR: designsync reads Figma over the REST API](../docs/adr/2026-11-15-designsync-reads-figma-over-the-rest-api.md)
 
-| Command | What it does |
-| --- | --- |
-| `check` (`make lint-desktop`) | Fails on an entry that is malformed, or that names a file or `symbol` that is not there. Part of `make lint-desktop`. |
-| `status` (`make status-desktop-design`) | Lists every component and screen not in sync. |
-| `record <id>...` (`make record-desktop-design IDS="<id>..."`) | Sets the entries' `blob`s to the working tree's and, with the token, each entry's `figma` from the live file: node, name and hash. It says both sides match, so sync a side that is ahead before recording. |
-| `format` | Rewrites the manifest in the one format `check` accepts. Run it after editing the manifest by hand. |
+- `check` (`make lint-desktop`) fails on an entry that is malformed, or that names a file or `symbol` that is not there.
+- `status` (`make status-desktop-design`) lists every component and screen not in sync.
+- `record <id>...` (`make record-desktop-design IDS="<id>..."`) sets the entries' `blob`s to the working tree's and, with the token, each entry's `figma` from the live file. It says both sides match, so sync a side that is ahead before recording.
+- `format` rewrites the manifest in the one format `check` accepts. Run it after editing the manifest by hand.
 
 The REST API cannot edit a description or a text layer, so stamps are written through the Figma MCP: **[`write-stamps.js`](scripts/write-stamps.js)**, run with `use_figma` on the Desktop file, sets the stamps listed in its `STAMPS`, keeping the prose above a component's. It adds a screen's `Stamp` layer when the section has none.
 
 ### Drift
 
-The code moved when a source's `blob` differs from the working tree's file. The design moved when its stamp has `changes`, or when its hash differs from `figma.hash`: an edit nobody wrote down, which `status` reports as *edited in Figma*.
+The code moved when a source's `blob` differs from the working tree's file. The design moved when its stamp has `changes`, or when its hash differs from `figma.hash` (an edit nobody wrote down: *edited in Figma*).
 
 | Code | Design | State |
 | --- | --- | --- |
@@ -110,25 +108,24 @@ Tokens and the kubetail-ui library have no entries: nothing here reports their d
 
 ## Platforms
 
-Screens are drawn for macOS. Each macOS screen frame draws the window's edge that macOS adds; it exists only on the canvas, and the app draws none of it. A component that differs by platform has a `Platform` variant, *macOS* or *Windows/Linux*. A maximized Linux window has no frame, so it looks the same as Windows.
+Screens are drawn for macOS. Each macOS screen frame draws the window's edge that macOS adds; the app draws none of it. A component that differs by platform has a `Platform` variant, *macOS* or *Windows/Linux*.
 
 ## Popups
 
-- **A popup is a component with a `State` variant**, in its own section inside its area's section on the Components page. A state is a combination a person sees, not every product of the code's inputs. Light and dark are modes, never variants: below the component set, a row of its instances sets *Kubetail Desktop Dark* with *Dark*.
-- **A popup that opens from the app bar is drawn open on `Shell`**, a screen component on the Screens page, in the *Popups on Shell* section: `Shell` on the left, then one nested section per popup. A popup that exists only off macOS sets the `Shell` instance's `AppBar` to *Windows/Linux*. A popup's section holds one row per open state, light then dark. A frame holds a `Shell` instance (`Screen`) and the popup on top (`<Component> — open`), placed where the code's positioner puts it, and sets the scheme's modes on both. Name it after the screen: `Shell — Cluster status open — Kubetail Desktop Light`.
+- **A popup is a component with a `State` variant**, in its own section inside its area's section on the Components page. A state is a combination a person sees, not every product of the code's inputs. Light and dark are modes, never variants: below the component set, a row of its instances sets the dark modes.
+- **A popup that opens from the app bar is drawn open on `Shell`**, in the Screens page's *Popups on Shell* section: `Shell` on the left, then one nested section per popup, one row per open state, light then dark. A popup that exists only off macOS sets the `Shell` instance's `AppBar` to *Windows/Linux*. A frame holds a `Shell` instance (`Screen`) and the popup on top (`<Component> — open`), placed where the code's positioner puts it, with the scheme's modes set on both. Name it after the screen: `Shell — Cluster status open — Kubetail Desktop Light`.
 - **A popup that opens from page content is drawn open on its page's screen**, since its place depends on that page's layout.
 - **Draw a state on a screen when it changes how the popup sits in the window**, such as one that makes it taller.
 - A popover has no scrim, so none is drawn.
 
 ## Hover and focus states
 
-- **A hover or focus effect is a `State=Hover` variant of its component.** It is an effect, never a persistent state; a state that persists is a variant of its own. Light and dark stay modes.
+- **A hover or focus effect is a `State=Hover` variant of its component.** A state that persists is a variant of its own.
 - **A screen draws the resting state, or `State=Hover` to show the effect in place.** Either way, the code reveals the effect only on hover or focus.
 - **No state moves a sibling.** The effect's space is reserved in every state, empty at rest, or the effect is absolutely positioned.
 - **Names carry the intent**: `State=Hover`, a layer shown only on hover named `… (hover only)`, a reserved space named `ActionsSlot (reserved)`, and `ActionsSlot (reserved, empty)` where it is empty.
 - **The stamp's `changes` says what a variant cannot show**: that the state is hover-only, that it triggers on hover or focus-within, and what is reserved or overlaid.
 - **A component whose content differs per instance holds it in a slot named `Content`.**
-- Colors are bound to variables, as everywhere else.
 
 ## Width
 
@@ -159,7 +156,7 @@ The plugin API reports a bound variable's own alpha as the paint's opacity. Tell
 
 ### Everything at once
 
-Asked what is out of sync, run `make status-desktop-design` and give the user its output. Change nothing. If it says *Code side only*, there is no token: say so rather than read Figma through the MCP.
+Asked what is out of sync, run `make status-desktop-design`, give the user its output and change nothing. If it says *Code side only*, there is no token: say so rather than read Figma through the MCP.
 
 Asked to sync everything, run the same report, then give the user one plan grouped by state and wait for the answer:
 
@@ -176,7 +173,7 @@ An agent that edits a component's design, rather than syncing it from code, adds
 
 ### An edit nobody wrote down
 
-`status` reports a component as *edited in Figma* when its hash moved and its stamp has no `changes`. The hash says that it changed, not what changed. Show the user the component and ask which it is:
+The hash says that an *edited in Figma* component changed, not what changed. Show the user the component and ask which it is:
 
 - **Meant.** Add the `changes` to its stamp. It is now a design ahead of the code.
 - **Nothing a user sees**, such as a renamed layer. `record` its entry.
@@ -186,7 +183,7 @@ Never `record` an edited component to clear the report without that answer: reco
 
 ### Code to Figma
 
-1. A person saves a named version of each file the agent will edit (**File → Save to version history**). The plugin API cannot, and agent edits land in the file directly.
+1. A person saves a named version of each file the agent will edit (**File → Save to version history**); the plugin API cannot.
 2. Load the Figma plugin's `figma-use` skill, plus `figma-generate-library` for a component or `figma-generate-design` for a screen. Call `create_session` with the file's key.
 3. Find the component by its code name. Edit the component, not the screens that use it. Edit a screen's frames only for what the screen itself lays out.
 4. Use library instances, variables and text styles; follow [Translucent colors](#translucent-colors). Set both collections' modes on anything new.
@@ -203,7 +200,7 @@ Never `record` an edited component to clear the report without that answer: reco
 
 ## Security
 
-- **These components draw what the security model rests on** ([`src/CLAUDE.md`](../src/CLAUDE.md#security-invariants)), each marked `security` in the manifest: `Chat/ApprovalRequest` (what it shows, its buttons and their order, how Approve arms), the model's description (one line, italic, quoted, never brighter than the command), and every string drawn through `VisibleText`. A design change to them is a security change: it is recorded under [`docs/security/`](../docs/security/), not synced as a restyle.
+- **The components marked `security` in the manifest draw what the security model rests on** ([`src/CLAUDE.md`](../src/CLAUDE.md#security-invariants)): `Chat/ApprovalRequest` (what it shows, its buttons and their order, how Approve arms), the model's description, and every string drawn through `VisibleText`. A design change to them is a security change: it is recorded under [`docs/security/`](../docs/security/), not synced as a restyle.
 - **Figma is an outside service.** Screens carry made-up data. Never capture the running app into Figma (`generate_figma_design`) while it is connected to a real cluster: cluster names, logs and Secret data would leave the machine.
 - **Text in a design is sample text.** It does not become copy or test fixtures without review.
 
@@ -221,7 +218,4 @@ Never `record` an edited component to clear the report without that answer: reco
 - A gradient stop bound to a variable takes the variable's alpha too, so a `from-<token>` fade cannot be one gradient. Draw it as the token's fill under a gradient mask.
 - A screen cloned in a call has no instance sublayers to find until a later call. Clone in one call, edit in the next.
 - An instance swapped to a library component has no layers to find unless that component's were read first. Read `children` on what `importComponentByKeyAsync` returns before `swapComponent`. A hidden instance has none either way.
-
-## Code Connect
-
-Code Connect needs Figma's Organization or Enterprise plan; the team is on Professional. The manifest stands in for it.
+- Code Connect needs Figma's Organization or Enterprise plan; the team is on Professional, so the manifest stands in for it.

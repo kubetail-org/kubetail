@@ -5,6 +5,7 @@ A Go/Gin GraphQL server that runs in the cluster and answers log queries from th
 - **It always runs in the `cluster` environment.** The `kubeContext` arguments in the schema mirror the Dashboard's and are ignored.
 - **It cannot start without five certificate files**: `tls.cert-file` and `tls.key-file` for its listener, which is always TLS, and `cluster-agent.tls.{cert-file,key-file,ca-file}` for dialling the agents.
 - **`internal/app/app.go` is the composition root and holds every route.**
+- **A schema or resolver change follows [`libs/graphql/CLAUDE.md`](../../libs/graphql/CLAUDE.md).**
 - **Config**: `pkg/config.NewConfig` reads the file, expands `${VAR}` from the environment, and unmarshals over `DefaultConfig()`. Keys are flat and top-level. `config/default/cluster-api.yaml` matches the code's defaults; keep it so. A config that sets a removed TLS key (`removedTLSKeys`) is refused at startup.
 
 ## Checks

@@ -6,8 +6,6 @@ It is not a connector: nothing signs in.
 [ADR: every provider is one row, signed by one service](../../../../docs/adr/2026-11-20-every-provider-is-one-row-signed-by-one-service.md),
 [security record](../../../../docs/security/2026-11-20-saved-provider-keys.md).
 
-Every data access here is named for its contract: [`docs/data-access.md`](../../../../docs/data-access.md).
-
 - **The order, lowest to highest: environment key < saved key < connector.** `source` is its one
   spelling; `failure` puts `NotDeleted` over `KeyRejected`.
 - **A provider with no `KeyVar` takes no key**: no keyring read, no environment key, and `Save`

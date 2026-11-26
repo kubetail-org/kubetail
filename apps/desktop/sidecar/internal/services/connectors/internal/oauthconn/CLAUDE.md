@@ -15,12 +15,10 @@ base** (`llm.SessionSigner`). The engine names no provider: what one has of its 
   the keyring accounts. A fixed `Provider.ClientID` registers no client.
 - **A session exists only when the row's `session_id` and the keyring entry's `session` match.**
   A sign-in mints the id and writes the entry, then the row, on every save. The restore matches
-  them and reaches no network; any other entry is deleted, before the row's write. The access
+  them; any other entry is deleted, before the row's write. The access
   token is memory's alone.
-- **`New` is `Restoring` and makes no keyring call**; the restore reads on a goroutine, and a row
-  that cannot be read waits for it too. Until it publishes, `Sign` waits (after its resource
-  check), `Bind` answers a `signer.Pending` of the restored session, and every change answers
-  `ErrRestoring`. `Close` leaves a keyring call that never answers behind.
+- **While `Restoring`** (a row that cannot be read waits for the restore too), `Sign` waits after
+  its resource check and `Bind` answers a `signer.Pending` of the restored session.
 - **Every change runs under one lock against one generation.** `Connect`, `Cancel`, `Disconnect`
   and a session's end bump it; whatever finishes applies only to the generation it began under.
   Late tokens are revoked; a failed revocation flags the state that ended them.

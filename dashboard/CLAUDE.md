@@ -4,6 +4,7 @@ A Go/Gin HTTP server: the built UI, a GraphQL API over the Kubernetes API (gqlge
 
 - **`pkg/app` and `pkg/config` are the CLI's API.** `cli/cmd/serve.go` calls `config.DefaultConfig`, `app.NewApp`, `NotifyShutdown`, `DrainWithContext` and `Close`. A change to those signatures, or to a default in `DefaultConfig`, changes `kubetail serve`.
 - **`pkg/app/app.go` is the composition root and holds every route.** `internal/cluster-api/` is package `clusterapi`. Hand-written GraphQL code sits in `graph/schema.helpers.go` and `graph/model/models_custom.go`.
+- **A schema or resolver change follows [`libs/graphql/CLAUDE.md`](../libs/graphql/CLAUDE.md).**
 - **`website/` is the built UI**, copied in by `make build-dashboard-ui`; git tracks only `.gitkeep`. Without it every page route answers 404 `website not found`, and the API still works.
 
 ## Checks
@@ -48,7 +49,7 @@ Routes mount under `cfg.BasePath`. `NewApp` builds three nested groups, and whic
 - **Kubernetes clients come from the `App`'s one `k8shelpers.ConnectionManager`**, with three exceptions that use credentials of their own: the Helm client (`desktop` only), the health monitor's aggregator clientset, and the authorizer's review client.
 - **A resolver that takes `kubeContext` starts with `r.cm.DerefKubeContext(kubeContext)`** and passes the result down. In `cluster` the result is always `""`; a non-empty kube context handed to the connection manager directly is an error.
 - **Namespaces go through the allow-list.** A get calls `k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, default)`. A list or a watch goes through `r.listResource` or `r.watchResourceMulti`. An omitted namespace is the context's default; the empty string means all, which with an allow-list fans out across the allowed namespaces. Anything built from source paths passes `logs.WithAllowedNamespaces(r.allowedNamespaces)`.
-- **Informers are shared and run on the process's credentials**, so `cm.NewInformer(ctx, kubeContext, token, namespace, gvr)` first checks the caller with a `SelfSubjectAccessReview`. That check is the only thing between a caller and an informer's data: always pass the request's token. → [ADR: share informers and gate each caller with an access review](../docs/adr/2026-11-09-share-informers-and-gate-each-caller-with-an-access-review.md)
+- **`cm.NewInformer` always gets the request's token**: its access review is the only thing between a caller and a shared informer's data. → [ADR: share informers and gate each caller with an access review](../docs/adr/2026-11-09-share-informers-and-gate-each-caller-with-an-access-review.md)
 - **Logs are read from the Kubernetes API here** (`KubeLogFetcher`, the default of `logs.NewStream`). This module never speaks gRPC; the agent-backed path is the Cluster API's, which the browser reaches through the proxy.
 - **An operation that exists in `desktop` alone returns `ErrForbidden` in `cluster`** (`kubeConfigGet`, `helmListReleases`…). A new one does the same.
 
@@ -66,7 +67,6 @@ What an ordinary change here can break, beside the root guide's list:
 - **The proxies strip what the caller must not choose**: `Origin`, `Authorization`, `X-Forwarded-Authorization` and every `Impersonate-*` header are deleted before forwarding, a path with a `..` segment is refused before it is joined, and an upgrade is refused unless its origin is allowed and it carries the forwarded CSRF token. The Cluster API relies on each of these. → [ADR: reach the Cluster API through the aggregation layer](../docs/adr/2026-11-09-reach-the-cluster-api-through-the-aggregation-layer.md)
 - **`websocketCSRFContextMiddleware` deletes a client's own `X-Forwarded-CSRF-Token`** before it sets the real one.
 - **The token is trimmed before it is checked**, so a whitespace-only bearer does not pass for one.
-- **`BypassNamespaceCheck` turns the allow-list off.** It is matched by pointer identity; never derive it from input.
 
 ## Tests
 

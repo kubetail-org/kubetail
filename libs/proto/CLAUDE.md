@@ -23,6 +23,6 @@ make cover-cluster-agent-changed  # from the repo root; needs cargo-llvm-cov
 
 Commit the regenerated `*.pb.go`; never hand-edit them. Their headers record the `protoc` and plugin versions, so they are generated with one of each: `protoc` is `protoc-version` in `.github/actions/setup-environment/action.yml`, which CI installs, and `make generate` refuses another; the plugins are pinned in `tools/go.mod`, and it builds them. Dependabot moves the plugins in a `protobuf` group of their own, whose PR fails `Check · Generated` until `make generate` is run on it. A change under `libs/proto/` alone runs CI's Rust jobs but not its Go jobs, so run the Go checks yourself.
 
-- **A `LogMetadata*` message is also a GraphQL type.** The Cluster API binds them straight into its schema (`cluster/api/gqlgen.yml`), so a change to one is a schema change: follow the root guide's *The GraphQL servers*.
+- **A `LogMetadata*` message is also a GraphQL type.** The Cluster API binds them straight into its schema (`cluster/api/gqlgen.yml`), so a change to one is a schema change: follow `libs/graphql/CLAUDE.md`.
 - **`LogMetadataWatchEvent.type` is a string** (`ADDED`, `MODIFIED`, `DELETED`) spelled by hand in the agent and again in the UI (`pages/home/log-metadata-provider.tsx`); the Cluster API passes it through.
 - **The identity metadata is not in the proto.** `x-remote-user`, `x-remote-group` and `x-remote-extras` are set in `libs/go-common/grpchelpers` and read in `cluster/agent/cluster_agent/src/auth.rs`; change the two together.
