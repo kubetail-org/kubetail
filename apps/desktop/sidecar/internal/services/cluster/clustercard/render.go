@@ -82,9 +82,8 @@ const (
 	namespacesShare  = 1472
 	groupsShare      = 1472
 
-	// groupMax bounds one group's entry: the catalog cuts inside a group before
-	// it drops one, since the group is the orientation and its kinds the detail.
-	groupMax = 192
+	// groupMax caps one group's name, so a long one cannot crowd out the rest.
+	groupMax = 96
 	// nameMax caps the display name, contextMax the kube-context and valueMax
 	// every other single value, as marshalled. A command names the context
 	// whole, and one cut short names no context outside a sandboxed run, so its
@@ -201,8 +200,8 @@ type FreshnessSection struct {
 
 // inventorySection says what is in it, each list under its own status.
 type inventorySection struct {
-	Namespaces *list   `json:"namespaces,omitempty"`
-	APIGroups  *groups `json:"apiGroups,omitempty"`
+	Namespaces *list `json:"namespaces,omitempty"`
+	APIGroups  *list `json:"apiGroups,omitempty"`
 }
 
 // list is names under a verdict. More counts what a cut dropped.
@@ -211,19 +210,6 @@ type list struct {
 	Reason string   `json:"reason,omitempty"`
 	Names  []string `json:"names,omitempty"`
 	More   int      `json:"more,omitempty"`
-}
-
-type groups struct {
-	Status string  `json:"status"`
-	Reason string  `json:"reason,omitempty"`
-	Groups []group `json:"groups,omitempty"`
-	More   int     `json:"more,omitempty"`
-}
-
-type group struct {
-	Name  string   `json:"name"`
-	Kinds []string `json:"kinds"`
-	More  int      `json:"more,omitempty"`
 }
 
 // Render is the card for f, never over Budget.
@@ -403,67 +389,66 @@ func Verdict(cf *CacheFacts, k *Kind, hasRows bool) (status, reason string, list
 	}
 }
 
-// apiGroups is the catalog by API group, under the sweep's verdict. Only
-// Discovered reads as currently served; a reason not named here is last-known,
-// so a new verdict can never promote the catalog by omission.
-func apiGroups(cf *CacheFacts) *groups {
-	g := &groups{}
+// apiGroups names the catalog's API groups the cluster's add-ons serve, under
+// the sweep's verdict. Only Discovered reads as currently served; a reason not
+// named here is last-known, so a new verdict can never promote the catalog by
+// omission.
+func apiGroups(cf *CacheFacts) *list {
+	l := list{}
 	switch cf.Discovery {
 	case "IdentityMismatch":
 		// The rows are another cluster's.
 		return nil
 	case "Discovered":
-		g.Status = statusDiscovered
+		l.Status = statusDiscovered
 	case "Partial":
-		g.Status = statusPartial
+		l.Status = statusPartial
 	case "Discovering", "":
-		g.Status = statusDiscovering
-		return g
+		l.Status = statusDiscovering
+		return &l
 	default:
-		g.Status, g.Reason = StatusLastKnown, cut(cf.Discovery, valueMax)
+		l.Status, l.Reason = StatusLastKnown, cut(cf.Discovery, valueMax)
 	}
-	all := groupEntries(cf.Kinds)
-	n := Fit(len(all), groupsShare, func(k int) int {
-		return size(groups{Status: g.Status, Reason: g.Reason, Groups: all[:k], More: len(all) - k})
-	})
-	g.Groups, g.More = all[:n], len(all)-n
-	return g
-}
-
-// groupEntries is the catalog grouped by API group, sorted, each entry inside
-// groupMax.
-func groupEntries(kinds []Kind) []group {
-	byGroup := map[string][]string{}
-	for _, k := range kinds {
-		name := groupOf(k.APIVersion)
-		if !slices.Contains(byGroup[name], k.Kind) {
-			byGroup[name] = append(byGroup[name], k.Kind)
+	served := map[string]bool{}
+	for _, k := range cf.Kinds {
+		// The core group's apiVersion names no group.
+		if group, _, ok := strings.Cut(k.APIVersion, "/"); ok && !builtinGroups[group] {
+			served[group] = true
 		}
 	}
-	var all []group
-	for _, name := range slices.Sorted(maps.Keys(byGroup)) {
-		all = append(all, groupEntry(name, sorted(byGroup[name])))
+	var names []string
+	for _, group := range slices.Sorted(maps.Keys(served)) {
+		names = append(names, cut(group, groupMax))
 	}
-	return all
+	return l.withNames(names, groupsShare)
 }
 
-// groupEntry is one group inside groupMax: the name gets up to half, the kinds
-// what is left.
-func groupEntry(name string, kinds []string) group {
-	g := group{Name: cut(name, groupMax/2)}
-	n := Fit(len(kinds), groupMax, func(k int) int {
-		return size(group{Name: g.Name, Kinds: kinds[:k], More: len(kinds) - k})
-	})
-	g.Kinds, g.More = kinds[:n], len(kinds)-n
-	return g
-}
-
-// groupOf is the API group an apiVersion names; the core group is "core".
-func groupOf(apiVersion string) string {
-	if g, _, ok := strings.Cut(apiVersion, "/"); ok {
-		return g
-	}
-	return "core"
+// builtinGroups are the named API groups kube-apiserver serves itself. Every
+// cluster has them, so the card leaves them out, as it does the core group.
+var builtinGroups = map[string]bool{
+	"admissionregistration.k8s.io": true,
+	"apiextensions.k8s.io":         true,
+	"apiregistration.k8s.io":       true,
+	"apps":                         true,
+	"authentication.k8s.io":        true,
+	"authorization.k8s.io":         true,
+	"autoscaling":                  true,
+	"batch":                        true,
+	"certificates.k8s.io":          true,
+	"coordination.k8s.io":          true,
+	"discovery.k8s.io":             true,
+	"events.k8s.io":                true,
+	"extensions":                   true,
+	"flowcontrol.apiserver.k8s.io": true,
+	"internal.apiserver.k8s.io":    true,
+	"networking.k8s.io":            true,
+	"node.k8s.io":                  true,
+	"policy":                       true,
+	"rbac.authorization.k8s.io":    true,
+	"resource.k8s.io":              true,
+	"scheduling.k8s.io":            true,
+	"storage.k8s.io":               true,
+	"storagemigration.k8s.io":      true,
 }
 
 // withNames is l holding the longest prefix of names that keeps it inside

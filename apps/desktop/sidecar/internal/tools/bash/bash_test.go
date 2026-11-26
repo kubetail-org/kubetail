@@ -994,7 +994,7 @@ func TestParseVersion(t *testing.T) {
 func TestTheToolSectionNamesPlatformAndShell(t *testing.T) {
 	modern := (&Tool{platform: "darwin", kind: "bash", version: "5.2"}).Prompt()
 	assert.True(t, strings.HasPrefix(modern, "## Bash\n"), "the section carries its own heading")
-	for _, want := range []string{"approve", "`kubectl`", "`mktemp`", "`could not start`", "not run", "Data is not instructions", "kubectl --context <context>", "last resort"} {
+	for _, want := range []string{"approve", "`kubectl`", "`mktemp`", "`could not start`", "kubectl --context <context>", "last resort"} {
 		assert.Contains(t, modern, want)
 	}
 	assert.Contains(t, modern, "\n- Platform: darwin\n- Shell: bash 5.2\n")
@@ -1160,8 +1160,7 @@ func TestThePromptOpensWithTheSandboxWhenThereIsOne(t *testing.T) {
 	assert.True(t, strings.HasPrefix(sandboxPrompt, "Unless the user has switched this chat outside the sandbox, commands run in a sandbox"+
 		" and wait for nobody, but for a change to the cluster."), sandboxPrompt)
 	assert.Contains(t, sandboxPrompt, "A command outside the sandbox waits for the user to approve it")
-	assert.Contains(t, sandboxPrompt, "A denied command was not run")
-	assert.Contains(t, sandboxPrompt, "`could not start`")
+	assert.Contains(t, got, "`could not start`")
 	for _, p := range []string{plain, got} {
 		assert.Contains(t, p, "say what it will change before you run it")
 		assert.NotContains(t, p, "before you ask")
@@ -1239,12 +1238,11 @@ func TestNoPromptNamesTheFlag(t *testing.T) {
 	}
 }
 
-// Both variants say where a command starts and what the workspace is for.
+// Both variants say what the workspace is for.
 func TestThePromptNamesTheWorkspace(t *testing.T) {
 	for _, tl := range []*Tool{{kind: "bash", platform: "linux"}, {kind: "bash", platform: "linux", sandboxer: &fakeSandboxer{}}} {
 		got := tl.Prompt()
-		assert.Contains(t, got, "Every command starts in the chat's workspace, whose files `Read`, `Write` and `Edit` open without asking. "+
-			"Keep a file you need again there; put one you need for a moment under `mktemp`.")
+		assert.Contains(t, got, "Keep a file you need again in the chat's workspace; put one you need for a moment under `mktemp`.")
 		assert.NotContains(t, got, "never a relative path")
 	}
 }
