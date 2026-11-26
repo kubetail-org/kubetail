@@ -53,7 +53,7 @@ jobs:
       typescript: ${{ fromJSON(steps.plan.outputs.jobs).typescript }}
       python: ${{ fromJSON(steps.plan.outputs.jobs).python }}
       actions: ${{ fromJSON(steps.plan.outputs.jobs).actions }}
-      skipped: ${{ steps.skipped.outputs.categories }}
+      skipped: ${{ steps.skipped.outputs.analyses }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -71,21 +71,23 @@ jobs:
             python: codeql python
             actions: codeql actions
 
-      # The category of every analysis the pull request skips, for Reuse · Base analysis's
-      # matrix. The desktop's Go and Rust have one per OS.
+      # Every analysis the pull request skips, for Reuse · Base analysis's
+      # matrix. The desktop's Go and Rust have one per OS. GitHub appends each
+      # entry's values to the job's name, so an entry holds the parts of its
+      # category, not the category itself.
       - id: skipped
         env:
           JOBS: ${{ steps.plan.outputs.jobs }}
         run: |
           jq -c '[
-            (select(.go | not) | {category: "/language:go"}),
-            (select(.rust | not) | {category: "/language:rust"}),
-            (select(."desktop-go" | not) | {category: ("linux", "macos", "windows" | "/language:go/desktop/os:\(.)")}),
-            (select(."desktop-rust" | not) | {category: ("linux", "macos", "windows" | "/language:rust/desktop/os:\(.)")}),
-            (select(.typescript | not) | {category: "/language:javascript-typescript"}),
-            (select(.python | not) | {category: "/language:python"}),
-            (select(.actions | not) | {category: "/language:actions"})
-          ]' <<<"$JOBS" | sed 's/^/categories=/' >> "$GITHUB_OUTPUT"
+            (select(.go | not) | {language: "go"}),
+            (select(.rust | not) | {language: "rust"}),
+            (select(."desktop-go" | not) | {language: "go", os: ("linux", "macos", "windows"), variant: "desktop"}),
+            (select(."desktop-rust" | not) | {language: "rust", os: ("linux", "macos", "windows"), variant: "desktop"}),
+            (select(.typescript | not) | {language: "javascript-typescript"}),
+            (select(.python | not) | {language: "python"}),
+            (select(.actions | not) | {language: "actions"})
+          ]' <<<"$JOBS" | sed 's/^/analyses=/' >> "$GITHUB_OUTPUT"
 
   go:
     name: Go
@@ -359,10 +361,22 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.skipped) }}
     steps:
+      # The desktop's categories are /language:<language>/desktop/os:<os>.
+      - id: category
+        env:
+          LANGUAGE: ${{ matrix.language }}
+          OS: ${{ matrix.os }}
+          VARIANT: ${{ matrix.variant }}
+        run: |
+          category="/language:$LANGUAGE"
+          if [ -n "$VARIANT" ]; then
+            category="$category/$VARIANT/os:$OS"
+          fi
+          echo "category=$category" >> "$GITHUB_OUTPUT"
       - name: Download the base branch's analysis
         env:
           GH_TOKEN: ${{ github.token }}
-          CATEGORY: ${{ matrix.category }}
+          CATEGORY: ${{ steps.category.outputs.category }}
         run: |
           # A cancelled run records a failed analysis, which has no SARIF. A
           # wip/* branch has none until its first push run, so a pull request
@@ -378,4 +392,4 @@ jobs:
       - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: ${{ runner.temp }}/base.sarif
-          category: ${{ matrix.category }}
+          category: ${{ steps.category.outputs.category }}
