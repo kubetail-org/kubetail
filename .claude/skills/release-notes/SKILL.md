@@ -1,7 +1,7 @@
 ---
 name: release-notes
-description: Write the notes for a draft GitHub release of a Kubetail component (cli/v*, dashboard/v*, cluster-api/v* or cluster-agent/v*) from the pull requests in its range. Use when the user runs /release-notes or asks for a release's notes.
-argument-hint: <cli|dashboard|cluster-api|cluster-agent> <tag>
+description: Write the notes for a draft GitHub release of a Kubetail component (cli/v*, dashboard/v*, cluster-api/v*, cluster-agent/v* or desktop/v*) from the pull requests in its range. Use when the user runs /release-notes or asks for a release's notes.
+argument-hint: <cli|dashboard|cluster-api|cluster-agent|desktop> <tag>
 disable-model-invocation: true
 ---
 
@@ -27,10 +27,12 @@ Ghostty's release notes: a short opening, a heading per highlight with a few par
 shorter lists.
 
 The reader uses Kubetail and has never seen its code. For the CLI, they run `kubetail` on their
-machine. For a cluster component, they installed Kubetail in a cluster with the Helm chart.
+machine. For a cluster component, they installed Kubetail in a cluster with the Helm chart. For
+the desktop, they installed Kubetail Desktop, the app.
 
 - **The opening says what the release is**, in one or two paragraphs: "Kubetail CLI 0.19.0 adds
   a `--since` flag to `kubetail logs` and fixes the Dashboard losing its place when a pod
+  restarts.", or "Kubetail Desktop 0.2.0 adds a log viewer that follows a workload across
   restarts." A patch release says so and what it fixes. `render` adds the thanks and the counts
   of contributors and pull requests; do not write them.
 - **A highlight is a change the reader will want to try or must know about.** Most releases have
@@ -46,12 +48,14 @@ machine. For a cluster component, they installed Kubetail in a cluster with the 
 - **A bullet is one sentence, two at most**, for a change too small for a highlight. Say what the
   reader can now do, or what no longer goes wrong, not how the code changed: "The log viewer keeps
   streaming after a pod restarts.", not "Fix reconnect race in the subscription's watch loop."
-  Lead with the platform when it matters: "Windows: `kubetail serve` opens the browser again."
+  Lead with the platform when it matters: "Windows: `kubetail serve` opens the browser again.",
+  "macOS: The tray icon follows the menu bar's theme."
 - **Write in the present tense, to "you".** Describe a fix as the behaviour that now holds; "Fix"
   and "Fixed" are fine for a bug the reader will recognise by its symptom. "We" may say what the
   project chose or plans, sparingly.
-- **Name what the reader sees**: a page, a button, a command, a flag, a config key, a Helm value.
-  No package, file or function names, and no "refactor", "resolver" or "GraphQL".
+- **Name what the reader sees**: a page, a button, a command, a flag, a config key, a Helm value,
+  a menu or a setting. No package, file or function names, and no "refactor", "resolver",
+  "sidecar" or "GraphQL".
 - **State facts.** No "improved" or "various" without saying what changed; give the number when
   there is one. No marketing words, no exclamation marks.
 - **A breaking change says exactly what to do**: "Rename `--follow-all` to `--follow` in your
@@ -120,8 +124,8 @@ Run every command from `tools/`. Work in a fresh directory: `dir=$(mktemp -d)`.
    ```
 
 5. **Publish** once the user approves. The notes go to the tag's draft release.
-   `release-cli.yml` opens the CLI's draft; `release-docker.yml` opens none, so for a cluster
-   component the user first drafts a release for the tag on GitHub. By default the user runs
+   `release-cli.yml` and `release-desktop.yml` open their drafts; `release-docker.yml` opens none,
+   so for a cluster component the user first drafts a release for the tag on GitHub. By default the user runs
    `publish` in a terminal of their own, since it asks its question on the terminal:
 
    ```sh

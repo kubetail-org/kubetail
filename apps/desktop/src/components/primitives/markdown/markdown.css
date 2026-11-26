@@ -1,0 +1,114 @@
+/*
+ * Copyright 2024 The Kubetail Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Token colors for the code blocks in an answer, on highlight.js's class names.
+ * One small palette in the app's own two schemes rather than a shipped theme,
+ * so the blocks sit on the app's own surfaces.
+ */
+
+:root,
+.light {
+  --hl-comment: #6a737d;
+  --hl-keyword: #a626a4;
+  --hl-string: #50a14f;
+  --hl-number: #986801;
+  --hl-attr: #4078f2;
+  --hl-type: #c18401;
+  --hl-deletion: #d32f2f;
+  --hl-addition: #2e7d32;
+}
+
+.dark {
+  --hl-comment: #7d8590;
+  --hl-keyword: #c678dd;
+  --hl-string: #98c379;
+  --hl-number: #d19a66;
+  --hl-attr: #61afef;
+  --hl-type: #e5c07b;
+  --hl-deletion: #f87171;
+  --hl-addition: #7ee787;
+}
+
+/* Under `components`, as a component's own rules are: over the base reset, under a utility. */
+@layer components {
+  .hljs-comment,
+  .hljs-quote,
+  .hljs-meta {
+    color: var(--hl-comment);
+  }
+
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-literal,
+  .hljs-built_in,
+  .hljs-section {
+    color: var(--hl-keyword);
+  }
+
+  .hljs-string,
+  .hljs-regexp,
+  .hljs-template-tag {
+    color: var(--hl-string);
+  }
+
+  .hljs-number,
+  .hljs-symbol,
+  .hljs-bullet {
+    color: var(--hl-number);
+  }
+
+  .hljs-attr,
+  .hljs-attribute,
+  .hljs-variable,
+  .hljs-template-variable,
+  .hljs-name,
+  .hljs-property {
+    color: var(--hl-attr);
+  }
+
+  .hljs-type,
+  .hljs-title,
+  .hljs-class .hljs-title,
+  .hljs-tag {
+    color: var(--hl-type);
+  }
+
+  .hljs-deletion {
+    color: var(--hl-deletion);
+  }
+
+  .hljs-addition {
+    color: var(--hl-addition);
+  }
+
+  /* A cluster change's diff, drawn by DiffBlock. */
+  .diff-del {
+    color: var(--hl-deletion);
+  }
+
+  .diff-add {
+    color: var(--hl-addition);
+  }
+
+  .hljs-emphasis {
+    font-style: italic;
+  }
+
+  .hljs-strong {
+    font-weight: 600;
+  }
+}

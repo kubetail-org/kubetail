@@ -15,6 +15,9 @@ outputs=(
   cli/assets
   apps/web/src/lib/graphql/dashboard/__generated__
   apps/web/src/lib/graphql/cluster-api/__generated__
+  apps/desktop/sidecar/graph
+  apps/desktop/sidecar/grpc
+  apps/desktop/src/gql
 )
 
 # Every file under the outputs with its checksum.

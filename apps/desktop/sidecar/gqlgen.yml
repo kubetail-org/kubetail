@@ -1,0 +1,931 @@
+schema:
+  - graph/*.graphqls
+
+exec:
+  filename: graph/generated.go
+  package: graph
+
+model:
+  filename: graph/model/models_gen.go
+  package: model
+
+resolver:
+  layout: follow-schema
+  dir: graph
+  package: graph
+  filename_template: "{name}.resolvers.go"
+
+autobind:
+  - github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph/model
+
+models:
+  # --- Cluster ---
+  # The GraphQL Cluster types bind 1:1 (same name) into internal/services/cluster —
+  # gqlgen autobinds with no wrapper. The schema mirrors beehive's
+  # owner chain: Cluster.status is the Cluster kind's stored status, and the
+  # ClusterCache child carries the ClusterCache kind's sync status (`status`) plus the
+  # cluster ID its resolvers read with.
+  Cluster:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.Cluster
+    fields:
+      # Both are separate beehive reads, kept off the record and run only when
+      # selected: event chatter must not ride the cluster watch, and the owned
+      # caches stream standalone so cache churn never re-emits a cluster.
+      caches:
+        resolver: true
+      events:
+        resolver: true
+
+  ClusterSpec:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterSpec
+
+  ClusterSpecSource:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterSpecSource
+
+  ClusterSpecSourceKubeconfig:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterSpecSourceKubeconfig
+
+  ClusterStatusSource:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterStatusSource
+
+  ClusterStatus:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterStatus
+
+  ClusterServer:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterServer
+
+  ClusterStatusSourceKubeconfig:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterStatusSourceKubeconfig
+
+  ClusterStatusSourceKubeconfigCluster:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterStatusSourceKubeconfigCluster
+
+  ClusterStatusSourceKubeconfigUser:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterStatusSourceKubeconfigUser
+
+  ClusterStatusSourceKubeconfigClusterEntry:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterStatusSourceKubeconfigClusterEntry
+
+  ClusterPrincipal:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterPrincipal
+    fields:
+      permissions:
+        resolver: true
+
+  # The conditions ride the wire as-is (the stored shapes; the webview derives
+  # display state from type/status/reason). Unprefixed shared vocabulary: the same
+  # Condition rides both the Cluster kind's status and the ClusterCache kind's, so
+  # it belongs to no single storage provenance.
+  #
+  # Condition/Event/Schedule are shared, kind-agnostic vocabulary on the wire but
+  # live in `internal/services/cluster` only because it's their sole consumer today. The
+  # wire-universal (unprefixed) name and the internal package home are orthogonal:
+  # the unprefixed name says "not specific to one wire namespace", not "must live
+  # package-neutral". When a non-cluster kind/subsystem first needs conditions,
+  # hoist all three together into a shared leaf package (e.g. internal/lib/apimeta),
+  # leaving cluster its ConditionType constants (Connected/Identified/Synced) — see
+  # sidecar/CLAUDE.md. Until that second consumer exists, a shared package would be
+  # a one-importer abstraction, so they stay here.
+  Condition:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.Condition
+
+  ObjectRef:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ObjectRef
+
+  # The generic event surface. Event binds 1:1 to the Go type; its run id
+  # rides the shared ObjectID scalar (no dedicated Event id scalar), and EventType
+  # binds straight to beehive.EventType (values Normal/Warning match), the same
+  # external-enum pattern as ConditionStatus.
+  Event:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.Event
+
+  # The event watches' envelope. Its own two-value enum rather than CollectionWatchFrameType: the
+  # log is append-only, so Added/Modified/Deleted would advertise transitions that
+  # can never arrive.
+  EventFeedFrame:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.EventFeedFrame
+
+  EventFeedFrameType:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.EventFeedFrameType
+
+  EventType:
+    model: github.com/amorey/beehive.EventType
+
+  # The generic reconcile-schedule state watch (next-requeue countdown), decoupled from
+  # the cluster/list watch. Binds 1:1 to the Go type.
+  Schedule:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.Schedule
+
+  ConditionStatus:
+    model: github.com/amorey/beehive.ConditionStatus
+
+  # The collection watches. CollectionWatchFrameType binds to the shared internal/lib/apimeta type — more
+  # than one service streams delta frames, and gqlgen binds one enum to one Go type, so
+  # a per-service definition would make every frame wrapper's `type` field a resolver.
+  # The frame wrappers bind 1:1 to the types the watch pumps emit.
+  CollectionWatchFrameType:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/apimeta.CollectionWatchFrameType
+
+  ClusterCollectionWatchFrame:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCollectionWatchFrame
+
+  ClusterDataRateSampleFeedFrame:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterDataRateSampleFeedFrame
+
+  ClusterDataRateSample:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterDataRateSample
+
+  ClusterCacheCollectionWatchFrame:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCacheCollectionWatchFrame
+
+  ClusterCache:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCache
+    fields:
+      # kinds and events are separate reads (the cache's SQLite catalog, the beehive
+      # event log), so both stay off the record and run only when selected.
+      kinds:
+        resolver: true
+      cachedKinds:
+        resolver: true
+      events:
+        resolver: true
+
+  # The cache subtree's served spec IS the stored beehive type (no projection layer).
+  ClusterCacheSpec:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCacheSpec
+  ClusterCachedKind:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCachedKind
+    fields:
+      events:
+        resolver: true
+  ClusterCachedKindSpec:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCachedKindSpec
+    fields:
+      # The wire's positive form over a stored Paused. The storage field is inverted so a
+      # record written before it decodes as syncing; this resolver is the one negation.
+      syncEnabled:
+        resolver: true
+  ClusterCachedKindCollectionWatchFrame:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCachedKindCollectionWatchFrame
+  ClusterCacheHealth:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCacheHealth
+  UnhealthyKindRef:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.UnhealthyKindRef
+
+  ClusterCacheStats:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCacheStats
+
+  ClusterCacheSyncState:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCacheSyncState
+  ClusterCacheDiscoveryStatus:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCacheDiscoveryStatus
+  ClusterCacheKindSyncStatus:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCacheKindSyncStatus
+
+  ClusterCachedDataKind:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCachedDataKind
+
+  ClusterCachedDataKindCollectionWatchFrame:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCachedDataKindCollectionWatchFrame
+
+  # Mapped like every other cached-data type: an unmapped schema type autobinds into
+  # graph/model, and cluster would then import it — the layering this block exists to hold.
+  PrinterColumn:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.PrinterColumn
+
+  # firstSeen/lastSeen autobind to value time.Time fields: gqlgen's Time marshaler emits null
+  # for the zero time, which is exactly the wire's meaning of an absent timestamp.
+  ClusterCachedDataEvent:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCachedDataEvent
+
+  ClusterCachedDataEventCollectionWatchFrame:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCachedDataEventCollectionWatchFrame
+
+  # creationTimestamp autobinds like the event timestamps above. rawJSON autobinds to the
+  # RawJSON field too: the body is already read by the time the record exists — the watch
+  # fetches one per frame it sends — so gating its marshal behind a resolver would defer
+  # nothing.
+  ClusterCachedDataObject:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCachedDataObject
+
+  ClusterCachedDataObjectCollectionWatchFrame:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ClusterCachedDataObjectCollectionWatchFrame
+
+  # --- Models ---
+  # The dialect a provider speaks, named for the API. Every member binds to its
+  # constant, or gqlgen refuses the binding, which is what keeps a new schema value
+  # from reaching the wire with nothing behind it. Model and Provider are the
+  # catalog's and bind when it lands.
+  LLMDialect:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/llm.Dialect
+    enum_values:
+      Messages:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/llm.DialectMessages
+      Responses:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/llm.DialectResponses
+      ChatCompletions:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/llm.DialectChatCompletions
+      Fake:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/llm.DialectFake
+
+  # --- Chat ---
+  # The chat types bind 1:1 into internal/agent/chat, like the cluster ones. ChatID is a
+  # UUID string, not a beehive object id, so it is its own scalar; it binds to apimeta,
+  # which chat aliases, since memory and tools name a chat too.
+  ChatID:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/apimeta.ChatID
+
+  MessageID:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.MessageID
+
+  ApprovalID:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ApprovalID
+
+  ToolCallID:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallID
+
+  ToolCall:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCall
+    fields:
+      # A provider call has no status; the record keeps "" so a call stays
+      # comparable, and the resolver serves it as null.
+      status:
+        resolver: true
+
+  ToolCallApproval:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallApproval
+  SandboxAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.SandboxAction
+  SandboxRequest:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.SandboxRequest
+  ClusterWrite:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ClusterWrite
+  CloudRequest:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.CloudRequest
+  RequestDetail:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.Detail
+  # principal is "" on a stored action that names none, which the wire
+  # serves as null.
+  PermissionAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.PermissionAction
+    fields:
+      principal:
+        resolver: true
+
+  # --- Memory ---
+  # The memory types bind 1:1 into internal/services/memory, like the chat ones.
+  MemoryID:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/memory.MemoryID
+
+  Memory:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/memory.Memory
+
+  MemoryCollectionWatchFrame:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/memory.MemoryCollectionWatchFrame
+
+  MemoryAuthor:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/memory.Author
+    enum_values:
+      Model:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/memory.AuthorModel
+      User:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/memory.AuthorUser
+
+  ToolAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.Action
+
+  CommandAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.CommandAction
+
+  ReadAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ReadAction
+
+  WriteAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.WriteAction
+
+  EditAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.EditAction
+
+  SearchAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.SearchAction
+
+  FetchAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.FetchAction
+
+  DelegateAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.DelegateAction
+
+  KubeQueryAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.KubeQueryAction
+
+  LogsViewAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.LogsViewAction
+
+  LogsViewSource:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.ScopeSource
+
+  LogsViewSourceKind:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.SourceKind
+    enum_values:
+      Pod:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.SourcePod
+      Deployment:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.SourceDeployment
+      StatefulSet:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.SourceStatefulSet
+      DaemonSet:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.SourceDaemonSet
+      Job:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.SourceJob
+      CronJob:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.SourceCronJob
+      ReplicaSet:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.SourceReplicaSet
+
+  LogRecord:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs/logline.Record
+
+  LogGap:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs/logline.Gap
+
+  LogStream:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs/logline.StreamKey
+
+  LogPlace:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs/logline.Place
+
+  LogsScopeInput:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.Scope
+
+  LogsViewSourceInput:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.ScopeSource
+
+  LogsViewFilterInput:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.ScopeFilter
+
+  LogsViewAnchor:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.LogsViewAnchor
+
+  LogsReadAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.LogsReadAction
+
+  LogsReadLine:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.LogsReadLine
+
+  LogsWatchAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.LogsWatchAction
+
+  LogsPageFrom:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.PageFrom
+    enum_values:
+      First:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.PageFromFirst
+      Last:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.PageFromLast
+
+  LogsPadding:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.LogsPadding
+
+  LogNotice:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.LogsNotice
+
+  LogsViewAnchorKind:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.LogsAnchorKind
+    enum_values:
+      Head:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.LogsAnchorHead
+      Tail:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.LogsAnchorTail
+      At:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.LogsAnchorAt
+
+  LogsViewFilter:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.ScopeFilter
+
+  LogsViewFilterField:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.FilterField
+    enum_values:
+      Node:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.FilterNode
+      Region:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.FilterRegion
+      Zone:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.FilterZone
+      Os:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.FilterOS
+      Arch:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs.FilterArch
+
+  Citation:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/llm.Citation
+
+  MemoryAction:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.MemoryAction
+
+  ToolActionKind:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ActionKind
+    enum_values:
+      Command:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ActionCommand
+      Read:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ActionRead
+      Write:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ActionWrite
+      Edit:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ActionEdit
+      Search:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ActionSearch
+      Fetch:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ActionFetch
+      Stop:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ActionStop
+      Memory:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ActionMemory
+      Delegate:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ActionDelegate
+      KubeQuery:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ActionKubeQuery
+      LogsView:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ActionLogsView
+      LogsRead:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ActionLogsRead
+      LogsWatch:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.ActionLogsWatch
+
+  ToolCallNetwork:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallNetwork
+    enum_values:
+      Chat:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallNetworkChat
+      Turn:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallNetworkTurn
+      Approved:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallNetworkApproved
+
+  ToolCallRunsOn:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallRunsOn
+    enum_values:
+      Sidecar:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallRunsOnSidecar
+      Provider:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallRunsOnProvider
+
+  ApprovalDecision:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ApprovalDecision
+    enum_values:
+      Once:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.DecisionOnce
+      Command:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.DecisionCommand
+      Chat:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.DecisionChat
+      Always:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.DecisionAlways
+      Deny:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.DecisionDeny
+
+  ApprovalDuration:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Duration
+    enum_values:
+      Once:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.DurationOnce
+      Command:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.DurationCommand
+      Chat:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.DurationChat
+      Always:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.DurationAlways
+
+  ApprovalStatus:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ApprovalStatus
+    enum_values:
+      Pending:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ApprovalPending
+      Approved:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ApprovalApproved
+      Denied:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ApprovalDenied
+      Abandoned:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ApprovalAbandoned
+      Allowed:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ApprovalAllowed
+      Refused:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ApprovalRefused
+
+  BackgroundTask:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.BackgroundTask
+
+  BackgroundTaskStatus:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.BackgroundTaskStatus
+    enum_values:
+      Running:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.BackgroundTaskRunning
+      Exited:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.BackgroundTaskExited
+      Completed:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.BackgroundTaskCompleted
+      Failed:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.BackgroundTaskFailed
+      Matched:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.BackgroundTaskMatched
+      Expired:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.BackgroundTaskExpired
+      Stopped:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.BackgroundTaskStopped
+      Lost:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.BackgroundTaskLost
+
+  ToolCallStatus:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallStatus
+    enum_values:
+      NotRun:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallNotRun
+      AwaitingApproval:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallAwaitingApproval
+      Denied:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallDenied
+      Running:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallRunning
+      Succeeded:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallSucceeded
+      Failed:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallFailed
+      Interrupted:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ToolCallInterrupted
+
+  Chat:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.Chat
+
+  SandboxState:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/sandbox.State
+
+  # The stored vocabulary is lower-case (the Messages API's own), so each enum member
+  # binds to the constant that carries it.
+  ChatMessageRole:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.Role
+    enum_values:
+      User:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.RoleUser
+      Assistant:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.RoleAssistant
+
+  ChatMode:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.Mode
+    enum_values:
+      Chat:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ModeChat
+      Dashboard:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ModeDashboard
+
+  ChatMessageStatus:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.MessageStatus
+    enum_values:
+      Streaming:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.StatusStreaming
+      WaitingApproval:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.StatusWaitingApproval
+      Complete:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.StatusComplete
+      Failed:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.StatusFailed
+      Cancelled:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.StatusCancelled
+
+  AnswerFailure:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.AnswerFailure
+    enum_values:
+      UsageLimit:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.FailureUsageLimit
+      ContextFull:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.FailureContextFull
+      Other:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.FailureOther
+
+  ChatCollectionWatchFrame:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ChatCollectionWatchFrame
+
+  ChatMessageCollectionWatchFrame:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ChatMessageCollectionWatchFrame
+
+  ChatMessage:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat.ChatMessage
+    fields:
+      # The nullable column is sql.NullTime so a watch can diff a message with ==,
+      # and gqlgen has no marshaler for it. Declared here rather than inferred, so
+      # a regen never reintroduces it as a stub.
+      finishedAt:
+        resolver: true
+      # The Go field is one JSON string, so a message stays comparable for the
+      # watch's diff; the resolver parses it.
+      toolCalls:
+        resolver: true
+      # One JSON string too, for the same reason.
+      citations:
+        resolver: true
+      # The row holds the provider's id; the catalog says what it is called.
+      provider:
+        resolver: true
+      # The row names the model by its catalog id, like the provider.
+      model:
+        fieldName: ModelID
+      # Read off the content blocks.
+      thinking:
+        resolver: true
+
+  # --- Sandbox ---
+  EnvVar:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/envvars.Var
+    fields:
+      # The Go fields are "" for none; the wire's are null.
+      clusterID:
+        resolver: true
+      refusal:
+        resolver: true
+  EnvVarTarget:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/envvars.Target
+    enum_values:
+      Sandbox:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/envvars.Sandbox
+      Outside:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/envvars.Outside
+      Both:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/envvars.Both
+
+  # --- Tools ---
+  ToolSetting:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/toolsettings.Setting
+  ToolGroup:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/toolsettings.Group
+    enum_values:
+      Commands:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/toolsettings.GroupCommands
+      Files:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/toolsettings.GroupFiles
+      Web:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/toolsettings.GroupWeb
+      Cluster:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/toolsettings.GroupCluster
+      Logs:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/toolsettings.GroupLogs
+      Memory:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/toolsettings.GroupMemory
+      Agents:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/toolsettings.GroupAgents
+
+  # --- Permissions ---
+  PermissionAccessLevel:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.AccessLevel
+    enum_values:
+      Read:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Read
+      DataRead:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.DataRead
+      Write:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Write
+      AccessControl:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.AccessControl
+      Destructive:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Destructive
+      Reach:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Reach
+  PermissionPrincipal:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Principal
+    enum_values:
+      Chat:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Chat
+      Subagent:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Subagent
+      Monitor:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Monitor
+      Console:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Console
+  PermissionTarget:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Target
+    enum_values:
+      Kubernetes:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Kubernetes
+      AWS:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.AWS
+      GitHub:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.GitHub
+      GCP:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.GCP
+      Azure:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Azure
+  PermissionMode:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Mode
+    enum_values:
+      ReadOnly:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.ModeReadOnly
+      Ask:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.ModeAsk
+      Auto:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.ModeAuto
+  PermissionEffect:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Effect
+    enum_values:
+      Allow:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Allow
+      Deny:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Deny
+      Ask:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Ask
+  PermissionModeSource:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/settings.ModeSource
+    enum_values:
+      Entry:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/settings.SourceEntry
+      Default:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/settings.SourceDefault
+  # principal and target are "*" for every one, which the wire serves as
+  # null, and line names a cluster by its record's kube-context, so all three
+  # are resolved.
+  PermissionRule:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions.Rule
+    fields:
+      principal:
+        resolver: true
+      target:
+        resolver: true
+      line:
+        resolver: true
+
+  # --- Kubetail account ---
+  # The state binds to connectors.State, which holds no token; both fields are
+  # derived from its phase, so each has a resolver.
+  AuthState:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.State
+    fields:
+      authenticated:
+        resolver: true
+      identity:
+        resolver: true
+
+  # --- Provider credentials ---
+  ProviderCredentialState:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/providercredentials.State
+    fields:
+      keyVariable:
+        resolver: true
+      failure:
+        resolver: true
+  ProviderCredentialSource:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/providercredentials.Source
+    enum_values:
+      Restoring:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/providercredentials.SourceRestoring
+      None:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/providercredentials.SourceNone
+      EnvironmentKey:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/providercredentials.SourceEnvironmentKey
+      SavedKey:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/providercredentials.SourceSavedKey
+      Connector:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/providercredentials.SourceConnector
+  ProviderKeyFailure:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/providercredentials.Failure
+    enum_values:
+      NotDeleted:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/providercredentials.NotDeleted
+      KeyRejected:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/providercredentials.KeyRejected
+
+  # --- Connectors ---
+  # Every value maps to the Go constant of its name
+  # (TestEveryConnectorValueIsOnTheWire).
+  ConnectorPhase:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.Phase
+    enum_values:
+      Restoring:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.Restoring
+      SignedOut:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.SignedOut
+      SigningIn:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.SigningIn
+      Connected:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.Connected
+      Failed:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.Failed
+  ConnectorFailure:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.Failure
+    enum_values:
+      Declined:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.Declined
+      ScopeNotGranted:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.ScopeNotGranted
+      AccountMismatch:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.AccountMismatch
+      TimedOut:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.TimedOut
+      Unavailable:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.Unavailable
+      Refused:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.Refused
+      NotSaved:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.NotSaved
+      NotDeleted:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.NotDeleted
+      SessionEnded:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.SessionEnded
+      KeyRejected:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.KeyRejected
+
+  # --- ChatGPT connector ---
+  # The state binds to connectors.State, which holds no token. Email and failure
+  # are null outside their phases, so each has a resolver.
+  ChatGPTConnection:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.State
+    fields:
+      email:
+        resolver: true
+      failure:
+        resolver: true
+
+  # --- OpenRouter connector ---
+  # The state binds to connectors.State, which holds no key. Failure is null
+  # outside Failed, so it has a resolver.
+  OpenRouterConnection:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.State
+    fields:
+      failure:
+        resolver: true
+
+  # --- AWS connector ---
+  # The state binds to connectors.State, which holds no credential. The ARN is
+  # the Subject, and it and the failure are null outside their phases, so each
+  # has a resolver.
+  AWSConnection:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.State
+    fields:
+      arn:
+        resolver: true
+      failure:
+        resolver: true
+
+  # --- GitHub connector ---
+  # The state binds to connectors.State, which holds no token. Each field but
+  # the phase is null outside its own phase, so each has a resolver.
+  GitHubConnection:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.State
+    fields:
+      login:
+        resolver: true
+      userCode:
+        resolver: true
+      failure:
+        resolver: true
+
+  # --- Google connector ---
+  # The state binds to connectors.State, which holds no token. Email and failure
+  # are null outside their phases, and the project is the connector's, so each
+  # has a resolver.
+  GoogleConnection:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/connectors.State
+    fields:
+      email:
+        resolver: true
+      project:
+        resolver: true
+      failure:
+        resolver: true
+
+  Identity:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/oauth.Identity
+    fields:
+      sub:
+        fieldName: UserID
+
+  # The object-identity scalar binds to the typed int64 ObjectID (its
+  # MarshalGQL/UnmarshalGQL handle the decimal-string wire form), so resolver
+  # arguments arrive already typed — no per-resolver parsing. ClusterID (and
+  # future per-kind ids) are aliases of this one type, sharing its machinery.
+  ObjectID:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/apimeta.ObjectID
+
+  # A cluster's id is text — its clusters row id — bound to its own type so a resolver
+  # cannot take one where an object id belongs.
+  ClusterID:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/apimeta.ClusterID
+
+  # The JSON scalar binds to rawjson.RawJSON — a comparable string carrying already-
+  # serialized JSON, marshaled verbatim. Its own package because gqlgen binds one scalar
+  # to one Go type and more than one service serves a JSON field.
+  JSON:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/rawjson.RawJSON
+
+  # --- gqlgen ---
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.ID
+      - k8s.io/apimachinery/pkg/types.UID
+
+  Int:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32
+
+  String:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+      - github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster.ConditionType

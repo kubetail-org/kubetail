@@ -1,0 +1,185 @@
+[
+  {
+    "name": "linux dev",
+    "platform": "linux",
+    "dev": true,
+    "roots": {
+      "config": "/home/x/.config",
+      "local_data": "/home/x/.local/share",
+      "cache": "/home/x/.cache",
+      "home": "/home/x",
+      "state": "/home/x/.local/state"
+    },
+    "layout": {
+      "data": "/home/x/.local/share/kubetail-dev",
+      "config": "/home/x/.config/kubetail-dev",
+      "state": "/home/x/.local/state/kubetail-dev",
+      "cache": "/home/x/.cache/kubetail-dev",
+      "logs": "/home/x/.local/state/kubetail-dev/logs"
+    }
+  },
+  {
+    "name": "linux release",
+    "platform": "linux",
+    "dev": false,
+    "roots": {
+      "config": "/home/x/.config",
+      "local_data": "/home/x/.local/share",
+      "cache": "/home/x/.cache",
+      "home": "/home/x",
+      "state": "/home/x/.local/state"
+    },
+    "layout": {
+      "data": "/home/x/.local/share/kubetail",
+      "config": "/home/x/.config/kubetail",
+      "state": "/home/x/.local/state/kubetail",
+      "cache": "/home/x/.cache/kubetail",
+      "logs": "/home/x/.local/state/kubetail/logs"
+    }
+  },
+  {
+    "name": "macos dev",
+    "platform": "macos",
+    "dev": true,
+    "roots": {
+      "config": "/Users/x/Library/Application Support",
+      "local_data": "/Users/x/Library/Application Support",
+      "cache": "/Users/x/Library/Caches",
+      "home": "/Users/x",
+      "state": "/Users/x/.local/state"
+    },
+    "layout": {
+      "app": "/Users/x/Library/Application Support/Kubetail-dev",
+      "data": "/Users/x/Library/Application Support/Kubetail-dev/data",
+      "config": "/Users/x/Library/Application Support/Kubetail-dev/config",
+      "state": "/Users/x/Library/Application Support/Kubetail-dev/state",
+      "cache": "/Users/x/Library/Caches/Kubetail-dev",
+      "logs": "/Users/x/Library/Logs/Kubetail-dev"
+    }
+  },
+  {
+    "name": "macos release",
+    "platform": "macos",
+    "dev": false,
+    "roots": {
+      "config": "/Users/x/Library/Application Support",
+      "local_data": "/Users/x/Library/Application Support",
+      "cache": "/Users/x/Library/Caches",
+      "home": "/Users/x",
+      "state": "/Users/x/.local/state"
+    },
+    "layout": {
+      "app": "/Users/x/Library/Application Support/Kubetail",
+      "data": "/Users/x/Library/Application Support/Kubetail/data",
+      "config": "/Users/x/Library/Application Support/Kubetail/config",
+      "state": "/Users/x/Library/Application Support/Kubetail/state",
+      "cache": "/Users/x/Library/Caches/Kubetail",
+      "logs": "/Users/x/Library/Logs/Kubetail"
+    }
+  },
+  {
+    "name": "macos dev, no config root",
+    "platform": "macos",
+    "dev": true,
+    "roots": {
+      "config": null,
+      "local_data": "/Users/x/Library/Application Support",
+      "cache": "/Users/x/Library/Caches",
+      "home": "/Users/x",
+      "state": "/Users/x/.local/state"
+    },
+    "layout": {
+      "app": "/Users/x/Library/Application Support/Kubetail-dev",
+      "data": "/Users/x/Library/Application Support/Kubetail-dev/data",
+      "state": "/Users/x/Library/Application Support/Kubetail-dev/state",
+      "cache": "/Users/x/Library/Caches/Kubetail-dev",
+      "logs": "/Users/x/Library/Logs/Kubetail-dev"
+    }
+  },
+  {
+    "name": "windows dev",
+    "platform": "windows",
+    "dev": true,
+    "roots": {
+      "config": "C:/Users/x/AppData/Roaming",
+      "local_data": "C:/Users/x/AppData/Local",
+      "cache": "C:/Users/x/AppData/Local",
+      "home": "C:/Users/x",
+      "state": "C:/Users/x/.local/state"
+    },
+    "layout": {
+      "app": "C:/Users/x/AppData/Local/Kubetail-dev",
+      "app_on_config_root": "C:/Users/x/AppData/Roaming/Kubetail-dev",
+      "data": "C:/Users/x/AppData/Local/Kubetail-dev/data",
+      "config": "C:/Users/x/AppData/Roaming/Kubetail-dev/config",
+      "state": "C:/Users/x/AppData/Local/Kubetail-dev/state",
+      "cache": "C:/Users/x/AppData/Local/Kubetail-dev/cache",
+      "logs": "C:/Users/x/AppData/Local/Kubetail-dev/state/logs",
+      "runtime": "C:/Users/x/AppData/Local/Kubetail-dev/run"
+    }
+  },
+  {
+    "name": "windows release",
+    "platform": "windows",
+    "dev": false,
+    "roots": {
+      "config": "C:/Users/x/AppData/Roaming",
+      "local_data": "C:/Users/x/AppData/Local",
+      "cache": "C:/Users/x/AppData/Local",
+      "home": "C:/Users/x",
+      "state": "C:/Users/x/.local/state"
+    },
+    "layout": {
+      "app": "C:/Users/x/AppData/Local/Kubetail",
+      "app_on_config_root": "C:/Users/x/AppData/Roaming/Kubetail",
+      "data": "C:/Users/x/AppData/Local/Kubetail/data",
+      "config": "C:/Users/x/AppData/Roaming/Kubetail/config",
+      "state": "C:/Users/x/AppData/Local/Kubetail/state",
+      "cache": "C:/Users/x/AppData/Local/Kubetail/cache",
+      "logs": "C:/Users/x/AppData/Local/Kubetail/state/logs",
+      "runtime": "C:/Users/x/AppData/Local/Kubetail/run"
+    }
+  },
+  {
+    "name": "windows dev, roaming root is the local one",
+    "platform": "windows",
+    "dev": true,
+    "roots": {
+      "config": "C:/Users/x/AppData/Local",
+      "local_data": "C:/Users/x/AppData/Local",
+      "cache": "C:/Users/x/AppData/Local",
+      "home": "C:/Users/x",
+      "state": "C:/Users/x/.local/state"
+    },
+    "layout": {
+      "app": "C:/Users/x/AppData/Local/Kubetail-dev",
+      "app_on_config_root": "C:/Users/x/AppData/Local/Kubetail-dev",
+      "data": "C:/Users/x/AppData/Local/Kubetail-dev/data",
+      "config": "C:/Users/x/AppData/Local/Kubetail-dev/config",
+      "state": "C:/Users/x/AppData/Local/Kubetail-dev/state",
+      "cache": "C:/Users/x/AppData/Local/Kubetail-dev/cache",
+      "logs": "C:/Users/x/AppData/Local/Kubetail-dev/state/logs",
+      "runtime": "C:/Users/x/AppData/Local/Kubetail-dev/run"
+    }
+  },
+  {
+    "name": "windows dev, no roaming root",
+    "platform": "windows",
+    "dev": true,
+    "roots": {
+      "config": null,
+      "local_data": "C:/Users/x/AppData/Local",
+      "cache": "C:/Users/x/AppData/Local",
+      "home": "C:/Users/x",
+      "state": "C:/Users/x/.local/state"
+    },
+    "layout": {
+      "app": "C:/Users/x/AppData/Local/Kubetail-dev",
+      "data": "C:/Users/x/AppData/Local/Kubetail-dev/data",
+      "state": "C:/Users/x/AppData/Local/Kubetail-dev/state",
+      "cache": "C:/Users/x/AppData/Local/Kubetail-dev/cache",
+      "logs": "C:/Users/x/AppData/Local/Kubetail-dev/state/logs",
+      "runtime": "C:/Users/x/AppData/Local/Kubetail-dev/run"
+    }
+  }
+]

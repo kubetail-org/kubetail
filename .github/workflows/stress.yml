@@ -124,11 +124,119 @@ jobs:
           path: stress/
           retention-days: 14
 
+  # The desktop's sidecar, a module outside go.work, on the desktop's runners.
+  desktop-stress:
+    # The report job rebuilds STRESS_ID from the name.
+    name: Test · Desktop (${{ matrix.runner }}, ${{ matrix.race && 'race' || 'norace' }}, cpu ${{ matrix.cpu }})
+    # Forks get no nightly run.
+    if: github.repository == 'kubetail-org/kubetail' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      # Keep in step with runners.json's desktop set.
+      matrix:
+        os:
+          - linux
+          - macos-15
+          - macos-26
+          - macos-27
+          - windows
+        arch:
+          - amd64
+          - arm64
+        race:
+          - true
+          - false
+        cpu: ${{ fromJSON(inputs.cpu || '[1,4]') }}
+        exclude:
+          # The macOS 27 image is Apple silicon alone.
+          - os: macos-27
+            arch: amd64
+          # The race detector does not support windows/arm64.
+          - os: windows
+            arch: arm64
+            race: true
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-24.04
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - os: macos-15
+            arch: amd64
+            runner: macos-15-intel
+          - os: macos-15
+            arch: arm64
+            runner: macos-15
+          - os: macos-26
+            arch: amd64
+            runner: macos-26-intel
+          - os: macos-26
+            arch: arm64
+            runner: macos-26
+          - os: macos-27
+            arch: arm64
+            runner: xcode-27
+          - os: windows
+            arch: amd64
+            runner: windows-2025-vs2026
+          - os: windows
+            arch: arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    env:
+      CPU: ${{ matrix.cpu }}
+      RACE: ${{ matrix.race }}
+      STRESS_ID: desktop-${{ matrix.runner }}-${{ matrix.race && 'race' || 'norace' }}-cpu${{ matrix.cpu }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          setup-sandbox: "true"
+          # ci-desktop.yml's Build and Test · Go cache, restored to skip
+          # compiling what that job built. This job never saves one: its flags
+          # differ from a PR's.
+          go-cache-key: desktop-sidecar-test-${{ matrix.os }}-${{ matrix.arch }}
+      # As the stress job's. The sidecar's tests read SSH_AUTH_SOCK, as in
+      # make test-desktop.
+      - name: Run tests under stress
+        shell: bash
+        env:
+          SSH_AUTH_SOCK: ""
+        run: |
+          race_flag=""
+          if [ "$RACE" = true ]; then
+            race_flag=-race
+          fi
+          mkdir -p stress
+          status=0
+          go -C apps/desktop/sidecar test $race_flag -cpu "$CPU" -shuffle=on -count="$COUNT" -timeout 90m -json ./... \
+            | tee stress/stress.json \
+            | jq -rR --unbuffered 'fromjson? | select(.Test == null and (.Action == "pass" or .Action == "fail"))
+                | "\(.Action) \(.Package) \(.Elapsed)s"' \
+            || status=$?
+          go run ./scripts/stress.go -cpu "$CPU" -count "$COUNT" -race="$RACE" \
+            -runner "$STRESS_ID" stress/stress.json
+          exit "$status"
+      - name: Upload failures
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stress-${{ env.STRESS_ID }}
+          path: stress/
+          retention-days: 14
+
   # Checks out nothing, so no repo code runs with a write token. Artifact text
   # reaches gh through --body-file and quoted variables, never the command line.
   report:
     name: Report · Failures
-    needs: stress
+    needs:
+      - stress
+      - desktop-stress
     if: failure()
     runs-on: ubuntu-24.04
     permissions:
@@ -172,10 +280,11 @@ jobs:
           # carries, with how it ended. A test step that never concluded means
           # the runner was lost.
           gh api --paginate "repos/$GH_REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs" \
-            --jq '.jobs[] | select(.name | startswith("Test ("))
+            --jq '.jobs[] | select(.name | startswith("Test (") or startswith("Test · Desktop ("))
                   | select(.conclusion != "success" and .conclusion != "skipped")
-                  | [(.name | capture("\\((?<runner>[^,]+), (?<race>[^,]+), cpu (?<cpu>[^)]+)\\)$")
-                      | "\(.runner)-\(.race)-cpu\(.cpu)"),
+                  | [((if .name | startswith("Test · Desktop") then "desktop-" else "" end)
+                      + (.name | capture("\\((?<runner>[^,]+), (?<race>[^,]+), cpu (?<cpu>[^)]+)\\)$")
+                      | "\(.runner)-\(.race)-cpu\(.cpu)")),
                      (if .conclusion == "cancelled" then "cancelled"
                       elif any(.steps[]; .name == "Run tests under stress" and .conclusion == null) then "lost"
                       else "failed" end)]

@@ -1,0 +1,10 @@
+# Pins the compiler so a new stable release never lands mid-PR as fresh clippy
+# failures or a cold CI cache.
+#
+# rustup finds this by walking up from the working directory, so it governs the
+# cargo calls made from here — which is all of them (Makefile, tauri CLI, CI).
+# A rustup call from the repo root is outside its reach: release-desktop.yml's
+# `rustup target add` steps set working-directory to match.
+[toolchain]
+channel = "1.99.1"
+components = ["rustfmt", "clippy", "llvm-tools-preview"]

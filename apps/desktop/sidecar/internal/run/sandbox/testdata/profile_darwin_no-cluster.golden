@@ -1,0 +1,105 @@
+;; A sandboxed run's Seatbelt profile. A later rule wins over an earlier one.
+;; Every path Kubetail does not fix here is a parameter, and each marker line
+;; is replaced by the rules it names (sandbox_darwin.go).
+(version 1)
+(deny default)
+
+;; Processes and the system.
+(allow process-exec)
+;; No privilege escalation (TestSudoCannotGainRoot). macOS 27 refuses every
+;; setuid program under a profile (TestEverySetuidProgramIsRefused); the list
+;; holds wherever it does not.
+(deny process-exec
+  (literal "/usr/bin/sudo")
+  (literal "/usr/bin/su")
+  (literal "/usr/bin/login")
+  (literal "/usr/libexec/security_authtrampoline"))
+(allow process-fork)
+;; A process stays in the run's group, which the group's kill ends. posix_spawn
+;; can still start one in a new session or group (TestAProcessThatLeavesTheGroupStaysConfined).
+(deny syscall-unix (syscall-number SYS_setsid SYS_setpgid))
+(allow signal (target same-sandbox))
+;; Another process's arguments and environment (kern.procargs2) are refused
+;; only while both the explicit process-info deny and the sysctl deny hold,
+;; and only for a process in another process group: Command starts the run in
+;; a session of its own, and the rule above keeps it there. (deny default)
+;; does not count as the first (TestAnotherProcessesLaunchStringsAreRefused).
+(deny process-info* (target others))
+(allow process-info* (target same-sandbox))
+(allow sysctl-read)
+(deny sysctl-read (sysctl-name-prefix "kern.procargs"))
+;; The policy's file rules (sandbox_darwin.go): its Files rules, every path
+;; it always denies over them, then the run's own paths.
+(allow file-read* (subpath "$FIXTURE/app/kubetail-sidecar"))
+(deny file-write* (subpath "$FIXTURE/app/kubetail-sidecar"))
+(allow file-read* (subpath "$FIXTURE/home/apps"))
+(deny file-write* (subpath "$FIXTURE/home/apps"))
+(allow file-read* (subpath "$FIXTURE/sys/etc"))
+(deny file-write* (subpath "$FIXTURE/sys/etc"))
+(allow file-read* (subpath "$FIXTURE/sys/opt"))
+(deny file-write* (subpath "$FIXTURE/sys/opt"))
+(allow file-read* (subpath "$FIXTURE/sys/usr"))
+(deny file-write* (subpath "$FIXTURE/sys/usr"))
+(allow file-read* (subpath "$FIXTURE/home/.cargo/bin"))
+(deny file-write* (subpath "$FIXTURE/home/.cargo/bin"))
+(allow file-read* (subpath "$FIXTURE/sys/usr/bin"))
+(deny file-write* (subpath "$FIXTURE/sys/usr/bin"))
+(deny file-read* file-write* (subpath "$FIXTURE/sys/opt/homebrew/var"))
+(deny file-read* file-write* (subpath "$FIXTURE/home/apps/kubetail"))
+(allow file-read* file-write* (subpath "$FIXTURE/cache/kubetail/tmp/1-a"))
+(deny file-write-unlink file-write-create (literal "$FIXTURE/cache/kubetail/tmp/1-a"))
+(allow file-read* (subpath "$FIXTURE/private/run/kubetail/runs/1-a"))
+(deny file-write* (subpath "$FIXTURE/private/run/kubetail/runs/1-a"))
+(allow file-read* file-write* (subpath "$FIXTURE/home/apps/kubetail/chats/c/workspace"))
+(deny file-write-unlink file-write-create (literal "$FIXTURE/home/apps/kubetail/chats/c/workspace"))
+
+;; Fixed file rules, after the policy's, so none of its rules undoes them.
+;; No /dev/tty: input pushed into a terminal (TIOCSTI) is run by whatever reads
+;; it, outside the sandbox (TestATerminalIsUnreachable).
+(allow file-ioctl (literal "/dev/null") (subpath "/dev/fd"))
+;; The system's named files.
+(allow file-read*
+  (subpath "/private/var/select")
+  (subpath "/private/var/db/timezone")
+  (subpath "/private/var/db/dyld")
+  (literal "/private/var/db/xcode_select_link")
+  (literal "/dev/null")
+  (literal "/dev/zero")
+  (literal "/dev/random")
+  (literal "/dev/urandom")
+  (subpath "/dev/fd")
+  (literal "/dev/stdin")
+  (literal "/dev/stdout")
+  (literal "/dev/stderr"))
+;; dyld opens the root at launch and aborts every program when it cannot.
+;; This lists the root's own names, never what lies under them.
+(allow file-read-data (literal "/"))
+(allow file-write* (literal "/dev/null") (subpath "/dev/fd"))
+
+;; Ancestors: an lstat alone, so a program resolves its own path and git
+;; looks upward. The root's own links into /private are among them.
+(allow file-read-metadata (literal "/etc") (literal "/var") (literal "/tmp"))
+(allow file-read-metadata (literal "$FIXTURE"))
+(allow file-read-metadata (literal "$FIXTURE/app"))
+(allow file-read-metadata (literal "$FIXTURE/cache"))
+(allow file-read-metadata (literal "$FIXTURE/cache/kubetail"))
+(allow file-read-metadata (literal "$FIXTURE/cache/kubetail/tmp"))
+(allow file-read-metadata (literal "$FIXTURE/home"))
+(allow file-read-metadata (literal "$FIXTURE/home/.cargo"))
+(allow file-read-metadata (literal "$FIXTURE/home/apps"))
+(allow file-read-metadata (literal "$FIXTURE/home/apps/kubetail"))
+(allow file-read-metadata (literal "$FIXTURE/home/apps/kubetail/chats"))
+(allow file-read-metadata (literal "$FIXTURE/home/apps/kubetail/chats/c"))
+(allow file-read-metadata (literal "$FIXTURE/private"))
+(allow file-read-metadata (literal "$FIXTURE/private/run"))
+(allow file-read-metadata (literal "$FIXTURE/private/run/kubetail"))
+(allow file-read-metadata (literal "$FIXTURE/private/run/kubetail/runs"))
+(allow file-read-metadata (literal "$FIXTURE/sys"))
+(allow file-read-metadata (literal "$FIXTURE/sys/usr"))
+
+;; Mach services. Each is here because a listed program needs it
+;; (TestTheListedProgramsRun); refusedServices is what never is.
+(allow mach-lookup
+  ;; zsh, git and python3 look the user up (getpwuid).
+  (global-name "com.apple.system.opendirectoryd.libinfo"))
+

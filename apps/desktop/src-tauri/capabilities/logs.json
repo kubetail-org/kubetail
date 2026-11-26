@@ -1,0 +1,26 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "logs",
+  "description": "Capability for the log windows (labels `logs-N`): the log viewer and its own bar, and nothing that opens windows, changes preferences or quits.",
+  "windows": ["logs-*"],
+  "permissions": [
+    "core:window:default",
+    "core:webview:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-start-dragging",
+    "core:window:allow-start-resize-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "allow-ready",
+    "allow-graphql-query",
+    "allow-graphql-subscribe",
+    "allow-graphql-unsubscribe",
+    "allow-webview-record-error",
+    "allow-log-window-view",
+    "allow-log-window-viewport",
+    "allow-log-window-title",
+    "allow-log-window-show-chat"
+  ]
+}

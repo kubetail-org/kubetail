@@ -19,9 +19,14 @@ on:
         type: boolean
         default: true
 
+# Every job runs on a dispatch, or when a cli/v release is published: the
+# other components' releases, desktop/v ones among them, publish nothing here.
 jobs:
   publish:
     name: Publish · OBS
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || startsWith(github.event.release.tag_name, 'cli/v')
     runs-on: ubuntu-24.04
     environment: production
     steps:

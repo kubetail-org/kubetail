@@ -1,10 +1,12 @@
 ---
 # Dependabot moves dependencies, never toolchains: the Go version (each go.mod
-# and setup-environment's go-version), packageManager in
-# apps/web/package.json, setup-environment's node-version and the
-# @types/node major that matches it, cluster/agent/rust-toolchain.toml and the golang, node and rust images in the
-# Dockerfiles are bumped by hand, each image with its digest. make
-# lint-repo-toolchains checks the Dockerfiles against CI.
+# and setup-environment's go-version), packageManager in apps/web/package.json
+# and apps/desktop/package.json, setup-environment's node-version and the
+# @types/node major that matches it, cluster/agent/rust-toolchain.toml and
+# apps/desktop/src-tauri/rust-toolchain.toml, setup-environment's
+# kubectl-version, and the golang, node and rust images in the Dockerfiles are
+# bumped by hand, each image with its digest. make lint-repo-toolchains checks
+# the Dockerfiles and the desktop's pins against CI.
 #
 # Every ecosystem waits after a release (time for a compromised release to be
 # caught and pulled first), groups minor and patch updates into one weekly PR,
@@ -74,6 +76,30 @@ updates:
         patterns:
           - "*"
 
+  # The desktop's sidecar, in PRs of its own: it is a module outside go.work,
+  # with its own fsnotify.
+  - package-ecosystem: gomod
+    directory: /apps/desktop/sidecar
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: [dependencies, lang/go]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      desktop-kubernetes:
+        patterns:
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+      desktop-go:
+        update-types: [minor, patch]
+      desktop-go-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
   - package-ecosystem: cargo
     directory: /cluster/agent
     schedule:
@@ -88,6 +114,40 @@ updates:
       rust:
         update-types: [minor, patch]
       rust-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: cargo
+    directory: /apps/desktop/src-tauri
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: [dependencies, lang/rust]
+    commit-message:
+      prefix: chore
+      include: scope
+    # Tauri's crates and its npm packages must share a major.minor, and no
+    # group spans ecosystems: those bumps are made by hand, in one PR. A
+    # plugin's minor can require a newer tauri minor, so plugins wait too.
+    ignore:
+      - dependency-name: tauri
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: tauri-build
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: tauri-plugin-*
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    groups:
+      # system-configuration's API takes core-foundation's types, so the two
+      # must share a core-foundation version and move together.
+      desktop-core-foundation:
+        patterns:
+          - core-foundation
+          - system-configuration
+      desktop-rust:
+        update-types: [minor, patch]
+      desktop-rust-security:
         applies-to: security-updates
         patterns:
           - "*"
@@ -116,6 +176,37 @@ updates:
       npm:
         update-types: [minor, patch]
       npm-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: npm
+    directory: /apps/desktop
+    schedule:
+      interval: weekly
+    # pnpm-workspace.yaml's minimumReleaseAge is seven days.
+    cooldown:
+      default-days: 7
+    labels: [dependencies, lang/ts+react]
+    commit-message:
+      prefix: chore
+      include: scope
+    versioning-strategy: increase
+    ignore:
+      # See the desktop's cargo ignore.
+      - dependency-name: "@tauri-apps/api"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "@tauri-apps/cli"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+    groups:
+      desktop-graphql-codegen:
+        patterns:
+          - "@graphql-codegen/*"
+      desktop-npm:
+        update-types: [minor, patch]
+      desktop-npm-security:
         applies-to: security-updates
         patterns:
           - "*"

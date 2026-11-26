@@ -1,13 +1,14 @@
 #!/bin/sh
 # Every hand-written Go, Rust and TypeScript file opens with the Apache 2.0
 # header below. Prints every file that does not, and fails. Generated code is
-# left out, schema.resolvers.go too: gqlgen rewrites it without the header.
+# left out, the desktop's src/gql/ among it, and schema.resolvers.go too:
+# gqlgen rewrites it without the header.
 #
 #   sh scripts/check-license-headers.sh [dir...]   # default: every language's tree
 set -eu
 cd "$(dirname "$0")/.."
 
-[ "$#" -gt 0 ] || set -- cli dashboard cluster/api libs/go-common cluster/agent apps/web tools scripts
+[ "$#" -gt 0 ] || set -- cli dashboard cluster/api libs/go-common cluster/agent apps/web apps/desktop tools scripts
 
 header='// Copyright 2024 The Kubetail Authors
 //
@@ -29,7 +30,7 @@ missing=$(
     git ls-files --cached --others --exclude-standard -- \
       "$dir/*.go" "$dir/*.rs" "$dir/*.ts" "$dir/*.tsx"
   done |
-    grep -vE '(^|/)(generated\.go|models_gen\.go|schema\.resolvers\.go)$|/__generated__/' |
+    grep -vE '(^|/)(generated\.go|models_gen\.go|schema\.resolvers\.go)$|/__generated__/|^apps/desktop/src/gql/' |
     while IFS= read -r f; do
       # A Windows checkout may end each line in CRLF.
       [ "$(head -n "$lines" "$f" | tr -d '\r')" = "$header" ] || echo "$f"

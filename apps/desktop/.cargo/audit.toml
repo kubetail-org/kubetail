@@ -1,0 +1,5 @@
+# Escape hatch for the `audit / Rust` CI job: an advisory listed here stops
+# failing the build. Every entry names its advisory and why it is accepted,
+# so the list stays reviewable. Prefer an upgrade — an ignore is a standing risk.
+[advisories]
+ignore = []

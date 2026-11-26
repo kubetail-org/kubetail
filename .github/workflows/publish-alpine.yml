@@ -19,9 +19,14 @@ on:
         type: boolean
         default: true
 
+# Every job runs on a dispatch, or when a cli/v release is published: the
+# other components' releases, desktop/v ones among them, publish nothing here.
 jobs:
   config:
     name: Plan
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || startsWith(github.event.release.tag_name, 'cli/v')
     runs-on: ubuntu-slim
     outputs:
       version: ${{ steps.config.outputs.version }}
@@ -42,6 +47,9 @@ jobs:
 
   update-kubetail:
     name: Publish · Alpine
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || startsWith(github.event.release.tag_name, 'cli/v')
     needs: [config]
     environment: production
     runs-on: ubuntu-24.04

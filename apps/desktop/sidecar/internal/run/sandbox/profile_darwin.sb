@@ -1,0 +1,69 @@
+;; A sandboxed run's Seatbelt profile. A later rule wins over an earlier one.
+;; Every path Kubetail does not fix here is a parameter, and each marker line
+;; is replaced by the rules it names (sandbox_darwin.go).
+(version 1)
+(deny default)
+
+;; Processes and the system.
+(allow process-exec)
+;; No privilege escalation (TestSudoCannotGainRoot). macOS 27 refuses every
+;; setuid program under a profile (TestEverySetuidProgramIsRefused); the list
+;; holds wherever it does not.
+(deny process-exec
+  (literal "/usr/bin/sudo")
+  (literal "/usr/bin/su")
+  (literal "/usr/bin/login")
+  (literal "/usr/libexec/security_authtrampoline"))
+(allow process-fork)
+;; A process stays in the run's group, which the group's kill ends. posix_spawn
+;; can still start one in a new session or group (TestAProcessThatLeavesTheGroupStaysConfined).
+(deny syscall-unix (syscall-number SYS_setsid SYS_setpgid))
+(allow signal (target same-sandbox))
+;; Another process's arguments and environment (kern.procargs2) are refused
+;; only while both the explicit process-info deny and the sysctl deny hold,
+;; and only for a process in another process group: Command starts the run in
+;; a session of its own, and the rule above keeps it there. (deny default)
+;; does not count as the first (TestAnotherProcessesLaunchStringsAreRefused).
+(deny process-info* (target others))
+(allow process-info* (target same-sandbox))
+(allow sysctl-read)
+(deny sysctl-read (sysctl-name-prefix "kern.procargs"))
+;; The policy's file rules (sandbox_darwin.go): its Files rules, every path
+;; it always denies over them, then the run's own paths.
+;; RULES
+
+;; Fixed file rules, after the policy's, so none of its rules undoes them.
+;; No /dev/tty: input pushed into a terminal (TIOCSTI) is run by whatever reads
+;; it, outside the sandbox (TestATerminalIsUnreachable).
+(allow file-ioctl (literal "/dev/null") (subpath "/dev/fd"))
+;; The system's named files.
+(allow file-read*
+  (subpath "/private/var/select")
+  (subpath "/private/var/db/timezone")
+  (subpath "/private/var/db/dyld")
+  (literal "/private/var/db/xcode_select_link")
+  (literal "/dev/null")
+  (literal "/dev/zero")
+  (literal "/dev/random")
+  (literal "/dev/urandom")
+  (subpath "/dev/fd")
+  (literal "/dev/stdin")
+  (literal "/dev/stdout")
+  (literal "/dev/stderr"))
+;; dyld opens the root at launch and aborts every program when it cannot.
+;; This lists the root's own names, never what lies under them.
+(allow file-read-data (literal "/"))
+(allow file-write* (literal "/dev/null") (subpath "/dev/fd"))
+
+;; Ancestors: an lstat alone, so a program resolves its own path and git
+;; looks upward. The root's own links into /private are among them.
+(allow file-read-metadata (literal "/etc") (literal "/var") (literal "/tmp"))
+;; ANCESTORS
+
+;; Mach services. Each is here because a listed program needs it
+;; (TestTheListedProgramsRun); refusedServices is what never is.
+(allow mach-lookup
+  ;; zsh, git and python3 look the user up (getpwuid).
+  (global-name "com.apple.system.opendirectoryd.libinfo"))
+
+;; NETWORK

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kubetail-org/kubetail/blob/main/design/components.schema.json",
+  "title": "Kubetail design manifest",
+  "description": "Maps each local component and each screen of the Desktop Figma file to the code that draws it, with both sides' state at their last sync.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "components"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "components": {
+      "type": "array",
+      "items": {
+        "allOf": [{ "$ref": "#/$defs/component" }],
+        "properties": { "id": { "not": { "pattern": "^screens/" } } }
+      }
+    },
+    "screens": {
+      "description": "One entry per section of the Screens page that holds a screen's frames. An entry's id starts with screens/.",
+      "type": "array",
+      "items": {
+        "allOf": [{ "$ref": "#/$defs/component" }],
+        "properties": { "id": { "pattern": "^screens/" } }
+      }
+    }
+  },
+  "$defs": {
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "figma"],
+      "properties": {
+        "id": {
+          "description": "The join key: the component's or screen's stamp in Figma carries it. Never changes, even when either side is renamed.",
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(/[a-z0-9]+(-[a-z0-9]+)*)+$"
+        },
+        "figma": { "$ref": "#/$defs/figma" },
+        "code": {
+          "description": "The files that draw a component, or lay a screen out. Absent while no code draws the component.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/source" }
+        },
+        "security": {
+          "description": "The component draws what the security model rests on: a change to it is a security change, not a restyle.",
+          "type": "boolean"
+        },
+        "notes": {
+          "description": "What an agent translating this one component, in either direction, must know.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "figma": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node", "name"],
+      "properties": {
+        "node": { "description": "The component's or component set's node id, or the screen's section's.", "type": "string", "pattern": "^\\d+:\\d+$" },
+        "name": { "description": "The node's name at the last sync.", "type": "string" },
+        "hash": {
+          "description": "The hash tools/designsync gave the node, read from Figma, at the last sync. Absent until recorded.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "blob"],
+      "properties": {
+        "path": { "description": "Repo-relative.", "type": "string" },
+        "symbol": { "description": "The component, function or constant in `path`, when the file holds more than this component.", "type": "string" },
+        "blob": {
+          "description": "The file's git blob hash at the last sync (`git hash-object <path>`).",
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      }
+    }
+  }
+}

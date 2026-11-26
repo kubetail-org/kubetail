@@ -21,7 +21,8 @@ EOF
   for dir in libs/go-common/clusteragentpb libs/go-common/testpb \
     dashboard/graph cluster/api/graph cli/assets \
     apps/web/src/lib/graphql/dashboard/__generated__ \
-    apps/web/src/lib/graphql/cluster-api/__generated__; do
+    apps/web/src/lib/graphql/cluster-api/__generated__ \
+    apps/desktop/sidecar/graph apps/desktop/sidecar/grpc apps/desktop/src/gql; do
     mkdir -p "$repo/$dir"
     echo committed >"$repo/$dir/file"
   done

@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sql"],
+  "properties": {
+    "sql": {
+      "type": "string",
+      "description": "One SQLite SELECT over the views in the tool's section"
+    },
+    "limit": {
+      "type": "integer",
+      "description": "The most rows to return: default 200, at most 2000"
+    },
+    "description": {
+      "type": "string",
+      "description": "What the query answers, in plain words (5-10 words). The user reads it in the transcript."
+    }
+  }
+}

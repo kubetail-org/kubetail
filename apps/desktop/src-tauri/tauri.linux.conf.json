@@ -1,0 +1,40 @@
+{
+  "productName": "kubetail-desktop",
+  "bundle": {
+    "linux": {
+      "deb": {
+        "depends": [
+          "libcap2"
+        ],
+        "desktopTemplate": "linux/kubetail-desktop.desktop",
+        "files": {
+          "/usr/lib/kubetail-desktop/bwrap": "linux/bwrap",
+          "/usr/lib/kubetail-desktop/pasta": "linux/pasta",
+          "/usr/lib/kubetail-desktop/apparmor/kubetail-desktop-bwrap": "linux/kubetail-desktop-bwrap",
+          "/usr/lib/kubetail-desktop/apparmor/kubetail-desktop-pasta": "linux/kubetail-desktop-pasta",
+          "/usr/share/doc/kubetail-desktop/THIRD_PARTY_NOTICES.md": "../licenses/THIRD_PARTY_NOTICES.md",
+          "/usr/share/doc/kubetail-desktop/bubblewrap-LICENSE": "../licenses/bubblewrap-LICENSE",
+          "/usr/share/doc/kubetail-desktop/passt-LICENSE-GPL-2.0-or-later": "../licenses/passt-LICENSE-GPL-2.0-or-later",
+          "/usr/share/doc/kubetail-desktop/passt-LICENSE-BSD-3-Clause": "../licenses/passt-LICENSE-BSD-3-Clause",
+          "/usr/share/doc/kubetail-desktop/apparmor-LICENSE": "../licenses/apparmor-LICENSE"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "preRemoveScript": "linux/prerm.sh"
+      },
+      "rpm": {
+        "depends": [
+          "libcap"
+        ],
+        "desktopTemplate": "linux/kubetail-desktop.desktop",
+        "files": {
+          "/usr/lib/kubetail-desktop/bwrap": "linux/bwrap",
+          "/usr/lib/kubetail-desktop/pasta": "linux/pasta",
+          "/usr/share/licenses/kubetail-desktop/THIRD_PARTY_NOTICES.md": "../licenses/THIRD_PARTY_NOTICES.md",
+          "/usr/share/licenses/kubetail-desktop/bubblewrap-LICENSE": "../licenses/bubblewrap-LICENSE",
+          "/usr/share/licenses/kubetail-desktop/passt-LICENSE-GPL-2.0-or-later": "../licenses/passt-LICENSE-GPL-2.0-or-later",
+          "/usr/share/licenses/kubetail-desktop/passt-LICENSE-BSD-3-Clause": "../licenses/passt-LICENSE-BSD-3-Clause"
+        }
+      }
+    }
+  }
+}

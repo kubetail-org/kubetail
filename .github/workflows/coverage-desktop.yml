@@ -1,0 +1,303 @@
+name: coverage-desktop
+
+# Kubetail Desktop's coverage: the sidecar's, the host's and the webview's.
+
+permissions:
+  contents: read
+
+# coverage.yml calls this; a dispatch runs it alone.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  # As in ci-desktop.yml.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+
+jobs:
+  # Picks the jobs to run. Each line of `jobs` is a group of jobs and the
+  # path-filters.yml keys that run it: on a pull request, when a path under one
+  # of them changed; on any other event, always. The keys are
+  # ci-desktop.yml's, so a path that runs the area's tests measures their
+  # coverage.
+  #
+  # Every other job needs this one, so its `if:` gates the whole workflow:
+  # GitHub starts push runs in forks too, and a fork runs this only for a pull
+  # request or a dispatch.
+  plan:
+    name: Plan
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      go: ${{ fromJSON(steps.plan.outputs.jobs).go }}
+      rust: ${{ fromJSON(steps.plan.outputs.jobs).rust }}
+      typescript: ${{ fromJSON(steps.plan.outputs.jobs).typescript }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - id: plan
+        uses: ./.github/actions/plan
+        with:
+          jobs: |
+            go: shared desktop desktop-sidecar
+            rust: shared desktop desktop-host
+            typescript: shared desktop desktop-webview
+
+  # One runner per OS: the sidecar's one split by architecture,
+  # seccomp_linux_<arch>.go, holds declarations alone, so three profiles hold
+  # every statement. macOS 27 is the release users run; nothing in the sidecar
+  # branches on the macOS version.
+  #
+  # Built as scripts/build-sidecar.go ships it (CGO_ENABLED=0), so the run tests
+  # the pure-Go os/user and net resolver the release uses. -coverpkg=./...
+  # counts a helper exercised only from another package's tests. Instrumenting
+  # every package, with no -short, is too slow for Go's 10-minute default per
+  # test binary on Windows. Both passes run in bash: PowerShell splits
+  # -coverpkg=./... at its dot.
+  #
+  # Linux runs every package. macOS and Windows run only the packages whose Go
+  # files differ from Linux's, listed at run time so a new split joins on its
+  # own; the rest would repeat Linux's run. Every event filters alike, so a PR
+  # and its base compare like runs.
+  #
+  # scripts/cover-changed.sh measures as this job does; change both together.
+  desktop-sidecar-coverage:
+    name: Measure · Go (${{ matrix.goos }})
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            runner: ubuntu-24.04
+          - goos: darwin
+            runner: xcode-27
+          - goos: windows
+            runner: windows-2025-vs2026
+    runs-on: ${{ matrix.runner }}
+    # Twice each pass's -timeout, so a hang fails the test binary with a
+    # goroutine dump before the runner kills the job.
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      # Codecov's upload authenticates with an OIDC token.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          # macOS skips its Seatbelt tests without KUBETAIL_REQUIRE_SANDBOX=1.
+          setup-sandbox: "true"
+      - name: Measure coverage
+        working-directory: ./apps/desktop/sidecar
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+          SSH_AUTH_SOCK: ""
+        run: |
+          pkgs=./...
+          if [ "$RUNNER_OS" != Linux ]; then
+            files='{{.ImportPath}} {{.GoFiles}}'
+            linux=$(GOOS=linux go list -f "$files" ./... | sort)
+            native=$(go list -f "$files" ./... | sort)
+            pkgs=$(comm -13 <(echo "$linux") <(echo "$native") | cut -d' ' -f1)
+            if [ -z "$pkgs" ]; then
+              echo "::error::no sidecar package splits by OS on $RUNNER_OS"
+              exit 1
+            fi
+            echo "Packages split by OS:"
+            echo "$pkgs"
+          fi
+          # shellcheck disable=SC2086 # one import path per word
+          go test -timeout 30m -covermode=atomic -coverpkg=./... \
+            -coverprofile="$RUNNER_TEMP/untagged.out" $pkgs
+      # -tags debug compiles the environment overrides, which no other build
+      # has. Linux alone runs it: no debug-tagged file in the sidecar is
+      # OS-specific, so the Linux pass reaches every line the tag adds.
+      - name: Measure coverage (-tags debug)
+        if: matrix.goos == 'linux'
+        working-directory: ./apps/desktop/sidecar
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+          SSH_AUTH_SOCK: ""
+        run: >-
+          go test -tags debug -timeout 30m -covermode=atomic -coverpkg=./...
+          -coverprofile="$RUNNER_TEMP/debug.out" ./...
+      # debug.out exists on Linux alone.
+      - name: Merge the profiles and drop marked lines
+        working-directory: ./tools
+        shell: bash
+        env:
+          OUT: ${{ runner.temp }}/desktop-sidecar-${{ matrix.goos }}.out
+        run: |
+          profiles=("$RUNNER_TEMP/untagged.out")
+          if [ -f "$RUNNER_TEMP/debug.out" ]; then
+            profiles+=("$RUNNER_TEMP/debug.out")
+          fi
+          go run ./coverignore -dir ../apps/desktop/sidecar -o "$OUT" "${profiles[@]}"
+      # A fork's PR cannot mint the OIDC token; the action then uploads
+      # tokenless, which Codecov accepts for a public repository.
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: ${{ runner.temp }}/desktop-sidecar-${{ matrix.goos }}.out
+          disable_search: true
+          plugins: noop
+          flags: desktop-sidecar-${{ matrix.goos }}
+          fail_ci_if_error: true
+
+  # One runner per OS, as the sidecar's: the host's platform splits are by OS.
+  # scripts/cover-changed.sh measures as this job does; change both together.
+  desktop-host-coverage:
+    name: Measure · Rust (${{ matrix.goos }})
+    needs: plan
+    if: needs.plan.outputs.rust == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            runner: ubuntu-24.04
+          - goos: darwin
+            runner: xcode-27
+          - goos: windows
+            runner: windows-2025-vs2026
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          rust-workspace: apps/desktop/src-tauri
+          setup-go: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: ./.github/actions/stub-sidecar
+      - name: Install llvm-tools
+        working-directory: ./apps/desktop/src-tauri
+        run: rustup component add llvm-tools-preview
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        with:
+          tool: cargo-llvm-cov@0.9.1
+      - name: Measure coverage
+        working-directory: ./apps/desktop/src-tauri
+        shell: bash
+        run: cargo llvm-cov --lcov --output-path "$RUNNER_TEMP/rust.lcov"
+      - name: Drop marked lines
+        working-directory: ./tools
+        shell: bash
+        env:
+          OUT: ${{ runner.temp }}/desktop-host-${{ matrix.goos }}.lcov
+        run: go run ./coverignore -lcov -o "$OUT" "$RUNNER_TEMP/rust.lcov"
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: ${{ runner.temp }}/desktop-host-${{ matrix.goos }}.lcov
+          disable_search: true
+          plugins: noop
+          flags: desktop-host-${{ matrix.goos }}
+          fail_ci_if_error: true
+
+  # scripts/cover-changed.sh measures as this job does; change both together.
+  desktop-webview-coverage:
+    name: Measure · TypeScript
+    needs: plan
+    if: needs.plan.outputs.typescript == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+          node-workspace: apps/desktop
+          # Restores the pnpm store ci-desktop.yml saves on main, and saves none.
+          node-cache: "true"
+      - name: Install dependencies
+        working-directory: ./apps/desktop
+        run: pnpm install --frozen-lockfile
+      # --mode coverage measures the source without the React compiler.
+      - name: Measure coverage
+        working-directory: ./apps/desktop
+        run: pnpm vitest run --mode coverage
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: apps/desktop/coverage/lcov.info
+          disable_search: true
+          plugins: noop
+          flags: desktop-webview
+          fail_ci_if_error: true
+
+  # Reads the desktop component of Codecov's merged result once this run's
+  # uploads are processed, and fails on an uncovered changed line or a drop in
+  # the component's total (tools/coveragegate).
+  gate:
+    name: Gate
+    needs:
+      - plan
+      - desktop-sidecar-coverage
+      - desktop-host-coverage
+      - desktop-webview-coverage
+    if: >-
+      !cancelled()
+      && (needs.plan.outputs.go == 'true' || needs.plan.outputs.rust == 'true'
+          || needs.plan.outputs.typescript == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      # The gate diffs the base and the head itself, so it needs their history.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Gate on Codecov's merged result
+        working-directory: ./tools
+        env:
+          GO_RESULT: ${{ needs.desktop-sidecar-coverage.result }}
+          RUST_RESULT: ${{ needs.desktop-host-coverage.result }}
+          TYPESCRIPT_RESULT: ${{ needs.desktop-webview-coverage.result }}
+          # Codecov records a PR's uploads under its head, not the merge commit.
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Empty on a push, whose base is the commit's parent.
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # The uploads to wait for. A failed coverage job's is left out:
+          # that job reports its own failure.
+          flags=""
+          if [ "$GO_RESULT" = success ]; then
+            flags="$flags,desktop-sidecar-linux,desktop-sidecar-darwin,desktop-sidecar-windows"
+          fi
+          if [ "$RUST_RESULT" = success ]; then
+            flags="$flags,desktop-host-linux,desktop-host-darwin,desktop-host-windows"
+          fi
+          if [ "$TYPESCRIPT_RESULT" = success ]; then flags="$flags,desktop-webview"; fi
+          go run ./coveragegate -component desktop -sha "$SHA" -base "$BASE" -flags "${flags#,}" \
+            -run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

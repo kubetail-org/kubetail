@@ -11,13 +11,16 @@ read -r -d '' REMINDER <<'EOF' || true
 Writing standards for this repo (the root CLAUDE.md has the full statement):
 1. Code — simple, idiomatic, easy for a human to follow. Prefer the boring construction.
    Match the idiom of the file you are in.
-2. Comments — terse, necessary, easy for a human to read. Say what the code cannot: the
+2. Names — descriptive, idiomatic, consistent with the rest of the codebase,
+   signatures and schemas included. One concept, one name.
+3. Comments — terse, necessary, easy for a human to read. Say what the code cannot: the
    why, the invariant, the trap. Do not restate the code, do not argue against the
    alternatives you rejected (that goes in docs/adr/), and do not address a reviewer
    or point at a PR.
-3. Documentation — simple, concise, easy for a human to read. Lead with what is true now.
+4. Documentation — simple, concise, easy for a human to read. Lead with what is true now.
 Applies to hand-written files, not generated output (graph/generated.go,
-graph/model/models_gen.go, *.pb.go, apps/web/src/lib/graphql/*/__generated__/) or lockfiles.
+graph/model/models_gen.go, *.pb.go, apps/web/src/lib/graphql/*/__generated__/,
+apps/desktop/src/gql/) or lockfiles.
 EOF
 
 jq -n --arg ctx "$REMINDER" \

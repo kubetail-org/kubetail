@@ -82,6 +82,16 @@ jobs:
       pull-requests: read
       actions: write
 
+  desktop:
+    name: desktop
+    uses: ./.github/workflows/ci-desktop.yml
+    with:
+      cache-mode: ${{ inputs.cache-mode }}
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: write
+
   e2e:
     name: e2e
     uses: ./.github/workflows/ci-e2e.yml

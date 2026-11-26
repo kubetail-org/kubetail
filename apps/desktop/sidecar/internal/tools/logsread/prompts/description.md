@@ -1,0 +1,1 @@
+Read a window of logs yourself: one or more resources merged by timestamp over a range, with context lines before and after it, a page at a time, each page printing the tokens that read on from it. You read the lines; the user sees them under your call.

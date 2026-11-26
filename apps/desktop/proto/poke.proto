@@ -1,0 +1,45 @@
+// Copyright 2024 The Kubetail Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Shared proto contract for host(Rust) <-> sidecar(Go) gRPC resync control channel.
+//
+// This file is the single source of truth for the PokeService wire format,
+// consumed by both the Go sidecar (via protoc, see sidecar/grpc/pokepb) and
+// the Rust host (via tonic-build, see src-tauri/build.rs). It deliberately
+// sits at the repo root alongside auth.proto.
+syntax = "proto3";
+
+package poke;
+
+option go_package = "github.com/kubetail-org/kubetail/apps/desktop/sidecar/grpc/pokepb";
+
+// PokeService is the host-internal resync channel. The native host calls Poke
+// when the OS resumes from sleep or the network becomes reachable again; the
+// sidecar broadcasts a SourceHost resync signal to every in-process subscriber
+// (the kubeconfig watch and the per-cluster Kubernetes sync), waking long-lived
+// network connections that may have gone stale. It rides the same
+// socket as GraphQL and the other gRPC services (h2c multiplexing) and is
+// consumed only by the native host, never the webview.
+//
+// The sidecar also has a built-in wall-clock gap detector that fires the same
+// resync internally, so Poke is an accelerator for an explicit host wake event,
+// not the only path.
+service PokeService {
+  // Poke broadcasts a resync signal to every in-process subscriber. Unary and
+  // best-effort: it never blocks and returns as soon as the signal is queued.
+  rpc Poke(PokeRequest) returns (PokeResponse);
+}
+
+message PokeRequest {}
+message PokeResponse {}

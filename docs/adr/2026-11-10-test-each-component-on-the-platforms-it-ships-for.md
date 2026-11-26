@@ -15,6 +15,7 @@ Kubetail ships these artifacts:
 - **The CLI binary**, with the UI embedded. `release-cli.yml` builds it for darwin, linux and windows on amd64 and arm64. Most `publish-*.yml` workflows repackage those binaries. Alpine, Launchpad, COPR, OBS, Gentoo GURU and AUR's `kubetail-cli` build it from the vendored source tarball instead. Alpine (`arch="all"`) and Launchpad's newer series (`any`) also build it for x86, armhf, armv7, loongarch64, ppc64le, riscv64 and s390x.
 - **Four images**: cli, dashboard, cluster-api and cluster-agent. `release-docker.yml` builds each for linux/amd64 and linux/arm64, in a `final` and a `final-alpine` target.
 - **The UI**, a JavaScript bundle embedded in the CLI and the dashboard image.
+- **Kubetail Desktop**, added in November 2026. `release-desktop.yml` builds it for linux amd64 and arm64 (deb and rpm), one universal macOS app, and windows amd64 and arm64.
 
 Until #1291, no list said which of these CI checks, on which platform. `ci.yml`, `coverage.yml` and `stress.yml` each covered part, and some platforms had no check at all. #1278 settled which checks run on a PR and which on `main` only ([its ADR](2026-11-10-run-each-os-once-on-a-pr-and-the-other-platforms-on-main.md)). This ADR settles whether every shipped platform is checked somewhere.
 
@@ -52,6 +53,8 @@ The matrix below is what CI checks. **PR** is every pull request that touches th
 `Docker · Build` starts each image it builds once, with `--version` for the cli and `--help` for the others, which exit after start-up. That checks the binary and, for the agent, the glibc libraries each final stage copies onto its base. The cli image is not a server, and a `final-alpine` image runs the same binary as its `final` image, so neither runs in a cluster. `riscv64.yml` also builds and starts the cluster-api image for riscv64 weekly, a platform no release ships. The Go servers' unit and race tests run as their linux rows above. `Rust · Build and Test` builds and tests the cluster agent on linux/amd64 and linux/arm64 on every PR. E2E runs on Kubernetes 1.21 and the latest on amd64, and on the latest on arm64.
 
 **UI**: `TypeScript · Test` and `TypeScript · Build` run on `ubuntu-24.04` on every PR. `Docker · Build` builds the UI again inside the cli and dashboard images, on amd64 on a PR and on arm64 on `main`.
+
+**Kubetail Desktop** keeps its own matrix, in [CI checks every platform split the code has on a pull request](../../apps/desktop/docs/adr/2026-11-10-ci-tests-every-platform-split-the-code-has.md) and [Main builds and tests the desktop host's release profile on the release runners](../../apps/desktop/docs/adr/2026-11-10-main-builds-and-tests-the-release-profile.md), with its accepted gaps. `ci-desktop.yml` runs on the `desktop` set of `.github/ci-config/runners.json`.
 
 **Accepted gaps, and why:**
 

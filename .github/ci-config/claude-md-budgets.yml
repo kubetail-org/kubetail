@@ -2,7 +2,34 @@
 # A new guide starts at its size plus about 5%, rounded up to a multiple of 512.
 # Explain an increase in the commit body.
 # A flat map of path to bytes: the script reads it with awk, so keep keys unquoted.
-CLAUDE.md: 37376
+CLAUDE.md: 37888
+apps/desktop/CLAUDE.md: 12288
+apps/desktop/design/CLAUDE.md: 21504
+apps/desktop/sidecar/CLAUDE.md: 32512
+apps/desktop/sidecar/internal/agent/CLAUDE.md: 26880
+apps/desktop/sidecar/internal/llm/CLAUDE.md: 17408
+apps/desktop/sidecar/internal/run/CLAUDE.md: 29440
+apps/desktop/sidecar/internal/services/cluster/CLAUDE.md: 18432
+apps/desktop/sidecar/internal/services/connectors/aws/CLAUDE.md: 2560
+apps/desktop/sidecar/internal/services/connectors/github/CLAUDE.md: 2560
+apps/desktop/sidecar/internal/services/connectors/google/CLAUDE.md: 1792
+apps/desktop/sidecar/internal/services/connectors/internal/oauthconn/CLAUDE.md: 3072
+apps/desktop/sidecar/internal/services/connectors/kubetailcloud/CLAUDE.md: 1792
+apps/desktop/sidecar/internal/services/connectors/openrouter/CLAUDE.md: 3072
+apps/desktop/sidecar/internal/services/logs/CLAUDE.md: 23552
+apps/desktop/sidecar/internal/services/providercredentials/CLAUDE.md: 3584
+apps/desktop/sidecar/internal/services/settings/CLAUDE.md: 7680
+apps/desktop/sidecar/internal/tools/CLAUDE.md: 31744
+apps/desktop/src-tauri/CLAUDE.md: 32000
+apps/desktop/src-tauri/linux/CLAUDE.md: 4608
+apps/desktop/src-tauri/src/updater/CLAUDE.md: 3584
+apps/desktop/src/CLAUDE.md: 28928
+apps/desktop/src/components/chat/CLAUDE.md: 24832
+apps/desktop/src/components/cluster/CLAUDE.md: 7936
+apps/desktop/src/components/dashboard/CLAUDE.md: 17408
+apps/desktop/src/components/logs/CLAUDE.md: 11776
+apps/desktop/src/components/settings/CLAUDE.md: 8192
+apps/desktop/src/components/shell/CLAUDE.md: 6656
 apps/web/CLAUDE.md: 13824
 cli/CLAUDE.md: 5632
 cluster/agent/CLAUDE.md: 9216

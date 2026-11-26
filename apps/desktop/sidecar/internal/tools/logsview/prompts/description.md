@@ -1,0 +1,1 @@
+Open or replace the live view of logs in the user's window: one or more resources merged by timestamp, opened at the tail, the head or a moment. You read a one-line receipt of what opened, never the lines.

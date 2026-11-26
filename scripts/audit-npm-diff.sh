@@ -26,7 +26,12 @@ findings() {
 		LC_ALL=C sort -u
 }
 
-findings "$1" >"$tmp/base"
+# A tree the base lacks, as when the pull request adds it, has no findings there.
+if [ -d "$1" ]; then
+	findings "$1" >"$tmp/base"
+else
+	: >"$tmp/base"
+fi
 findings "$2" >"$tmp/head"
 
 new=$(LC_ALL=C comm -13 "$tmp/base" "$tmp/head")

@@ -11,6 +11,10 @@ inputs:
   key:
     description: "setup-environment's node-cache-key"
     required: true
+  node-workspace:
+    description: "setup-environment's node-workspace"
+    required: false
+    default: 'apps/web'
 
 runs:
   using: "composite"
@@ -18,7 +22,7 @@ runs:
     # A restore by prefix can bring packages an older lockfile named.
     - name: Prune pnpm store
       shell: bash
-      working-directory: ./apps/web
+      working-directory: ./${{ inputs.node-workspace }}
       run: pnpm store prune
 
     - name: Save pnpm store
