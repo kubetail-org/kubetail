@@ -17,6 +17,7 @@ package logs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -77,8 +78,20 @@ type mockLogFetcher struct {
 	mock.Mock
 }
 
+// mockFetcherOptions is the FetcherOptions mockLogFetcher hands to testify,
+// which formats every argument with %v. %v on FetcherOptions calls String on
+// a nil GrepRegex: a nil dereference that fmt recovers from, and a recovered
+// fault can corrupt the Go heap on Windows (golang/go#81238).
+type mockFetcherOptions FetcherOptions
+
+// String formats with %#v, which prints a nil pointer without calling its
+// methods.
+func (o mockFetcherOptions) String() string {
+	return fmt.Sprintf("%#v", FetcherOptions(o))
+}
+
 func (m *mockLogFetcher) StreamForward(ctx context.Context, source LogSource, opts FetcherOptions) (<-chan LogRecord, error) {
-	ret := m.Called(ctx, source, opts)
+	ret := m.Called(ctx, source, mockFetcherOptions(opts))
 
 	var r0 <-chan LogRecord
 	if ret.Get(0) != nil {
@@ -89,7 +102,7 @@ func (m *mockLogFetcher) StreamForward(ctx context.Context, source LogSource, op
 }
 
 func (m *mockLogFetcher) StreamBackward(ctx context.Context, source LogSource, opts FetcherOptions) (<-chan LogRecord, error) {
-	ret := m.Called(ctx, source, opts)
+	ret := m.Called(ctx, source, mockFetcherOptions(opts))
 
 	var r0 <-chan LogRecord
 	if ret.Get(0) != nil {
@@ -320,7 +333,7 @@ func TestStreamHead(t *testing.T) {
 			assert.Equal(t, tt.wantLines, messages)
 
 			// Check sinceTime option
-			fetcherOpts := FetcherOptions{
+			fetcherOpts := mockFetcherOptions{
 				StartTime:    tt.setSinceTime,
 				StopTime:     tt.setUntilTime,
 				MaxChunkSize: DEFAULT_MAX_CHUNK_SIZE,
@@ -620,8 +633,8 @@ func TestStreamAllWithFollow(t *testing.T) {
 			defer close(ch2New)
 
 			// Init mock logProvider
-			optsOld := FetcherOptions{MaxChunkSize: DEFAULT_MAX_CHUNK_SIZE}
-			optsNew := FetcherOptions{
+			optsOld := mockFetcherOptions{MaxChunkSize: DEFAULT_MAX_CHUNK_SIZE}
+			optsNew := mockFetcherOptions{
 				FollowFrom:   FollowFromEnd,
 				MaxChunkSize: DEFAULT_MAX_CHUNK_SIZE,
 			}
@@ -872,7 +885,7 @@ func TestStreamTailWithFollow(t *testing.T) {
 			defer close(ch2New)
 
 			// Init mock logProvider
-			optsNew := FetcherOptions{
+			optsNew := mockFetcherOptions{
 				FollowFrom:   FollowFromEnd,
 				MaxChunkSize: DEFAULT_MAX_CHUNK_SIZE,
 			}
