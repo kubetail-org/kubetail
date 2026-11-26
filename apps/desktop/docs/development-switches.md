@@ -22,7 +22,7 @@ Read by Vite, which bakes them into the bundle at build time. Set them in the sh
 
 | Variable | Read by | Effect |
 | --- | --- | --- |
-| `FIGMA_TOKEN` | `tools/designsync` | A Figma personal access token with read-only file content. `status` and `record` read the Desktop file with it; without it they read the code side alone. `make status-desktop-design` and `make record-desktop-design` take an unset one from the macOS Keychain item `kubetail-figma-token` (`design/CLAUDE.md`, *Commands*). |
+| `FIGMA_TOKEN` | `tools/designsync` | A Figma personal access token with read-only file content. `status` and `record` read the Kubetail Desktop file with it; without it they read the code side alone. `make status-desktop-design` and `make record-desktop-design` take an unset one from the macOS Keychain item `kubetail-figma-token` (`design/CLAUDE.md`, *Commands*). |
 
 ## Debug sidecar only
 

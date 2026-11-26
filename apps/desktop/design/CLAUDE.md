@@ -3,7 +3,7 @@
 How the webview's design in Figma maps to the code in `src/`, and how agents sync the two through the Figma MCP. Either side can be ahead. [`components.json`](components.json) is the manifest that joins them. [`README.md`](README.md) walks a person through the workflow. Two Figma files hold the design:
 
 - **[kubetail-ui](https://www.figma.com/design/KoHFVSSKfENrqPidIkJfpO/kubetail-ui)** is the team library: a port of `@kubetail/ui`. Its Cover names the commit it was synced from. An edit there reaches other files only once the library is published.
-- **[Desktop](https://www.figma.com/design/UTfwwz8cyLq5RA6mNFxUsD/Desktop)** is the app.
+- **[Kubetail Desktop](https://www.figma.com/design/UTfwwz8cyLq5RA6mNFxUsD/Kubetail-Desktop)** is the app.
 
 **This guide holds rules, not inventory.** What the files hold — pages, sections, components, variables and their values, which screens and states are drawn — is read from the live file through the MCP when it is needed. Never record it here; a rule may name an example.
 
@@ -18,16 +18,16 @@ Every group on a page is a Figma section, laid out so that no two overlap. A new
 ## Tokens
 
 - **The library's `Theme` collection holds Kubetail's colors and fonts** in its *Kubetail Desktop Light* and *Kubetail Desktop Dark* modes, beside kubetail's own *Light* and *Dark*. They mirror `src/index.css`: `font/sans` is `--font-sans` and `font/mono` is `--font-mono`. The library's text styles are bound to them.
-- **Every text layer's font family is bound to `font/sans` or `font/mono`**, in both files, never typed in: the mode picks the face. Desktop's Components and Screens pages set *Kubetail Desktop Light* with *Light*, so a component draws as the app does.
-- **Desktop's `Kubetail` collection holds the tokens the library lacks.** Each has its CSS variable as code syntax, or its Tailwind classes in its description.
+- **Every text layer's font family is bound to `font/sans` or `font/mono`**, in both files, never typed in: the mode picks the face. Kubetail Desktop's Components and Screens pages set *Kubetail Desktop Light* with *Light*, so a component draws as the app does.
+- **Kubetail Desktop's `Kubetail` collection holds the tokens the library lacks.** Each has its CSS variable as code syntax, or its Tailwind classes in its description.
 - **Every screen sets both collections' modes**: *Kubetail Desktop Light* with *Light*, or *Kubetail Desktop Dark* with *Dark*.
 - A color changed in `src/index.css` is changed by hand in the matching mode.
 
 ## Components
 
-- **A `@kubetail/ui` component in the code is a library instance in Figma**, never a detached copy. Every other component in `src/components/` that a screen draws is a local component in Desktop, named as in the code.
+- **A `@kubetail/ui` component in the code is a library instance in Figma**, never a detached copy. Every other component in `src/components/` that a screen draws is a local component in Kubetail Desktop, named as in the code.
 - **A library `Input`, `Textarea` or `SearchBox` becomes the wrapper of the same name from `components/primitives/text-entry.tsx`** in code, never `@kubetail/ui`'s. The two look the same.
-- **Every icon is a kubetail-ui instance of `Lucide Icons / <name>`**, the name lucide-react's in kebab case (`ServerIcon` is `server`). Desktop never draws an icon or holds one of its own. Find one with `search_design_system`.
+- **Every icon is a kubetail-ui instance of `Lucide Icons / <name>`**, the name lucide-react's in kebab case (`ServerIcon` is `server`). Kubetail Desktop never draws an icon or holds one of its own. Find one with `search_design_system`.
 - **An icon the set lacks is added to kubetail-ui**, built like its neighbours from lucide-react's SVG at the version in `pnpm-lock.yaml`: a 24px component holding one `Vector`, its stroke bound to `color/foreground`. A person then publishes the library.
 - **An icon's color is an override on its instance's `Vector`**: the stroke bound to the token's variable, as `text-muted-foreground` is `color/muted-foreground`.
 - **Each component links to its source file on `main`**, and its description holds its [stamp](#manifest) and nothing else. What is true of one component alone goes in its entry's `notes`.
@@ -36,7 +36,7 @@ Every group on a page is a Figma section, laid out so that no two overlap. A new
 
 ## Manifest
 
-`components.json` has one entry per local component in Desktop, under `components`, and one per screen, under `screens`.
+`components.json` has one entry per local component in Kubetail Desktop, under `components`, and one per screen, under `screens`.
 
 ```json
 {
@@ -72,14 +72,14 @@ Every group on a page is a Figma section, laid out so that no two overlap. A new
 
 ### Commands
 
-`tools/designsync` does the bookkeeping, run from `tools/` (`go run ./designsync <command>`) or through `make`. With `FIGMA_TOKEN` set (a personal access token whose only scope is read-only file content), it reads the Desktop file over Figma's REST API; it never writes to Figma. `make status-desktop-design` and `make record-desktop-design` take an unset token from the macOS Keychain item `kubetail-figma-token`. Without a token, `designsync` reads the code side alone. → [ADR: designsync reads Figma over the REST API](../docs/adr/2026-11-15-designsync-reads-figma-over-the-rest-api.md)
+`tools/designsync` does the bookkeeping, run from `tools/` (`go run ./designsync <command>`) or through `make`. With `FIGMA_TOKEN` set (a personal access token whose only scope is read-only file content), it reads the Kubetail Desktop file over Figma's REST API; it never writes to Figma. `make status-desktop-design` and `make record-desktop-design` take an unset token from the macOS Keychain item `kubetail-figma-token`. Without a token, `designsync` reads the code side alone. → [ADR: designsync reads Figma over the REST API](../docs/adr/2026-11-15-designsync-reads-figma-over-the-rest-api.md)
 
 - `check` (`make lint-desktop`) fails on an entry that is malformed, or that names a file or `symbol` that is not there.
 - `status` (`make status-desktop-design`) lists every component and screen not in sync.
 - `record <id>...` (`make record-desktop-design IDS="<id>..."`) sets the entries' `blob`s to the working tree's and, with the token, each entry's `figma` from the live file. It says both sides match, so sync a side that is ahead before recording.
 - `format` rewrites the manifest in the one format `check` accepts. Run it after editing the manifest by hand.
 
-The REST API cannot edit a description or a text layer, so stamps are written through the Figma MCP: **[`write-stamps.js`](scripts/write-stamps.js)**, run with `use_figma` on the Desktop file, sets the stamps listed in its `STAMPS`, keeping the prose above a component's. It adds a screen's `Stamp` layer when the section has none.
+The REST API cannot edit a description or a text layer, so stamps are written through the Figma MCP: **[`write-stamps.js`](scripts/write-stamps.js)**, run with `use_figma` on the Kubetail Desktop file, sets the stamps listed in its `STAMPS`, keeping the prose above a component's. It adds a screen's `Stamp` layer when the section has none.
 
 ### Drift
 
@@ -101,7 +101,7 @@ Each fingerprint reports more than its own component, and less:
 - **A hash covers the components nested in it.** An edit to one reports every component that holds an instance of it; `record` those once the edit is settled.
 - **A screen's hash stops at each instance.** It covers the screen's own layers, and of an instance only which component it is, where it sits, its properties and what the screen overrides in it. An edit to a component reports the component, and a screen only when it moves or resizes the screen's layers; `record` that screen once the edit is settled.
 - **A screen that is not drawn reports nothing.**
-- **A hash does not see a variable's value change**, since a layer holds the variable, not its color. It sees a library update once Desktop accepts it.
+- **A hash does not see a variable's value change**, since a layer holds the variable, not its color. It sees a library update once Kubetail Desktop accepts it.
 - **Figma has one state and the manifest has one per branch.** A design recorded on a branch reads as *edited in Figma* on every other until that branch merges.
 
 Tokens and the kubetail-ui library have no entries: nothing here reports their drift.
@@ -189,7 +189,7 @@ Never `record` an edited component to clear the report without that answer: reco
 4. Use library instances, variables and text styles; follow [Translucent colors](#translucent-colors). Set both collections' modes on anything new.
 5. Set the component's link. `record` its entry, so the manifest holds the design as it now is.
 6. Take one screenshot of the result and check it.
-7. A change to kubetail-ui needs a person to publish the library before Desktop sees it.
+7. A change to kubetail-ui needs a person to publish the library before Kubetail Desktop sees it.
 
 ### Figma to code
 

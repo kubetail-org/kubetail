@@ -1,9 +1,9 @@
 // Sets the stamp on each component and screen in STAMPS. A component's goes
 // in its description, keeping the prose above it; a screen's in its section's
 // Stamp text layer.
-// Fill STAMPS in, then run it through the Figma MCP's use_figma on the Desktop
-// file. use_figma runs this as a function body, so it awaits and returns at
-// the top.
+// Fill STAMPS in, then run it through the Figma MCP's use_figma on the
+// Kubetail Desktop file. use_figma runs this as a function body, so it awaits
+// and returns at the top.
 
 const STAMPS = [
   // { node: '9:148', stamp: { kubetail: 1, id: 'dashboard/status-pill' } },
