@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The fold every state watch shares. See docs/data-access.md, *State watch*.
+// The fold every state watch shares. See docs/read-contracts/README.md, *State watch*.
 import { perFrame } from './use-folded-subscription';
 import type { SubscriptionReducer } from './use-folded-subscription';
 

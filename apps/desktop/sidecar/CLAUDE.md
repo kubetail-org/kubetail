@@ -261,28 +261,11 @@ codegen; implement the panicking stubs gqlgen appends to `schema.resolvers.go`. 
 file is a two-pass regen: delete the old `*.resolvers.go` between passes and check no body came
 through as `panic("not implemented")`.
 
-**A data access is named for its contract**; choose the contract first from
-[`docs/data-access.md`](../docs/data-access.md).
-
-| Contract | Go method | GraphQL field |
-| --- | --- | --- |
-| Get, List, Fetch | `Get<Noun>`, `List<Noun>s`, `Fetch<Noun>` | `<noun>Get`, `<noun>List`, `<noun>Fetch` |
-| Collection watch | `Watch<Noun>Collection` | `<noun>CollectionWatch` |
-| State, keyed state watch | `Watch<Noun>State`, `…KeyedState` | `<noun>StateWatch`, `…KeyedStateWatch` |
-| Event, sample feed | `Subscribe<Noun>EventFeed`, `…SampleFeed` | `<noun>EventFeed`, `…SampleFeed` |
-| Cursor tail | `Tail<Noun>FromCursor` | `<noun>Tail` |
-| Change, broadcast notification | `ListenFor<Noun>Changes`, `…Notifications` | none: they stay in the sidecar |
-
-- A method drops a noun its receiver names (`Caches().WatchCollectionByCluster`); a scope is a
-  `By<Scope>` suffix in Go and an argument in GraphQL.
-- A service method that opens with `Get`, `List`, `Fetch`, `Watch`, `Tail` or `Listen`, or a feed
-  method with `Subscribe`, has that verb's contract. A poller or file watcher takes another verb.
-- A state watch sends its value on subscribe. A change notification sends nothing until a change,
-  so listen before the first read.
-- A Watch, Feed or Tail that can fail returns `*Stream[T]`; its resolver goes through
-  `subscriptionStream`, which turns `Err()` into the `subscriptionFailed` frame. Every one ends with
-  its `ctx`.
-- A field's description opens with its contract. A query with no caller is removed.
+**A read is named for its contract.** Choose the contract from
+[`docs/read-contracts/`](../docs/read-contracts/README.md). A service or store method is named
+and ends as [`go.md`](../docs/read-contracts/go.md) states; a field is named and described,
+and its resolver reports a failed stream, as
+[`graphql.md`](../docs/read-contracts/graphql.md) states.
 
 ## Patterns
 

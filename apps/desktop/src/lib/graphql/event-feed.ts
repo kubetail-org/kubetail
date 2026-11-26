@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The fold every event feed shares. See docs/data-access.md, *Event feed*.
+// The fold every event feed shares. See docs/read-contracts/README.md, *Event feed*.
 import type { SubscriptionReducer } from './use-folded-subscription';
 
 // `snapshotComplete` flips on the Bookmark. Until then `events` is a still-arriving

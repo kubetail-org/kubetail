@@ -101,6 +101,6 @@ const (
 	// the last snapshot object and before the first live change. It carries no object —
 	// the one case for which every frame's entity is a pointer — so a consumer must skip
 	// it rather than key on it.
-	// See docs/data-access.md.
+	// See docs/read-contracts/README.md.
 	CollectionWatchFrameBookmark CollectionWatchFrameType = "Bookmark"
 )

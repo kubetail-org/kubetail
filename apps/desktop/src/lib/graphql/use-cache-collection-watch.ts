@@ -20,7 +20,7 @@
 // kinds/events; cacheID + apiVersion + resource for objects) — miss one and that
 // dimension's stragglers mis-attribute. Transport reconnects (same provenance, full replay)
 // are handled underneath by `useFoldedSubscription`.
-// See docs/data-access.md, *Collection watch*.
+// See docs/read-contracts/README.md, *Collection watch*.
 //
 // Items are returned in insertion order; sorting stays with the caller.
 import { useMemo } from 'react';

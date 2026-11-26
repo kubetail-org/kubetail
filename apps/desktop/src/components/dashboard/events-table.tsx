@@ -15,7 +15,7 @@
 // The dashboard's cached Kubernetes Events table (newest first), over the rows its page
 // reads from `useClusterCachedDataEvents`. Gates on `active`/`phase` — the pattern every
 // whole-screen watch view follows.
-// See docs/data-access.md
+// See docs/read-contracts/README.md
 import { Spinner } from '@kubetail/ui/elements/spinner';
 import ReactTimeAgo from 'react-timeago';
 

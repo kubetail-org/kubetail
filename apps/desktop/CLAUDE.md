@@ -19,12 +19,10 @@ The desktop's ADRs are their own sequence, in [`docs/adr/`](docs/adr/README.md).
 
 Host and sidecar share one Unix socket / named pipe, served by the sidecar's `net/http` as HTTP/1.1 plus h2c (prior knowledge only), with no TLS. **GraphQL** (webview↔sidecar) rides HTTP/1.1 (POST + SSE); **gRPC** (host↔sidecar control: auth state, login/logout, resync poke) rides HTTP/2. The cluster surface is GraphQL-only. → [ADR: single-socket h2c from the standard library](docs/adr/2026-10-26-single-socket-h2c-from-the-standard-library.md).
 
-## Data access
+## Read contracts
 
-**A new query or subscription takes its contract and name from [`docs/data-access.md`](docs/data-access.md)**, which states each contract and what its consumer may assume. → [ADR: name every data access](docs/adr/2026-11-25-name-every-data-access-for-its-family-kind-and-operation.md).
+**A query or a subscription is a read, and takes its contract from [`docs/read-contracts/`](docs/read-contracts/README.md)**, which states each contract and what its consumer may assume. Its name on each surface is in the guide beside it: `go.md`, `graphql.md`, `webview.md`. → [ADR: name every read](docs/adr/2026-11-25-name-every-data-access-for-its-family-kind-and-operation.md), [ADR: write the read contracts once](docs/adr/2026-11-26-write-the-read-contracts-once-and-each-surfaces-rules-beside-them.md).
 
-- **Never render an empty state before a collection watch's `Bookmark` lands.**
-- **Detect it as `type === 'Bookmark'`, never as a missing entity**: a nested non-null field that errors nulls its parent, so a null entity also arrives on ordinary changes. A change with no entity is dropped, not folded.
 - **The webview joins client-side**: caches onto clusters by `clusterID`, kinds onto caches by `owner.id`, health values by `cacheID`.
 - **A cluster's id is the `ClusterID` scalar, every other record's is `ObjectID`; the webview never builds or parses either.**
 - Until the launch has read the keyring, a connection's phase or a provider's source is `Restoring`, and `authStateWatch` carries `restoring`. → [ADR](docs/adr/2026-11-20-a-launch-restores-keyring-credentials-in-the-background.md).
