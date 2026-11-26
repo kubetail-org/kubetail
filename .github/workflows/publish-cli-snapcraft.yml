@@ -1,4 +1,4 @@
-name: publish-snapcraft
+name: publish-cli-snapcraft
 
 permissions:
   contents: read

@@ -1,4 +1,4 @@
-name: publish-launchpad
+name: publish-cli-launchpad
 
 permissions:
   contents: read

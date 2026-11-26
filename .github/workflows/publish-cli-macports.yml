@@ -1,4 +1,4 @@
-name: publish-macports
+name: publish-cli-macports
 
 permissions:
   contents: read

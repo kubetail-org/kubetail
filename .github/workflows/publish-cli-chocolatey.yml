@@ -1,4 +1,4 @@
-name: publish-chocolatey
+name: publish-cli-chocolatey
 
 permissions:
   contents: read

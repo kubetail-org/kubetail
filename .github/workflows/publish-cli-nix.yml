@@ -1,4 +1,4 @@
-name: publish-nix
+name: publish-cli-nix
 
 permissions:
   contents: read

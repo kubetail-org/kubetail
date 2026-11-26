@@ -1,4 +1,4 @@
-name: publish-winget
+name: publish-cli-winget
 
 permissions:
   contents: read
