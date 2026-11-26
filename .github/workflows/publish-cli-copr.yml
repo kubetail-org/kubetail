@@ -1,4 +1,4 @@
-name: publish-copr
+name: publish-cli-copr
 
 permissions:
   contents: read

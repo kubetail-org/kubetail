@@ -1,4 +1,4 @@
-name: publish-krew
+name: publish-cli-krew
 
 permissions:
   contents: read

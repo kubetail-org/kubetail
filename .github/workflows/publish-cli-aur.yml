@@ -1,4 +1,4 @@
-name: publish-aur
+name: publish-cli-aur
 
 permissions:
   contents: read

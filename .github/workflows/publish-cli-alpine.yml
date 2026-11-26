@@ -1,4 +1,4 @@
-name: publish-alpine
+name: publish-cli-alpine
 
 permissions:
   contents: read

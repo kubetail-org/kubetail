@@ -1,4 +1,4 @@
-name: publish-obs
+name: publish-cli-obs
 
 permissions:
   contents: read
