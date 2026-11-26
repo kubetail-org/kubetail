@@ -18,12 +18,12 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/cli/cmd.version=
 
 # No target names a file it makes, and build/ is a directory.
 .PHONY: build build-dashboard-ui clean help generate check-generated \
-	lint-cli vet-cli test-cli test-cli-changed cover-cli-changed \
-	lint-libs vet-libs test-libs test-libs-changed cover-libs-changed \
-	lint-cluster-api vet-cluster-api test-cluster-api test-cluster-api-changed cover-cluster-api-changed \
-	lint-cluster-agent vet-cluster-agent test-cluster-agent test-cluster-agent-changed cover-cluster-agent-changed \
-	lint-web vet-web test-web test-web-changed cover-web-changed \
-	generate-desktop build-desktop lint-desktop vet-desktop test-desktop test-desktop-changed cover-desktop-changed \
+	lint-cli vet-cli vet-cli-changed test-cli test-cli-changed cover-cli-changed \
+	lint-libs vet-libs vet-libs-changed test-libs test-libs-changed cover-libs-changed \
+	lint-cluster-api vet-cluster-api vet-cluster-api-changed test-cluster-api test-cluster-api-changed cover-cluster-api-changed \
+	lint-cluster-agent vet-cluster-agent vet-cluster-agent-changed test-cluster-agent test-cluster-agent-changed cover-cluster-agent-changed \
+	lint-web vet-web vet-web-changed test-web test-web-changed cover-web-changed \
+	generate-desktop build-desktop lint-desktop vet-desktop vet-desktop-changed test-desktop test-desktop-changed cover-desktop-changed \
 	build-desktop-sidecar build-desktop-sidecar-dev build-desktop-bwrap build-desktop-pasta \
 	build-desktop-embedded-sources generate-desktop-prompts generate-desktop-icons \
 	test-desktop-livecache test-desktop-liveswitch status-desktop-design record-desktop-design \
@@ -90,7 +90,11 @@ vet-cli: ## Run go vet for the host and Windows, the go fix check and staticchec
 test-cli: ## Test cli/ and dashboard/ with the race detector
 	$(call test-go,cli dashboard)
 
-# One test-<area>-changed per area, each a wrapper around scripts/test-changed.sh.
+# One vet-<area>-changed and test-<area>-changed per area, each a wrapper around
+# scripts/vet-changed.sh or scripts/test-changed.sh.
+vet-cli-changed: ## Vet what the change reaches in cli/ and dashboard/ for this platform: narrows vet-cli, never replaces it before a PR
+	bash scripts/vet-changed.sh cli
+
 test-cli-changed: ## Run the tests in cli/ and dashboard/ the change reaches: narrows test-cli, never replaces it before a PR
 	bash scripts/test-changed.sh cli
 
@@ -110,6 +114,9 @@ vet-libs: ## Run go vet for the host and Windows, the go fix check and staticche
 test-libs: ## Test libs/go-common/ with the race detector
 	$(call test-go,libs/go-common)
 
+vet-libs-changed: ## Vet what the change reaches in libs/go-common/ for this platform: narrows vet-libs, never replaces it before a PR
+	bash scripts/vet-changed.sh libs
+
 test-libs-changed: ## Run the tests in libs/go-common/ the change reaches: narrows test-libs, never replaces it before a PR
 	bash scripts/test-changed.sh libs
 
@@ -126,6 +133,9 @@ vet-cluster-api: ## Run go vet for the host and Windows, the go fix check and st
 
 test-cluster-api: ## Test cluster/api/ with the race detector
 	$(call test-go,cluster/api)
+
+vet-cluster-api-changed: ## Vet what the change reaches in cluster/api/ for this platform: narrows vet-cluster-api, never replaces it before a PR
+	bash scripts/vet-changed.sh cluster-api
 
 test-cluster-api-changed: ## Run the tests in cluster/api/ the change reaches: narrows test-cluster-api, never replaces it before a PR
 	bash scripts/test-changed.sh cluster-api
@@ -148,6 +158,9 @@ vet-cluster-agent: ## Run clippy on cluster/agent/
 test-cluster-agent: ## Test cluster/agent/
 	cd $(CLUSTER_AGENT_DIR) && cargo test
 
+vet-cluster-agent-changed: ## Vet what the change reaches in cluster/agent/ for this platform: narrows vet-cluster-agent, never replaces it before a PR
+	bash scripts/vet-changed.sh cluster-agent
+
 test-cluster-agent-changed: ## Run the tests in cluster/agent/ the change reaches: narrows test-cluster-agent, never replaces it before a PR
 	bash scripts/test-changed.sh cluster-agent
 
@@ -168,6 +181,9 @@ vet-web: ## Type-check apps/web/ and its tests
 
 test-web: ## Test apps/web/
 	cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm test run
+
+vet-web-changed: ## Type-check apps/web/ when the change reaches its TypeScript: narrows vet-web, never replaces it before a PR
+	bash scripts/vet-changed.sh web
 
 test-web-changed: ## Run the tests in apps/web/ the change reaches: narrows test-web, never replaces it before a PR
 	bash scripts/test-changed.sh web
@@ -266,6 +282,9 @@ test-desktop: build-desktop-sidecar ## Test the desktop app's sidecar with the r
 		go test -race -short -gcflags='modernc.org/...=-d=checkptr=0' ./...
 	cd $(DESKTOP_DIR)/src-tauri && cargo test
 	cd $(DESKTOP_DIR) && pnpm install && pnpm test --run
+
+vet-desktop-changed: ## Vet what the change reaches in apps/desktop/ for this platform: narrows vet-desktop, never replaces it before a PR
+	bash scripts/vet-changed.sh desktop
 
 test-desktop-changed: ## Run the tests in apps/desktop/ the change reaches: narrows test-desktop, never replaces it before a PR
 	bash scripts/test-changed.sh desktop
