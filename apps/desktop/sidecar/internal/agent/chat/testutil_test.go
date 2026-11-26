@@ -406,10 +406,14 @@ func send(t *testing.T, s *service, chatID *ChatID, key, text string) ChatMessag
 	return msg
 }
 
-// awaitSettled watches chatID until message id is no longer in flight, and returns
-// it as the watch delivered it.
+// awaitSettled watches chatID until message id is no longer in flight, then waits
+// for the turn answering it to end, and returns it as the watch delivered it. The
+// settled frame follows the release, but the turn goes on to kick the chat: a kick
+// that lands after the test files a notice starts a notice turn, which holds the
+// slot against the test's next send.
 func awaitSettled(t *testing.T, s *service, chatID ChatID, id MessageID) ChatMessage {
 	t.Helper()
+	turn := answeringTurn(s, chatID, id)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	st, err := s.WatchMessageCollection(ctx, chatID)
@@ -417,7 +421,21 @@ func awaitSettled(t *testing.T, s *service, chatID ChatID, id MessageID) ChatMes
 	f := awaitFrame(t, st.Frames, func(f ChatMessageCollectionWatchFrame) bool {
 		return f.Message != nil && f.Message.ID == id && !f.Message.Status.inFlight()
 	})
+	if turn != nil {
+		awaitTurnDone(t, turn)
+	}
 	return *f.Message
+}
+
+// answeringTurn is the turn writing message id in chatID, or nil once it has
+// released the slot.
+func answeringTurn(s *service, chatID ChatID, id MessageID) *turn {
+	s.turnsMu.Lock()
+	defer s.turnsMu.Unlock()
+	if turn := s.turns[chatID]; turn != nil && turn.msg.ID == id {
+		return turn
+	}
+	return nil
 }
 
 // The fake's first reply: the thought it streams first, the sentence it ends on,
