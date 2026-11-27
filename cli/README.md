@@ -30,10 +30,9 @@ make vet-cli-changed test-cli-changed   # from the repo root: what the change re
 go generate ./...                       # after editing config/default/cli.*: copies them to assets/; commit both
 ```
 
-Before a PR:
+Before you push:
 
 ```sh
-make lint-cli vet-cli test-cli   # from the repo root, with dashboard/
-make cover-cli-changed           # from the repo root; FULL=1 runs every test of both
+make lint-cli vet-cli-changed test-cli-changed cover-cli-changed   # from the repo root, with dashboard/
 ```
 

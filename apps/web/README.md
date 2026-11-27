@@ -27,12 +27,11 @@ pnpm lint                                  # oxlint (type-aware), then `oxfmt --
 pnpm lint:tailwind                         # the Tailwind classes, after changing any; `--fix` rewrites a spelling
 ```
 
-Before a PR:
+Before you push:
 
 ```sh
-make lint-web vet-web test-web   # from the repo root; vet-web is `tsc -b`, the only type-check, and it covers test files
-make cover-web-changed           # from the repo root: the changed lines no test covers
-pnpm build                       # tsc -b && vite build; no make target runs vite build
+make lint-web vet-web-changed test-web-changed   # from the repo root; vet-web-changed is `tsc -b`, the only type-check, and it covers test files
+make cover-web-changed                           # from the repo root: the changed lines no test covers
 ```
 
 ## Build

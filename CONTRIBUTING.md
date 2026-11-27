@@ -63,9 +63,9 @@ Kubetail is organized as a monorepo with one folder per component:
 
 ## How to Run Tests and Other Checks
 
-Every check is a `make <verb>-<area>` target, run from the repo root. Run the checks of each area you changed before you open a pull request; CI runs every area on every platform. `make help` lists every target and is the authority if this table falls behind.
+Every check is a `make <verb>-<area>` target, run from the repo root. Before you push, run the quick checks of each area you changed: `lint-<area>`, `vet-<area>-changed`, `test-<area>-changed` and `cover-<area>-changed`. CI runs the full checks of every area on every platform; after you push, watch the pull request's checks and fix what fails. `make help` lists every target and is the authority if this table falls behind.
 
-| Area | Paths | while working | lint | vet | test | cover |
+| Area | Paths | quick vet, test | lint | full vet (CI) | full test (CI) | cover |
 |---|---|---|---|---|---|---|
 | `cli` | `cli/`, `dashboard/` | `vet-cli-changed`, `test-cli-changed` | `lint-cli` | `vet-cli` | `test-cli` | `cover-cli-changed` |
 | `libs` | `libs/go-common/` | `vet-libs-changed`, `test-libs-changed` | `lint-libs` | `vet-libs` | `test-libs` | `cover-libs-changed` |
@@ -76,7 +76,7 @@ Every check is a `make <verb>-<area>` target, run from the repo root. Run the ch
 | `e2e` | `e2e/` | | `lint-e2e` | | `test-e2e` | |
 | `repo` | everything else | `test-repo-changed` | `lint-repo` | | `test-repo` | |
 
-- **`vet-<area>-changed` and `test-<area>-changed`** vet and test what your branch reaches in one area, on this platform, and print each command they run and each suite they skip. Run them while you work: they narrow `vet-<area>` and `test-<area>`, which you still run before a pull request. `test-repo-changed` runs the bats files of the scripts you changed.
+- **`vet-<area>-changed` and `test-<area>-changed`** vet and test what your branch reaches in one area, on this platform, and print each command they run and each suite they skip. They are the local check: `vet-<area>` and `test-<area>` check the whole area, as CI does, and reproduce a CI failure. `test-repo-changed` runs the bats files of the scripts you changed.
 - **`cover-<area>-changed`** lists the lines your branch changed that no test reaches. Cover or mark each one: CI fails a pull request on them.
 - **`lint-repo`** runs `lint-repo-sh`, `lint-repo-md`, `lint-repo-yaml`, `lint-repo-toolchains` and `lint-repo-digests`, which you can also run alone.
 - **A change can reach another area.** The *Checks* section of the root [README](README.md#checks) lists those cases, and each component's README lists what to run while you work.

@@ -15,6 +15,8 @@ Some full targets are too slow to run during development. `make test-desktop` re
 
 `scripts/changed.sh` already lists what a branch changed, for `cover-<area>-changed`.
 
+Most changes are made by agents working on their own. They need a local check fast enough to run on every change, and a clear point at which the work is done.
+
 ## Decision
 
 Each area with tests has `make test-<area>-changed`, and each area with vet passes `make vet-<area>-changed`: `cli`, `libs`, `cluster-api`, `cluster-agent`, `web` and `desktop`, plus `make test-repo-changed`. They wrap `scripts/test-changed.sh` and `scripts/vet-changed.sh`, which read the change from `scripts/changed.sh`:
@@ -26,25 +28,28 @@ Each area with tests has `make test-<area>-changed`, and each area with vet pass
 
 The targets answer both objections. Each covers one area, prints each command it runs (`→ …`) and each suite or pass it skips, and gives no verdict of its own. It scopes by changed files alone: it picks no CI jobs and reads nothing from `path-filters.yml`.
 
-These targets trade correctness for speed. `make <verb>-<area>` remains what runs before a PR, and CI remains the backstop.
+These targets are the local check before a push. For each area touched, an author runs `make lint-<area>`, `vet-<area>-changed`, `test-<area>-changed` and, where coverage is measured, `cover-<area>-changed`. The full `make vet-<area>` and `test-<area>` keep their names: they are what CI runs, and locally they reproduce a CI failure. After the push, the author watches the pull request's checks and fixes what fails. CI does not block a merge, so the work is done when its checks pass, not when the branch is pushed.
 
 Every `make vet-<area>` vets for this platform alone, as the `-changed` targets do: go vet, and `scripts/check-go-fix.sh` and `scripts/staticcheck.sh` under `GO_BUILDS=host`, which runs each build `scripts/go-builds.sh` lists for this platform, once per set of tags. Staticcheck's U1000 is off there, since one platform reports code only another uses as unused. CI runs every build: `GOOS=windows go vet` in each Go area's vet job, the sidecar's other platforms in `desktop-sidecar-vet`, and both scripts without `GO_BUILDS`.
 
-This amends "Run each area's own checks locally, with CI as the backstop": the removal of `test-changed` and `vet-go-changed` is reversed in this form. The rest of it stands.
+This amends "Run each area's own checks locally, with CI as the backstop" in two ways. The removal of `test-changed` and `vet-go-changed` is reversed in this form, and an area's list of what to run before a pull request names these targets rather than the full ones. The rest of it stands.
 
 ## Alternatives considered
 
 - **One target over every area that changed.** It would bring back the aggregate verdict, and deciding which areas a change touches is the CI mapping the earlier ADR removed.
 - **Hand-scoped commands in the guides.** That was the state before: it misses the importers of a changed package, and contributors and agents fell back to the full target.
 - **Drop `-race` from the scoped tests.** It would be faster again, but a race found only in CI costs a round trip, and the changed packages are the ones most likely to hold one.
+- **Keep the full targets as the check before a PR, with the `-changed` targets for while working.** Every change would wait on the slowest target of each area it touched, and an agent following the guides ran it after a one-line change.
+- **Require a scope on every vet and test target** (`test-cli-all`, `test-cli-changed`). The choice would be explicit, but about forty files and the CI workflows name the full targets, lint has no useful scoped form, and the full check would read as one option of two rather than CI's.
 - **Scope from `.github/ci-config/path-filters.yml`.** One source for both, but the filters select CI jobs, not packages, and it would make these targets the second copy of CI's job selection that the earlier ADR objected to.
 
 ## Consequences
 
-- During development an area's tests and vet cost what the change reaches, not the whole area.
-- A guide's "while working" list names `make vet-<area>-changed test-<area>-changed` first.
+- An area's tests and vet cost what the change reaches, not the whole area, up to the push.
+- Each guide's list of what to run before a push names the `-changed` targets, and the "Also run" table names them for changes that reach another area.
+- Some failures first show up in CI, and a missed one costs a round trip. Watching the pull request's checks is part of the work.
 - `go_scope` runs `go list -test` over the workspace on every call, under a second on this repo.
-- A test reached only at run time, through a dynamic import or a file read by path from another package, is missed. So is a finding on another platform, and unused code, even before a PR: CI reports them.
+- A test reached only at run time, through a dynamic import or a file read by path from another package, is missed. So are a finding on another platform, staticcheck's findings and unused code: CI reports them.
 - A new area or a new kind of input adds a case to both scripts and to their bats files.
 
 ## Revisit when

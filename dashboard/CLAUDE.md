@@ -24,11 +24,10 @@ go generate ./...                        # gqlgen
 cd ../apps/web && pnpm graphql-codegen   # the UI's types
 ```
 
-Before a PR:
+Before you push:
 
 ```sh
-make lint-cli vet-cli test-cli   # from the repo root, with cli/
-make cover-cli-changed           # from the repo root
+make lint-cli vet-cli-changed test-cli-changed cover-cli-changed   # from the repo root, with cli/
 ```
 
 The CLI and the Dashboard share a coverage area, as CI measures them: `FULL=1` runs the CLI's tests too, which reach Dashboard lines of their own.

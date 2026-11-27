@@ -61,11 +61,11 @@ While working, from the repo root, on what the change reaches:
 make vet-desktop-changed test-desktop-changed   # this platform alone; a host-only change runs no Go test
 ```
 
-Before a PR, from the repo root:
+Before you push, from the repo root:
 
 ```sh
 make generate-desktop                 # after a change to proto/ or the GraphQL schema
-make lint-desktop vet-desktop test-desktop
+make lint-desktop vet-desktop-changed test-desktop-changed
 make cover-desktop-changed            # FULL=1 runs every Go test; the host's coverage needs cargo-llvm-cov
 ```
 

@@ -35,11 +35,13 @@ While working, against what is deployed:
 uv run pytest -v -k <name>
 ```
 
-Before a PR:
+Before you push:
 
 ```sh
-make lint-e2e test-e2e     # from the repo root: ruff, then build, deploy, run
+make lint-e2e              # from the repo root: ruff
 ```
+
+and the tests you changed, as above. `make test-e2e` builds, deploys and runs the whole suite; CI runs it.
 
 ## Run the full suite
 
