@@ -109,6 +109,19 @@ func TestReadActiveCacheRunsOverATrustedCache(t *testing.T) {
 	assert.Equal(t, 20, svc.asked.maxByte)
 }
 
+// A reading carries the health it was judged trusted by, so a reader judging its rows
+// kind by kind reads the same verdict.
+func TestAReadingCarriesTheHealthItWasJudgedBy(t *testing.T) {
+	svc := watchingService()
+	svc.health.PausedKindRefs = []KindRef{{APIVersion: "v1", Resource: "pods"}}
+	var health ClusterCacheHealth
+	require.NoError(t, ReadActiveCache(t.Context(), svc, "7", 10, 20, func(r CacheReading, _ ActiveCluster) error {
+		health = r.Health()
+		return nil
+	}))
+	assert.Equal(t, svc.health, health)
+}
+
 // ReadActiveCache is ErrNoCache for a cluster with no cache, a record gone or an
 // identity that moved, and a cache gone under the read; ErrSyncing for a cache
 // whose rows are not trusted; and any other failure as it is.

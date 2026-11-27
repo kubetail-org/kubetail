@@ -35,6 +35,7 @@ type CacheReading struct {
 	query    OwnQuery
 	maxRows  int
 	maxBytes int
+	health   ClusterCacheHealth
 }
 
 // OwnQuery runs one statement of a reading CachedData().ReadOwn holds open.
@@ -59,7 +60,7 @@ func ReadActiveCache(ctx context.Context, svc Service, id ClusterID, maxRows, ma
 			return ErrSyncing
 		}
 		ok, err = svc.CachedData().ReadOwn(ctx, id, active.Cache.ID, func(query OwnQuery) error {
-			return read(CacheReading{query, maxRows, maxBytes}, active)
+			return read(CacheReading{query, maxRows, maxBytes, health}, active)
 		})
 		if err == nil && !ok {
 			return ErrNoCache
@@ -77,6 +78,10 @@ func ReadActiveCache(ctx context.Context, svc Service, id ClusterID, maxRows, ma
 func (r CacheReading) Query(sql string, args ...any) (ClusterCachedDataQueryResult, error) {
 	return r.query(sql, r.maxRows, r.maxBytes, args...)
 }
+
+// Health is the health the reading was admitted under, read just before its snapshot:
+// which kinds were not Watching, and which were paused.
+func (r CacheReading) Health() ClusterCacheHealth { return r.health }
 
 // Placeholders is n comma-separated placeholders, for an IN list of n values.
 func Placeholders(n int) string {

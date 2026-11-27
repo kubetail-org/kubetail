@@ -1503,6 +1503,7 @@ func TestCachesWatchHealthKeyedStateSkipsAPausedKindWithoutLosingItFromTheCensus
 	assert.Equal(t, kubesync.ReasonWatching, got.Reason, "the paused kind withholds nothing")
 	assert.Equal(t, 2, got.TotalKinds, "the census keeps it")
 	assert.Equal(t, 1, got.PausedKinds)
+	assert.Equal(t, []KindRef{kindRefOf(deploymentsSpec)}, got.PausedKindRefs)
 	assert.Equal(t, 0, got.UnhealthyKinds, "a paused kind is not unhealthy")
 	assert.Empty(t, got.UnansweredKindRefs, "a paused kind is not unanswered")
 }
@@ -1548,6 +1549,7 @@ func TestCachesWatchHealthKeyedStateReadsAFullyPausedCacheAsPaused(t *testing.T)
 	assert.Equal(t, ConditionFalse, got.Status)
 	assert.Equal(t, ReasonPaused, got.Reason)
 	assert.Equal(t, 2, got.PausedKinds)
+	assert.Equal(t, []KindRef{kindRefOf(deploymentsSpec), kindRefOf(podsSpec)}, got.PausedKindRefs, "sorted")
 }
 
 // A cache whose file will not open has no session behind it, so every kind reads as

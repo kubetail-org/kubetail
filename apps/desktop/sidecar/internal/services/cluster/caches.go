@@ -145,6 +145,10 @@ type ClusterCacheHealth struct {
 	// missing, and without its own tally it is invisible in every reading — a summary that
 	// spends UnhealthyKinds alone would report five kinds syncing when two are paused.
 	PausedKinds int
+	// PausedKindRefs names every paused kind, sorted. A paused kind keeps its rows, so a
+	// reader judging them needs to know which; no other field names one. Not on the
+	// wire, like UnansweredKindRefs.
+	PausedKindRefs []KindRef
 	// LastUpdateAt is the most recent write across every kind — when data last arrived
 	// anywhere in this cache; nil until something has landed. LastLiveAt is the OLDEST
 	// proof across every kind, and **nil while any of them has none**: a cache is only as
@@ -517,6 +521,7 @@ func (a cachesAPI) readCacheHealth(
 		// and one unanswered kind pins the whole cache at Connecting forever.
 		if kindObj.Spec.Paused {
 			health.PausedKinds++
+			health.PausedKindRefs = append(health.PausedKindRefs, kindRefOf(kindObj.Spec))
 			continue
 		}
 
@@ -554,6 +559,7 @@ func (a cachesAPI) readCacheHealth(
 		return compareKindRefs(a.KindRef, b.KindRef)
 	})
 	slices.SortFunc(health.UnansweredKindRefs, compareKindRefs)
+	slices.SortFunc(health.PausedKindRefs, compareKindRefs)
 	health.LastUpdateAt = optionalTime(newestUpdateAt)
 	if !anyKindUnproven {
 		health.LastLiveAt = optionalTime(oldestLiveAt)
