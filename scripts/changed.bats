@@ -164,6 +164,13 @@ scope() {
   [ "$output" = $'./libs/go-common/b\n./libs/go-common/c' ]
 }
 
+@test "go_scope names each of several changed packages" {
+  workspace
+  scope libs/go-common -- libs/go-common/lone/lone.go libs/go-common/c/c.go
+  [ "$status" -eq 0 ]
+  [ "$output" = $'./libs/go-common/c\n./libs/go-common/lone' ]
+}
+
 @test "go_scope names a package whose test alone imports the changed one" {
   workspace
   scope libs/go-common -- libs/go-common/a/a.go
