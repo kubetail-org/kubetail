@@ -299,13 +299,20 @@ vet-desktop-webview: ## Type-check the desktop app's webview
 test-desktop: test-desktop-sidecar test-desktop-host test-desktop-webview ## Test the desktop app's sidecar with the race detector, its host and its webview
 
 # As CI tests the sidecar. checkptr, which -race turns on, is off for modernc's
-# SQLite alone, where it spends a quarter of agent/chat's CPU. The login
-# shell's tests read SSH_AUTH_SOCK. GORACE drops the race detector's one-second
-# sleep at each clean exit.
+# packages, where it spends a quarter of agent/chat's CPU. modernc's
+# transpiled SQLite (sqlite/lib) is also left out of the race instrumentation,
+# which runs every memory access it makes through ThreadSanitizer. The later
+# -gcflags pattern wins for it, and without -race checkptr is off too. libc
+# stays instrumented: without it, the detector loses happens-before edges and
+# reports false races.
+# stress-desktop.yml instruments everything. The login shell's tests read
+# SSH_AUTH_SOCK. GORACE drops the race detector's one-second sleep at each
+# clean exit.
 test-desktop-sidecar: ## Test the desktop sidecar with the race detector
 	$(call changed-note,test-desktop-changed)
 	cd $(DESKTOP_DIR)/sidecar && GORACE=atexit_sleep_ms=0 SSH_AUTH_SOCK= \
-		go test -race -short -gcflags='modernc.org/...=-d=checkptr=0' ./...
+		go test -race -short -gcflags='modernc.org/...=-d=checkptr=0' \
+		-gcflags='modernc.org/sqlite/lib=-race=false' ./...
 
 test-desktop-host: build-desktop-sidecar ## Test the desktop host, after building the sidecar
 	$(call changed-note,test-desktop-changed)

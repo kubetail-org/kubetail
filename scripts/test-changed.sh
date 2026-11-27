@@ -72,7 +72,7 @@ case "$area" in
     if [ -n "$pkgs" ]; then
       # As test-desktop runs them.
       # shellcheck disable=SC2086 # one argument per package
-      run env GORACE=atexit_sleep_ms=0 SSH_AUTH_SOCK= go -C "$sidecar" test -race -short -gcflags='modernc.org/...=-d=checkptr=0' $pkgs
+      run env GORACE=atexit_sleep_ms=0 SSH_AUTH_SOCK= go -C "$sidecar" test -race -short -gcflags='modernc.org/...=-d=checkptr=0' -gcflags='modernc.org/sqlite/lib=-race=false' $pkgs
     else
       echo "Skipped the sidecar's go test: no change reaches a package in $sidecar."
     fi
