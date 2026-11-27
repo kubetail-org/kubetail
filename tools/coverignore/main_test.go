@@ -109,6 +109,26 @@ example.com/mod/demo/demo.go:21.16,23.3 1 0
 	}
 }
 
+// go test writes a profile with only its mode line when no package it ran has
+// a test file.
+func TestRunKeepsTheModeOfAProfileWithNoBlocks(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "mod", "go.mod"), "module example.com/mod\n\ngo 1.26\n")
+	writeFile(t, filepath.Join(dir, "empty.out"), "mode: atomic\n")
+
+	out := filepath.Join(dir, "merged.out")
+	if err := run(filepath.Join(dir, "mod"), out, []string{filepath.Join(dir, "empty.out")}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "mode: atomic\n"; string(got) != want {
+		t.Errorf("merged profile:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 const marked = `package demo
 
 func F(err error) error {
