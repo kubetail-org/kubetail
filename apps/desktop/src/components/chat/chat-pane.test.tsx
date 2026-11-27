@@ -48,15 +48,27 @@ vi.mock('@/lib/active-kube-context', () => ({
 }));
 // Whether the machine offers a sandbox, which the composer's switch and the
 // transcript's headings both follow.
-const { useSandboxMock, sandboxRetry, switchState, networkSwitchState } = vi.hoisted(() => ({
+const { useSandboxMock, sandboxRetry, switchState, networkSwitchState, sandboxDefault } = vi.hoisted(() => ({
   useSandboxMock: vi.fn(),
   sandboxRetry: vi.fn(),
   switchState: { switching: false, setSandboxDisabled: vi.fn() },
   networkSwitchState: { switching: false, setNetworkEnabled: vi.fn() },
+  sandboxDefault: {
+    value: undefined as { sandboxDisabled: boolean; clusterOverride: boolean } | undefined,
+    changing: false,
+    clusterID: undefined as string | null | undefined,
+  },
 }));
 vi.mock('@/lib/sandbox', () => ({ useSandbox: useSandboxMock }));
 vi.mock('@/lib/sandbox-switch', () => ({ useSandboxSwitch: () => switchState }));
 vi.mock('@/lib/network-switch', () => ({ useNetworkSwitch: () => networkSwitchState }));
+vi.mock('@/lib/sandbox-default', () => ({
+  useSandboxDefault: (clusterID: string | null | undefined) => {
+    sandboxDefault.clusterID = clusterID;
+    return sandboxDefault.value;
+  },
+  useSandboxDefaultChanging: () => sandboxDefault.changing,
+}));
 vi.mock('urql', () => ({ useMutation: () => [{}, vi.fn()] }));
 vi.mock('@/gql', () => ({ graphql: () => ({}) }));
 
@@ -71,19 +83,27 @@ vi.mock('@/components/chat/chat-composer', async () => {
       mode: 'chat' | 'dashboard';
       clusterID?: string;
       onShowWaiting?: () => void;
+      onSwitchSandbox?: (disabled: boolean) => void;
     }) => {
-      const { chatID, mode, clusterID, onShowWaiting } = props;
+      const { chatID, mode, clusterID, onShowWaiting, onSwitchSandbox } = props;
       const { draft, setDraft } = useChatOutbox(mode, chatID, clusterID);
       return (
-        <div data-testid="composer">
-          {JSON.stringify(props)}
-          <input aria-label="draft" value={draft} onChange={(e) => setDraft(e.target.value)} />
-          {onShowWaiting && (
-            <button type="button" onClick={onShowWaiting}>
-              show
+        <>
+          <div data-testid="composer">
+            {JSON.stringify(props)}
+            <input aria-label="draft" value={draft} onChange={(e) => setDraft(e.target.value)} />
+            {onShowWaiting && (
+              <button type="button" onClick={onShowWaiting}>
+                show
+              </button>
+            )}
+          </div>
+          {onSwitchSandbox && (
+            <button type="button" onClick={() => onSwitchSandbox(true)}>
+              leave the sandbox
             </button>
           )}
-        </div>
+        </>
       );
     },
   };
@@ -194,6 +214,8 @@ beforeEach(() => {
   });
   switchState.switching = false;
   networkSwitchState.switching = false;
+  sandboxDefault.value = undefined;
+  sandboxDefault.changing = false;
   kubeContexts.current = [{ name: 'prod' }, { name: 'staging' }];
 });
 
@@ -256,7 +278,29 @@ describe('NewChatPane', () => {
   });
 });
 
+describe('NewChatPane, the sandbox default', () => {
+  // A chat that has not started is created with its cluster's default, which
+  // the composer shows and sends, and a change to a default holds Send.
+  it("hands the composer its cluster's default and a change in flight", () => {
+    const panes = renderPanes();
+    panes.fresh();
+    expect(sandboxDefault.clusterID).toBe('1');
+    expect(props('composer').sandboxDisabled).toBeUndefined();
+
+    sandboxDefault.value = { sandboxDisabled: true, clusterOverride: false };
+    sandboxDefault.changing = true;
+    panes.fresh();
+    expect(props('composer')).toMatchObject({ sandboxDisabled: true, switching: true });
+  });
+});
+
 describe('ChatPane', () => {
+  it("hands the composer the chat's sandbox switch", async () => {
+    renderPanes().open('c1', { chats: [chat('c1')] });
+    await userEvent.click(screen.getByRole('button', { name: 'leave the sandbox' }));
+    expect(switchState.setSandboxDisabled).toHaveBeenCalledWith(true);
+  });
+
   // The chat's switch rides the list watch, so the composer draws what every
   // window sees; the machine's sandbox is what the transcript's headings follow.
   // A send reserves its turn under the switch as it is, so both ways of sending

@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The Settings dialog's Sandbox tab: the status card, then Folders, Network,
-// PATH, Executables and Environment, each a titled card in a file beside this
-// one but Executables. On a machine with no sandbox, the status card alone. An
-// executable's path, version, error and refusal are its own text, so they are
-// drawn through VisibleText with the trailing spelled.
+// The Settings dialog's Sandbox tab: the status card, then New chats, Folders,
+// Network, PATH, Executables and Environment, each a titled card in a file
+// beside this one but Executables. On a machine with no sandbox, the status
+// card alone. An executable's path, version, error and refusal are its own
+// text, so they are drawn through VisibleText with the trailing spelled.
 import { Button } from '@kubetail/ui/elements/button';
 import { Spinner } from '@kubetail/ui/elements/spinner';
 import { useState } from 'react';
@@ -24,6 +24,7 @@ import { useState } from 'react';
 import { Input } from '@/components/primitives/text-entry';
 import { VisibleText } from '@/components/primitives/visible-text';
 import { useSandbox } from '@/lib/sandbox';
+import { useSandboxDefault, useSandboxDefaultSwitch } from '@/lib/sandbox-default';
 import { useSandboxExecutables } from '@/lib/sandbox-executables';
 import type { SandboxExecutable, SandboxExecutables } from '@/lib/sandbox-executables';
 import { useSandboxPath } from '@/lib/sandbox-path';
@@ -34,6 +35,7 @@ import { SandboxConsole } from './sandbox-console';
 import { SandboxEnvironment } from './sandbox-environment';
 import { SandboxFolderGroups } from './sandbox-folders';
 import { SandboxNetwork } from './sandbox-network';
+import { SandboxNewChats } from './sandbox-new-chats';
 import { SandboxPathSection } from './sandbox-path';
 
 // A registered executable can share a curated one's name, so a row is keyed
@@ -190,6 +192,7 @@ function SandboxSections({
   const executables = useSandboxExecutables();
   return (
     <>
+      <SandboxNewChats />
       <SandboxFolderGroups path={path} />
       <SandboxNetwork networkAvailable={networkAvailable} networkReason={networkReason} />
       <SandboxPathSection path={path} onRefreshed={executables.probe} />
@@ -201,11 +204,17 @@ function SandboxSections({
 
 export function SandboxSettings() {
   const sandbox = useSandbox();
+  const everyCluster = useSandboxDefault(null);
+  const { switching, setSandboxDisabled } = useSandboxDefaultSwitch(null);
   const [consoleOpen, setConsoleOpen] = useState(false);
   return (
     <>
-      {/* Placeholder: awaits a global sandbox setting and its mutation, so the switch is on and disabled. */}
-      <SandboxCard sandbox={sandbox} on onTry={() => setConsoleOpen(true)} />
+      <SandboxCard
+        sandbox={sandbox}
+        on={everyCluster && !everyCluster.sandboxDisabled}
+        onSwitch={switching ? undefined : (on) => setSandboxDisabled(!on)}
+        onTry={() => setConsoleOpen(true)}
+      />
       {sandbox.available && (
         <>
           <SandboxSections networkAvailable={sandbox.networkAvailable} networkReason={sandbox.networkReason} />

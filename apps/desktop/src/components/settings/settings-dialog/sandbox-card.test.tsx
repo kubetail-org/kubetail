@@ -39,10 +39,13 @@ beforeEach(() => {
 });
 
 describe('SandboxCard', () => {
-  it('says the sandbox is on, names its mechanism, and opens the console', async () => {
+  it('says new chats start in the sandbox, names its mechanism, and opens the console', async () => {
     const onTry = vi.fn();
     render(<SandboxCard sandbox={sandbox()} on onTry={onTry} />);
-    expect(screen.getByText('Sandbox is on')).toBeInTheDocument();
+    expect(screen.getByText('Sandbox is on for new chats')).toBeInTheDocument();
+    expect(screen.getByText(/^New chats run their commands in bubblewrap/)).toHaveTextContent(
+      'Chats that exist keep their own switch',
+    );
     expect(screen.getByText(/bubblewrap/)).toBeInTheDocument();
     expect(screen.getByText('Run a command in the sandbox to see what it can reach.')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Try a command' }));
@@ -56,41 +59,49 @@ describe('SandboxCard', () => {
     expect(screen.getByText(/Seatbelt/)).toBeInTheDocument();
   });
 
-  // Placeholder: no global switch exists yet, so nothing here may turn it off.
-  it('draws the switch checked and disabled without a handler', () => {
+  // A change in flight leaves no handler.
+  it('draws the switch disabled without a handler', () => {
     render(<SandboxCard sandbox={sandbox()} on onTry={vi.fn()} />);
-    const toggle = screen.getByRole('switch', { name: 'Sandbox' });
+    const toggle = screen.getByRole('switch', { name: 'Sandbox for new chats' });
     expect(toggle).toBeChecked();
     expect(toggle).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('says the sandbox is off, unchecked, with no console row', () => {
+  // The console tries the sandbox, which is there whatever new chats start with.
+  it('says new chats start outside, unchecked, and keeps the console row', () => {
     render(<SandboxCard sandbox={sandbox()} on={false} onSwitch={vi.fn()} onTry={vi.fn()} />);
-    expect(screen.getByText('Sandbox is off')).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: 'Sandbox' })).not.toBeChecked();
-    expect(screen.queryByRole('button', { name: 'Try a command' })).toBeNull();
+    expect(screen.getByText('Sandbox is off for new chats')).toBeInTheDocument();
+    expect(screen.getByText(/^New chats run their commands as you/)).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Sandbox for new chats' })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Try a command' })).toBeInTheDocument();
   });
 
-  it('asks before turning the sandbox off, and turns it off on confirm', async () => {
+  it('draws nothing until the default is known', () => {
+    const { container } = render(<SandboxCard sandbox={sandbox()} on={undefined} onTry={vi.fn()} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('asks before starting new chats outside, and does on confirm', async () => {
     const onSwitch = vi.fn();
     render(<SandboxCard sandbox={sandbox()} on onSwitch={onSwitch} onTry={vi.fn()} />);
 
-    await userEvent.click(screen.getByRole('switch', { name: 'Sandbox' }));
-    let dialog = await screen.findByRole('dialog', { name: 'Turn off the sandbox?' });
+    await userEvent.click(screen.getByRole('switch', { name: 'Sandbox for new chats' }));
+    let dialog = await screen.findByRole('dialog', { name: 'Start new chats outside the sandbox?' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(onSwitch).not.toHaveBeenCalled();
 
-    await userEvent.click(screen.getByRole('switch', { name: 'Sandbox' }));
-    dialog = await screen.findByRole('dialog', { name: 'Turn off the sandbox?' });
-    expect(dialog).toHaveTextContent('Every command in every chat will run outside the sandbox');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Turn off' }));
+    await userEvent.click(screen.getByRole('switch', { name: 'Sandbox for new chats' }));
+    dialog = await screen.findByRole('dialog', { name: 'Start new chats outside the sandbox?' });
+    expect(dialog).toHaveTextContent('on a cluster without its own setting');
+    expect(dialog).toHaveTextContent('Chats that exist keep their own switch.');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Start outside the sandbox' }));
     expect(onSwitch).toHaveBeenCalledWith(false);
   });
 
-  it('turns the sandbox back on with no confirm', async () => {
+  it('starts new chats in the sandbox again with no confirm', async () => {
     const onSwitch = vi.fn();
     render(<SandboxCard sandbox={sandbox()} on={false} onSwitch={onSwitch} onTry={vi.fn()} />);
-    await userEvent.click(screen.getByRole('switch', { name: 'Sandbox' }));
+    await userEvent.click(screen.getByRole('switch', { name: 'Sandbox for new chats' }));
     expect(onSwitch).toHaveBeenCalledWith(true);
     expect(screen.queryByRole('dialog')).toBeNull();
   });

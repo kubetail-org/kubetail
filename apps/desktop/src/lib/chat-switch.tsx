@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// A chat's switch in flight: the sandbox switch and the network switch alike. A
-// send says which switches its sender saw and the sidecar refuses one that
-// differs, so Send and Ask again hold off from the press until the list watch
-// shows the value the mutation committed: the mutation's answer and the watch's
-// frame are separate streams, and a send between them would pass the old value.
+// A switch in flight: a chat's sandbox and network switches, and the sandbox
+// default a new chat starts with. A send says which switches its sender saw and
+// the sidecar refuses one that differs, so Send and Ask again hold off from the
+// press until the watch shows the value the mutation committed: the mutation's
+// answer and the watch's frame are separate streams, and a send between them
+// would pass the old value.
 // The provider sits above the routes, like the outbox, so a pane that remounts
 // meanwhile still waits.
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
@@ -87,4 +88,38 @@ export function useChatSwitch(
   };
 
   return { switching: committed !== undefined && !landed, switchTo };
+}
+
+/**
+ * A change named by `key` held only while its mutation is in flight. Whoever
+ * waits on it reads its own watch, which no one else can see land, so the
+ * hold ends with the answer whether or not the pane that started it is still
+ * mounted.
+ *
+ * So a waiter's watch can still show the old value for a moment after the
+ * answer. The one change held this way is a sandbox default, made in Settings,
+ * a dialog over the composer that waits on it, so that window cannot send in
+ * the moment. A send that does is refused with KUBETAIL_CHAT_SANDBOX_CHANGED
+ * and keeps its draft.
+ */
+export function usePendingSwitch(key: string): { pending: boolean; run: (mutation: () => Promise<unknown>) => void } {
+  const ctx = useContext(ChatSwitchContext);
+  if (!ctx) throw new Error('usePendingSwitch must be used within a ChatSwitchProvider');
+  const { inFlight, setInFlight } = ctx;
+  const run = (mutation: () => Promise<unknown>) => {
+    setInFlight((current) => ({ ...current, [key]: null }));
+    const done = () => setInFlight((current) => without(current, key));
+    void mutation().then(done, done);
+  };
+  return { pending: key in inFlight, run };
+}
+
+/**
+ * Whether any of the switches named by `keys` is in flight, or committed and
+ * not yet watched, wherever its control is drawn.
+ */
+export function useSwitchingAny(keys: string[]): boolean {
+  const ctx = useContext(ChatSwitchContext);
+  if (!ctx) throw new Error('useSwitchingAny must be used within a ChatSwitchProvider');
+  return keys.some((key) => key in ctx.inFlight);
 }

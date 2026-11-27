@@ -39,11 +39,14 @@ export function ScopePicker({
   scope,
   onPick,
   count = noCount,
+  everyCluster = true,
 }: {
   scope: Scope;
   onPick: (picked: string) => void;
   /** What a scope holds, shown beside its name. */
   count?: Count;
+  /** Whether every cluster is a scope to pick, ahead of the clusters. */
+  everyCluster?: boolean;
 }) {
   const labelID = useId();
   const { present, archived, cluster } = scope;
@@ -59,8 +62,12 @@ export function ScopePicker({
           </SelectValue>
         </SelectTrigger>
         <SelectContent alignItemWithTrigger={false}>
-          <ScopeItem value={EVERY} name="Every cluster" count={count} />
-          <SelectSeparator />
+          {everyCluster && (
+            <>
+              <ScopeItem value={EVERY} name="Every cluster" count={count} />
+              <SelectSeparator />
+            </>
+          )}
           <ScopeGroup label="Kubeconfig" clusters={present} count={count} />
           {archived.length > 0 && <ScopeGroup label="Archived" clusters={archived} count={count} />}
         </SelectContent>

@@ -40,12 +40,12 @@ function cluster(context: string, present = true): Cluster {
   };
 }
 
-function Picker({ count }: { count?: (scope: string) => number | undefined }) {
+function Picker({ count, everyCluster }: { count?: (scope: string) => number | undefined; everyCluster?: boolean }) {
   const [picked, setPicked] = useState(EVERY);
   const scope = useScope(picked);
   return (
     <>
-      <ScopePicker scope={scope} onPick={setPicked} count={count} />
+      <ScopePicker scope={scope} onPick={setPicked} count={count} everyCluster={everyCluster} />
       <p>picked: {scope.cluster?.id ?? 'every'}</p>
     </>
   );
@@ -81,6 +81,15 @@ describe('ScopePicker', () => {
 
     const options = within(await screen.findByRole('listbox')).getAllByRole('option');
     expect(options.map((o) => o.textContent)).toEqual(['Every cluster', 'prod3', 'dev', 'alpha-old', 'zeta-old']);
+  });
+
+  it('lists the clusters alone without every cluster', async () => {
+    const user = userEvent.setup();
+    render(<Picker everyCluster={false} />);
+    await user.click(screen.getByRole('combobox', { name: 'Applies to' }));
+
+    const options = within(await screen.findByRole('listbox')).getAllByRole('option');
+    expect(options.map((o) => o.textContent)).toEqual(['prod', 'dev', 'alpha-old', 'zeta-old']);
   });
 
   it('lists nothing but every cluster before the records arrive', async () => {

@@ -147,6 +147,7 @@ describe('a send', () => {
       sandboxDisabled: false,
       networkEnabled: false,
       networkThisTurn: false,
+      sandboxDisabledThisTurn: false,
       providerID: seeded.model.providerID,
       modelID: seeded.model.id,
       effort: seeded.effort,
@@ -180,6 +181,39 @@ describe('a send', () => {
 
     expect(sendMock.mock.calls[0][0]).toMatchObject({ networkEnabled: true, networkThisTurn: true });
     expect(result.current.networkThisTurn).toBe(false);
+  });
+
+  // The sandbox toggle runs one message's turn outside the sandbox: it rides
+  // the send and goes once one is accepted, like the network toggle.
+  it('sends the sandbox toggle, and clears it once accepted', async () => {
+    const { result } = renderOutbox();
+    act(() => result.current.setDraft('hello'));
+    act(() => result.current.setSandboxDisabledThisTurn(true));
+    expect(result.current.sandboxDisabledThisTurn).toBe(true);
+    await submit(result);
+
+    expect(sendMock.mock.calls[0][0]).toMatchObject({ sandboxDisabledThisTurn: true, networkThisTurn: false });
+    expect(result.current.sandboxDisabledThisTurn).toBe(false);
+  });
+
+  // Network is the sandbox's, so a turn outside it has no network toggle to
+  // send: turning either on turns the other off.
+  it('turns the network toggle off when the sandbox toggle goes on, and back', () => {
+    const { result } = renderOutbox();
+    act(() => result.current.setNetworkThisTurn(true));
+    act(() => result.current.setSandboxDisabledThisTurn(true));
+    expect(result.current.networkThisTurn).toBe(false);
+
+    act(() => result.current.setNetworkThisTurn(true));
+    expect(result.current.sandboxDisabledThisTurn).toBe(false);
+
+    // Turning one off leaves the other.
+    act(() => result.current.setSandboxDisabledThisTurn(true));
+    act(() => result.current.setNetworkThisTurn(false));
+    expect(result.current.sandboxDisabledThisTurn).toBe(true);
+    act(() => result.current.setNetworkThisTurn(true));
+    act(() => result.current.setSandboxDisabledThisTurn(false));
+    expect(result.current.networkThisTurn).toBe(true);
   });
 
   it('keeps the toggle when a send is refused', async () => {
@@ -378,6 +412,20 @@ describe('a send', () => {
     expect(sendMock).not.toHaveBeenCalled();
   });
 
+  // A clear while held is the draft's: Discard shows it, and Retry still
+  // resends what it held.
+  it("clears the draft's toggle under a held send", async () => {
+    sendMock.mockResolvedValue(dropped());
+    const { result } = renderOutbox();
+    act(() => result.current.setDraft('hello'));
+    act(() => result.current.setSandboxDisabledThisTurn(true));
+    await submit(result);
+    act(() => result.current.setSandboxDisabledThisTurn(false));
+
+    act(() => result.current.discard());
+    expect(result.current.sandboxDisabledThisTurn).toBe(false);
+  });
+
   it('returns a discarded send to an ordinary draft', async () => {
     sendMock.mockResolvedValue(dropped());
     const { result } = renderOutbox();
@@ -521,7 +569,7 @@ describe('a send', () => {
   });
 
   // A held send keeps the switches and the toggle it left with, and its retry
-  // sends them as held, whatever the entry's toggle says by then.
+  // sends them as held.
   it('retries a held send with the network it was held with', async () => {
     sendMock.mockResolvedValue(dropped());
     const { result } = renderOutbox();
@@ -532,12 +580,31 @@ describe('a send', () => {
     });
     expect(result.current.networkThisTurn).toBe(true);
     act(() => result.current.setNetworkThisTurn(false));
+    expect(result.current.networkThisTurn).toBe(true);
 
     sendMock.mockResolvedValue(accepted());
     await act(async () => {
       await result.current.retry();
     });
     expect(sendMock.mock.calls[1][0]).toMatchObject({ networkEnabled: true, networkThisTurn: true });
+  });
+
+  it('retries a held send with the sandbox toggle it was held with', async () => {
+    sendMock.mockResolvedValue(dropped());
+    const { result } = renderOutbox();
+    act(() => result.current.setDraft('hello'));
+    act(() => result.current.setSandboxDisabledThisTurn(true));
+    await submit(result);
+    expect(result.current.sandboxDisabledThisTurn).toBe(true);
+    // The held send's toggle is what Retry resends, so it stays shown.
+    act(() => result.current.setSandboxDisabledThisTurn(false));
+    expect(result.current.sandboxDisabledThisTurn).toBe(true);
+
+    sendMock.mockResolvedValue(accepted());
+    await act(async () => {
+      await result.current.retry();
+    });
+    expect(sendMock.mock.calls[1][0]).toMatchObject({ sandboxDisabledThisTurn: true });
   });
 
   // An accepted send stays closed until its row reaches the watch; whoever watches
@@ -588,6 +655,7 @@ describe('a send', () => {
       sandboxDisabled: false,
       networkEnabled: false,
       networkThisTurn: false,
+      sandboxDisabledThisTurn: false,
       providerID: seeded.model.providerID,
       modelID: seeded.model.id,
       effort: seeded.effort,
@@ -637,6 +705,34 @@ describe('a send', () => {
 
     expect(sendMock.mock.calls[0][0]).toMatchObject({ networkThisTurn: false });
     expect(result.current.networkThisTurn).toBe(true);
+  });
+
+  // A create that is not the draft's leaves the draft and its toggles.
+  it('keeps the draft when an ask again creates the chat', async () => {
+    sendMock.mockResolvedValue({ data: { chatSend: { id: 'm1', chatID: 'c9', seq: 1, status: 'Streaming' } } });
+    const { result } = renderOutbox(null);
+    act(() => result.current.setDraft('a follow-up'));
+    act(() => result.current.setSandboxDisabledThisTurn(true));
+
+    let created: unknown;
+    await act(async () => {
+      created = await result.current.askAgain('what is a pod?', seeded, OFF);
+    });
+    expect(created).toEqual({ chatID: 'c9', clusterID: '1' });
+    expect(result.current.draft).toBe('a follow-up');
+    expect(result.current.sandboxDisabledThisTurn).toBe(true);
+  });
+
+  it('asks again without the sandbox toggle and leaves it on', async () => {
+    const { result } = renderOutbox();
+    act(() => result.current.setSandboxDisabledThisTurn(true));
+
+    await act(async () => {
+      await result.current.askAgain('what is a pod?', seeded, OFF);
+    });
+
+    expect(sendMock.mock.calls[0][0]).toMatchObject({ sandboxDisabledThisTurn: false });
+    expect(result.current.sandboxDisabledThisTurn).toBe(true);
   });
 
   // A held Ask again is still not the draft's send: what it carries came off the

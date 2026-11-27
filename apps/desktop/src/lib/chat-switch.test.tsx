@@ -16,7 +16,7 @@ import { act, render, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ChatSwitchProvider, useChatSwitch } from './chat-switch';
+import { ChatSwitchProvider, useChatSwitch, usePendingSwitch, useSwitchingAny } from './chat-switch';
 
 const commit = vi.fn<(value: boolean) => Promise<boolean | undefined>>();
 
@@ -177,5 +177,56 @@ describe('useChatSwitch', () => {
     expect(result.current.sandbox.switching).toBe(true);
     expect(result.current.network.switching).toBe(false);
     expect(result.current.other.switching).toBe(false);
+  });
+});
+
+describe('useSwitchingAny', () => {
+  it('is whether any switch it names is in flight', async () => {
+    const release = deferred();
+    const { result } = renderHook(
+      () => ({
+        change: useChatSwitch('default:c1', false, commit),
+        named: useSwitchingAny(['default:', 'default:c1']),
+        other: useSwitchingAny(['default:c2']),
+      }),
+      { wrapper },
+    );
+    expect(result.current.named).toBe(false);
+    act(() => result.current.change.switchTo(true));
+    expect(result.current.named).toBe(true);
+    expect(result.current.other).toBe(false);
+    await release(undefined);
+    expect(result.current.named).toBe(false);
+  });
+
+  // A pending switch is held until its mutation answers, even once the hook
+  // that started it has gone.
+  it('holds a pending switch until its mutation answers', async () => {
+    let answer!: () => void;
+    const mutation = () =>
+      new Promise<void>((resolve) => {
+        answer = resolve;
+      });
+    const { result, rerender } = renderHook(
+      ({ mounted }) => ({
+        started: mounted ? usePendingSwitch('default:c1') : null,
+        held: useSwitchingAny(['default:c1']),
+      }),
+      { wrapper, initialProps: { mounted: true } },
+    );
+    act(() => result.current.started?.run(mutation));
+    expect(result.current.started?.pending).toBe(true);
+    rerender({ mounted: false });
+    expect(result.current.held).toBe(true);
+    await act(async () => answer());
+    expect(result.current.held).toBe(false);
+  });
+
+  it('refuses to work outside its provider', () => {
+    // React reports the throw on the console as well.
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => renderHook(() => useSwitchingAny(['default:']))).toThrow(/ChatSwitchProvider/);
+    expect(() => renderHook(() => usePendingSwitch('default:'))).toThrow(/ChatSwitchProvider/);
+    quiet.mockRestore();
   });
 });

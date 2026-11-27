@@ -35,6 +35,7 @@ const ChatSendMutation = graphql(`
     $sandboxDisabled: Boolean!
     $networkEnabled: Boolean!
     $networkThisTurn: Boolean!
+    $sandboxDisabledThisTurn: Boolean!
     $providerID: String!
     $modelID: String!
     $effort: String!
@@ -49,6 +50,7 @@ const ChatSendMutation = graphql(`
       sandboxDisabled: $sandboxDisabled
       networkEnabled: $networkEnabled
       networkThisTurn: $networkThisTurn
+      sandboxDisabledThisTurn: $sandboxDisabledThisTurn
       providerID: $providerID
       modelID: $modelID
       effort: $effort
@@ -67,13 +69,20 @@ const ChatSendMutation = graphql(`
 /** A chat's two switches as the sender sees them, which the sidecar checks a send against. */
 export type Switches = { sandboxDisabled: boolean; networkEnabled: boolean };
 
+/**
+ * What changes one message's turn alone: the internet for its sandboxed
+ * commands, or running them outside the sandbox. One at most, since network
+ * is the sandbox's.
+ */
+export type ThisTurn = 'network' | 'outside' | null;
+
 /** How far a send has got. One value, so a held send cannot also be settled. */
 export type Send =
   | { status: 'idle' }
   | { status: 'sending'; requestID: string; content: string }
   /**
    * No answer came. It may have committed, so Retry resends the same id, cluster,
-   * pick, switches, toggle and snapshot — and under the same ownership, since a
+   * pick, switches, turn's toggle and snapshot — and under the same ownership, since a
    * held Ask again is still not the draft's send.
    */
   | {
@@ -83,7 +92,7 @@ export type Send =
       clusterID: string;
       pick: ModelPick;
       switches: Switches;
-      networkThisTurn: boolean;
+      thisTurn: ThisTurn;
       snapshot: LogsViewSnapshotInput | null;
       own: boolean;
     }
@@ -105,13 +114,12 @@ export type Refusal =
   | { kind: 'network-changed' };
 
 /**
- * `networkThisTurn` is the toggle that gives the next send's commands the
- * internet: the entry's, so it survives the composer unmounting, and cleared
- * once a send is accepted.
+ * `thisTurn` changes the next send's turn: the entry's, so it survives the
+ * composer unmounting, and cleared once a send is accepted.
  */
-type Entry = { draft: string; send: Send; pick: ModelPick | null; refusal: Refusal | null; networkThisTurn: boolean };
+type Entry = { draft: string; send: Send; pick: ModelPick | null; refusal: Refusal | null; thisTurn: ThisTurn };
 
-const EMPTY: Entry = { draft: '', send: IDLE, pick: null, refusal: null, networkThisTurn: false };
+const EMPTY: Entry = { draft: '', send: IDLE, pick: null, refusal: null, thisTurn: null };
 
 type Entries = Record<string, Entry>;
 
@@ -162,7 +170,7 @@ export function useChatOutbox(mode: AppMode, chatID: string | null, clusterID?: 
     cluster: string,
     pick: ModelPick,
     switches: Switches,
-    networkThisTurn: boolean,
+    thisTurn: ThisTurn,
     snapshot: LogsViewSnapshotInput | null,
     own = true,
   ): Promise<Created | null> => {
@@ -173,7 +181,8 @@ export function useChatOutbox(mode: AppMode, chatID: string | null, clusterID?: 
       clusterID: cluster,
       sandboxDisabled: switches.sandboxDisabled,
       networkEnabled: switches.networkEnabled,
-      networkThisTurn,
+      networkThisTurn: thisTurn === 'network',
+      sandboxDisabledThisTurn: thisTurn === 'outside',
       providerID: pick.model.providerID,
       modelID: pick.model.id,
       effort: pick.effort,
@@ -193,7 +202,7 @@ export function useChatOutbox(mode: AppMode, chatID: string | null, clusterID?: 
           clusterID: cluster,
           pick,
           switches,
-          networkThisTurn,
+          thisTurn,
           snapshot,
           own,
         },
@@ -215,15 +224,23 @@ export function useChatOutbox(mode: AppMode, chatID: string | null, clusterID?: 
     if (chatID) {
       // Send stays closed until the row reaches the watch; before that the last
       // message on screen is still the one from before this send.
-      patch({ ...(own ? { draft: '', networkThisTurn: false } : {}), send: { status: 'awaiting', seq: message.seq } });
+      patch({ ...(own ? { draft: '', thisTurn: null } : {}), send: { status: 'awaiting', seq: message.seq } });
       return null;
     }
     // A created chat's row arrives with the snapshot its route opens, and the
     // unstarted entry watches no messages that could settle an `awaiting`.
-    patch({ ...(own ? { draft: '', networkThisTurn: false } : {}), send: IDLE });
+    patch({ ...(own ? { draft: '', thisTurn: null } : {}), send: IDLE });
     // The cluster rides back with the id: a retry goes under the cluster it was held
     // with, which by then need not be the one the window is on.
     return { chatID: message.chatID, clusterID: cluster };
+  };
+
+  // A held send's toggle is the one Retry resends, so it is the one shown. The
+  // draft's own goes on underneath it, for after a Discard.
+  const thisTurn = entry.send.status === 'held' ? entry.send.thisTurn : entry.thisTurn;
+  const setThisTurn = (toggle: 'network' | 'outside', on: boolean) => {
+    if (on) patch({ thisTurn: toggle });
+    else if (entry.thisTurn === toggle) patch({ thisTurn: null });
   };
 
   // The pick is the entry's own once the composer has set one; until then it is
@@ -236,17 +253,20 @@ export function useChatOutbox(mode: AppMode, chatID: string | null, clusterID?: 
     send: entry.send,
     refusal: entry.refusal,
     pick,
-    networkThisTurn: entry.networkThisTurn,
+    networkThisTurn: thisTurn === 'network',
+    sandboxDisabledThisTurn: thisTurn === 'outside',
     setDraft: (draft: string) => patch({ draft }),
     setPick: (next: ModelPick) => patch({ pick: next }),
-    setNetworkThisTurn: (on: boolean) => patch({ networkThisTurn: on }),
+    // Turning one on takes the other's place; turning one off leaves the other.
+    setNetworkThisTurn: (on: boolean) => setThisTurn('network', on),
+    setSandboxDisabledThisTurn: (on: boolean) => setThisTurn('outside', on),
     /**
      * Sends the draft under `switches`, the chat's switches as the composer shows
-     * them, with the toggle and `snapshot`, what the focused log view shows.
+     * them, with the turn's toggle and `snapshot`, what the focused log view shows.
      */
     submit: (switches: Switches, snapshot: LogsViewSnapshotInput | null = null) =>
       clusterID && pick
-        ? run(crypto.randomUUID(), entry.draft, clusterID, pick, switches, entry.networkThisTurn, snapshot)
+        ? run(crypto.randomUUID(), entry.draft, clusterID, pick, switches, entry.thisTurn, snapshot)
         : Promise.resolve(null),
     retry: () =>
       entry.send.status === 'held'
@@ -256,7 +276,7 @@ export function useChatOutbox(mode: AppMode, chatID: string | null, clusterID?: 
             entry.send.clusterID,
             entry.send.pick,
             entry.send.switches,
-            entry.send.networkThisTurn,
+            entry.send.thisTurn,
             entry.send.snapshot,
             entry.send.own,
           )
@@ -266,12 +286,12 @@ export function useChatOutbox(mode: AppMode, chatID: string | null, clusterID?: 
      * what the failed row ran on. It is the user asking twice, which is theirs to
      * do — the sidecar never retries a turn — and it rides the entry's one send, so
      * a press while anything is in flight sends nothing. It never sends the toggle:
-     * the toggle is the draft's, and the user gave it for the message they are typing.
+     * it is the draft's, and the user gave it for the message they are typing.
      * Nor a snapshot: the screen now does not describe an earlier question.
      */
     askAgain: (content: string, ran: ModelPick, switches: Switches) =>
       clusterID && entry.send.status === 'idle'
-        ? run(crypto.randomUUID(), content, clusterID, ran, switches, false, null, false)
+        ? run(crypto.randomUUID(), content, clusterID, ran, switches, null, null, false)
         : Promise.resolve(null),
     /**
      * Closes an accepted send once the row it is awaiting has reached the watch:
