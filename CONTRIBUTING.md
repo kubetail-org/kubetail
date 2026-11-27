@@ -76,7 +76,7 @@ Every check is a `make <verb>-<area>` target, run from the repo root. Before you
 | `e2e` | `e2e/` | | `lint-e2e` | | `test-e2e` | |
 | `repo` | everything else | `test-repo-changed` | `lint-repo` | | `test-repo` | |
 
-- **`vet-<area>-changed` and `test-<area>-changed`** vet and test what your branch reaches in one area, on this platform, and print each command they run and each suite they skip. They are the local check: `vet-<area>` and `test-<area>` check the whole area, as CI does, and reproduce a CI failure. `test-repo-changed` runs the bats files of the scripts you changed.
+- **`vet-<area>-changed` and `test-<area>-changed`** vet and test what your branch reaches in one area, on this platform, and print each command they run and each suite they skip. They are the local check: `vet-<area>` and `test-<area>` check the whole area on this platform, and reproduce a CI failure. CI runs the same checks on every platform. `test-repo-changed` runs the bats files of the scripts you changed.
 - **`cover-<area>-changed`** lists the lines your branch changed that no test reaches. Cover or mark each one: CI fails a pull request on them.
 - **`lint-repo`** runs `lint-repo-sh`, `lint-repo-md`, `lint-repo-yaml`, `lint-repo-toolchains` and `lint-repo-digests`, which you can also run alone.
 - **A change can reach another area.** The *Checks* section of the root [README](README.md#checks) lists those cases, and each component's README lists what to run while you work.
