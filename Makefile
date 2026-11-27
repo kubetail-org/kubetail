@@ -18,18 +18,18 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/cli/cmd.version=
 
 # No target names a file it makes, and build/ is a directory.
 .PHONY: build build-dashboard-ui clean help generate check-generated \
-	lint-cli vet-cli test-cli cover-cli-changed \
-	lint-libs vet-libs test-libs cover-libs-changed \
-	lint-cluster-api vet-cluster-api test-cluster-api cover-cluster-api-changed \
-	lint-cluster-agent vet-cluster-agent test-cluster-agent cover-cluster-agent-changed \
-	lint-web vet-web test-web cover-web-changed \
-	generate-desktop build-desktop lint-desktop vet-desktop test-desktop cover-desktop-changed \
+	lint-cli vet-cli vet-cli-changed test-cli test-cli-changed cover-cli-changed \
+	lint-libs vet-libs vet-libs-changed test-libs test-libs-changed cover-libs-changed \
+	lint-cluster-api vet-cluster-api vet-cluster-api-changed test-cluster-api test-cluster-api-changed cover-cluster-api-changed \
+	lint-cluster-agent vet-cluster-agent vet-cluster-agent-changed test-cluster-agent test-cluster-agent-changed cover-cluster-agent-changed \
+	lint-web vet-web vet-web-changed test-web test-web-changed cover-web-changed \
+	generate-desktop build-desktop lint-desktop vet-desktop vet-desktop-changed test-desktop test-desktop-changed cover-desktop-changed \
 	build-desktop-sidecar build-desktop-sidecar-dev build-desktop-bwrap build-desktop-pasta \
 	build-desktop-embedded-sources generate-desktop-prompts generate-desktop-icons \
 	test-desktop-livecache test-desktop-liveswitch status-desktop-design record-desktop-design \
 	clean-desktop-data clean-desktop-window \
 	lint-e2e test-e2e \
-	lint-repo lint-repo-sh lint-repo-md lint-repo-yaml lint-repo-toolchains lint-repo-digests test-repo
+	lint-repo lint-repo-sh lint-repo-md lint-repo-yaml lint-repo-toolchains lint-repo-digests test-repo test-repo-changed
 
 build: build-dashboard-ui ## Build the kubetail CLI, with the UI embedded, for this platform
 	mkdir -p $(OUTPUT_DIR)
@@ -66,13 +66,11 @@ define lint-go
 	sh scripts/check-coverage-markers.sh $(1)
 endef
 
-# The Windows pass is the one place _windows.go files are vetted.
-# scripts/staticcheck.sh runs once per GOOS and merges; tools/go.mod pins staticcheck.
+# For this platform alone: CI vets the others. tools/go.mod pins staticcheck.
 define vet-go
 	go vet $(foreach m,$(1),./$(m)/...)
-	GOOS=windows go vet $(foreach m,$(1),./$(m)/...)
-	sh scripts/check-go-fix.sh $(1)
-	sh scripts/staticcheck.sh $(1)
+	GO_BUILDS=host sh scripts/check-go-fix.sh $(1)
+	GO_BUILDS=host sh scripts/staticcheck.sh $(1)
 endef
 
 define test-go
@@ -84,11 +82,19 @@ endef
 lint-cli: ## Check cli/'s and dashboard/'s Go formatting, license headers and coverage markers
 	$(call lint-go,cli dashboard)
 
-vet-cli: ## Run go vet for the host and Windows, the go fix check and staticcheck on cli/ and dashboard/
+vet-cli: ## Run go vet, the go fix check and staticcheck for this platform on cli/ and dashboard/
 	$(call vet-go,cli dashboard)
 
 test-cli: ## Test cli/ and dashboard/ with the race detector
 	$(call test-go,cli dashboard)
+
+# One vet-<area>-changed and test-<area>-changed per area, each a wrapper around
+# scripts/vet-changed.sh or scripts/test-changed.sh.
+vet-cli-changed: ## Vet what the change reaches in cli/ and dashboard/ for this platform: the local check before a push; CI runs the full check
+	bash scripts/vet-changed.sh cli
+
+test-cli-changed: ## Run the tests in cli/ and dashboard/ the change reaches: the local check before a push; CI runs the full check
+	bash scripts/test-changed.sh cli
 
 # One cover target per CI coverage area, each a wrapper around
 # scripts/cover-changed.sh. Each coverage-*.yml's Gate in CI has the last word.
@@ -100,11 +106,17 @@ cover-cli-changed: ## List the changed lines in cli/ and dashboard/ no test cove
 lint-libs: ## Check libs/go-common/'s Go formatting, license headers and coverage markers
 	$(call lint-go,libs/go-common)
 
-vet-libs: ## Run go vet for the host and Windows, the go fix check and staticcheck on libs/go-common/
+vet-libs: ## Run go vet, the go fix check and staticcheck for this platform on libs/go-common/
 	$(call vet-go,libs/go-common)
 
 test-libs: ## Test libs/go-common/ with the race detector
 	$(call test-go,libs/go-common)
+
+vet-libs-changed: ## Vet what the change reaches in libs/go-common/ for this platform: the local check before a push; CI runs the full check
+	bash scripts/vet-changed.sh libs
+
+test-libs-changed: ## Run the tests in libs/go-common/ the change reaches: the local check before a push; CI runs the full check
+	bash scripts/test-changed.sh libs
 
 cover-libs-changed: ## List the changed lines in libs/go-common/ no test covers (FULL=1 runs every test)
 	bash scripts/cover-changed.sh libs
@@ -114,11 +126,17 @@ cover-libs-changed: ## List the changed lines in libs/go-common/ no test covers 
 lint-cluster-api: ## Check cluster/api/'s Go formatting, license headers and coverage markers
 	$(call lint-go,cluster/api)
 
-vet-cluster-api: ## Run go vet for the host and Windows, the go fix check and staticcheck on cluster/api/
+vet-cluster-api: ## Run go vet, the go fix check and staticcheck for this platform on cluster/api/
 	$(call vet-go,cluster/api)
 
 test-cluster-api: ## Test cluster/api/ with the race detector
 	$(call test-go,cluster/api)
+
+vet-cluster-api-changed: ## Vet what the change reaches in cluster/api/ for this platform: the local check before a push; CI runs the full check
+	bash scripts/vet-changed.sh cluster-api
+
+test-cluster-api-changed: ## Run the tests in cluster/api/ the change reaches: the local check before a push; CI runs the full check
+	bash scripts/test-changed.sh cluster-api
 
 cover-cluster-api-changed: ## List the changed lines in cluster/api/ no test covers (FULL=1 runs every test)
 	bash scripts/cover-changed.sh cluster-api
@@ -138,6 +156,12 @@ vet-cluster-agent: ## Run clippy on cluster/agent/
 test-cluster-agent: ## Test cluster/agent/
 	cd $(CLUSTER_AGENT_DIR) && cargo test
 
+vet-cluster-agent-changed: ## Vet what the change reaches in cluster/agent/ for this platform: the local check before a push; CI runs the full check
+	bash scripts/vet-changed.sh cluster-agent
+
+test-cluster-agent-changed: ## Run the tests in cluster/agent/ the change reaches: the local check before a push; CI runs the full check
+	bash scripts/test-changed.sh cluster-agent
+
 cover-cluster-agent-changed: ## List the changed lines in cluster/agent/ no test covers (needs cargo-llvm-cov)
 	bash scripts/cover-changed.sh cluster-agent
 
@@ -155,6 +179,12 @@ vet-web: ## Type-check apps/web/ and its tests
 
 test-web: ## Test apps/web/
 	cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm test run
+
+vet-web-changed: ## Type-check apps/web/ when the change reaches its TypeScript: the local check before a push; CI runs the full check
+	bash scripts/vet-changed.sh web
+
+test-web-changed: ## Run the tests in apps/web/ the change reaches: the local check before a push; CI runs the full check
+	bash scripts/test-changed.sh web
 
 cover-web-changed: ## List the changed lines in apps/web/ no test covers
 	bash scripts/cover-changed.sh web
@@ -226,19 +256,18 @@ lint-desktop: ## Lint the desktop app's webview, Tailwind classes, Go and Rust f
 	cd tools && go run ./designsync check
 	cd tools && go run ./securitymodel check
 
-# Each build the sidecar ships or tags, as scripts/go-builds.sh lists them: the
-# live checks sit behind tags no other target builds, and vetting them keeps
-# them compiling. check-sidecar-deps.sh keeps the typed Kubernetes clients out
-# of the binary.
-vet-desktop: build-desktop-sidecar ## Type-check the desktop's webview, vet its sidecar for every build, check its deps, run go fix and staticcheck, and run clippy on its host
+# go vet, go fix and staticcheck check the sidecar for this platform, untagged
+# and under each tag scripts/go-builds.sh lists: the live checks sit behind
+# tags no other target builds, and vetting them keeps them compiling. CI vets
+# the other platforms, each of which recompiles every dependency.
+# check-sidecar-deps.sh keeps the typed Kubernetes clients out of the binary.
+vet-desktop: build-desktop-sidecar ## Type-check the desktop's webview, vet its sidecar for this platform and each tag, check its deps, run go fix and staticcheck, and run clippy on its host
 	cd $(DESKTOP_DIR) && pnpm install && pnpm exec tsc -b
-	cd $(DESKTOP_DIR)/sidecar && GOOS=linux GOARCH=amd64 go vet ./... && GOOS=linux GOARCH=arm64 go vet ./... \
-		&& GOOS=darwin GOARCH=amd64 go vet ./... && GOOS=windows GOARCH=amd64 go vet ./...
-	cd $(DESKTOP_DIR)/sidecar && go vet -tags debug ./... && go vet -tags livecache ./internal/agent/catalog \
-		&& go vet -tags liveswitch ./internal/agent/catalog
+	cd $(DESKTOP_DIR)/sidecar && go vet ./... && go vet -tags debug ./... \
+		&& go vet -tags livecache ./internal/agent/catalog && go vet -tags liveswitch ./internal/agent/catalog
 	sh $(DESKTOP_DIR)/scripts/check-sidecar-deps.sh
-	sh scripts/check-go-fix.sh apps/desktop/sidecar
-	sh scripts/staticcheck.sh apps/desktop/sidecar
+	GO_BUILDS=host sh scripts/check-go-fix.sh apps/desktop/sidecar
+	GO_BUILDS=host sh scripts/staticcheck.sh apps/desktop/sidecar
 	cd $(DESKTOP_DIR)/src-tauri && cargo clippy --all-targets -- -D warnings
 
 # As CI tests the sidecar. checkptr, which -race turns on, is off for modernc's
@@ -250,6 +279,12 @@ test-desktop: build-desktop-sidecar ## Test the desktop app's sidecar with the r
 		go test -race -short -gcflags='modernc.org/...=-d=checkptr=0' ./...
 	cd $(DESKTOP_DIR)/src-tauri && cargo test
 	cd $(DESKTOP_DIR) && pnpm install && pnpm test --run
+
+vet-desktop-changed: ## Vet what the change reaches in apps/desktop/ for this platform: the local check before a push; CI runs the full check
+	bash scripts/vet-changed.sh desktop
+
+test-desktop-changed: ## Run the tests in apps/desktop/ the change reaches: the local check before a push; CI runs the full check
+	bash scripts/test-changed.sh desktop
 
 # Each reaches the vendors and spends real tokens, so nothing runs it
 # automatically: run it before a catalog change, or a change to how a wire
@@ -333,6 +368,9 @@ lint-repo-digests: ## Check every image a Dockerfile pulls is pinned by digest
 test-repo: ## Test the scripts with bats, and scripts/stress.go
 	bats scripts/
 	go test scripts/stress.go scripts/stress_test.go
+
+test-repo-changed: ## Run the bats files of the changed scripts, and stress.go's test if it changed: the local check before a push; CI runs the full check
+	bash scripts/test-changed.sh repo
 
 # scripts/generate.sh
 generate: ## Regenerate the committed protoc, gqlgen, codegen and CLI config output, the desktop's included

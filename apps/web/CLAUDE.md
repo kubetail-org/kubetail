@@ -11,18 +11,17 @@ In `apps/web/`. Keep this section in step with the one in `README.md`.
 While working:
 
 ```sh
+make vet-web-changed test-web-changed      # from the repo root: what the change reaches
 pnpm format                                # oxfmt: formats and sorts imports
 pnpm lint                                  # oxlint (type-aware), then `oxfmt --check`. A warning fails the run.
 pnpm lint:tailwind                         # the Tailwind classes, after changing any; `--fix` rewrites a spelling
-pnpm exec vitest related --run <file>...   # the tests that import the files you touched
 ```
 
-Before a PR:
+Before you push:
 
 ```sh
-make lint-web vet-web test-web   # from the repo root; vet-web is `tsc -b`, the only type-check, and it covers test files
-make cover-web-changed           # from the repo root: the changed lines no test covers
-pnpm build                       # tsc -b && vite build; no make target runs vite build
+make lint-web vet-web-changed test-web-changed   # from the repo root; vet-web-changed is `tsc -b`, the only type-check, and it covers test files
+make cover-web-changed                           # from the repo root: the changed lines no test covers
 ```
 
 ## Layout

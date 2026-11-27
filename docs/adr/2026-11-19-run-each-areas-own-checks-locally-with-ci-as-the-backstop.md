@@ -3,6 +3,7 @@ title: Run each area's own checks locally, with CI as the backstop
 date: 2026-11-19
 scope: repo
 status: Accepted
+amended_by: 2026-11-26-scope-local-test-and-vet-runs-to-what-a-change-reaches.md
 ---
 
 # Run each area's own checks locally, with CI as the backstop

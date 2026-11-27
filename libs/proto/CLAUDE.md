@@ -13,11 +13,7 @@ make generate                     # from the repo root: regenerates the *.pb.go
 cd cluster/agent && cargo build   # needs protoc
 ```
 
-Before a PR, the checks of both sides: the root guide's *Go modules › Checks* in `libs/go-common` and `cluster/api`, and `cluster/agent/`'s, which end with:
-
-```sh
-make cover-cluster-agent-changed  # from the repo root; needs cargo-llvm-cov
-```
+Before you push, the checks of both sides: the root guide's *Go modules › Checks* for `libs` and `cluster-api`, and `cluster/agent/`'s.
 
 ## Generated code
 

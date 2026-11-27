@@ -8,17 +8,17 @@ A Go CLI built with [Cobra](https://github.com/spf13/cobra): `logs`, `serve`, `c
 
 The root guide's *Go modules › Checks* holds the commands every Go module shares. Keep this section in step with the one in `README.md`.
 
-While working, after editing `config/default/cli.*`:
+While working:
 
 ```sh
-go generate ./...          # copies them to assets/; commit both
+make vet-cli-changed test-cli-changed   # from the repo root: what the change reaches, with dashboard/
+go generate ./...                       # after editing config/default/cli.*: copies them to assets/; commit both
 ```
 
-Before a PR:
+Before you push:
 
 ```sh
-make lint-cli vet-cli test-cli   # from the repo root, with dashboard/
-make cover-cli-changed           # from the repo root; FULL=1 runs every test of both
+make lint-cli vet-cli-changed test-cli-changed cover-cli-changed   # from the repo root, with dashboard/
 ```
 
 ## Commands

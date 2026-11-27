@@ -64,20 +64,19 @@ Four modules under the root `go.work`: `cli`, `dashboard`, `cluster/api` and `li
 
 These hold for every module; each module's guide adds its own and names its coverage target.
 
-While working, in the module, on the packages you touched:
+While working, from the repo root, on what the change reaches:
 
 ```sh
-go vet ./pkg/app/...
-go test ./pkg/app/...
+make vet-<area>-changed test-<area>-changed   # this platform alone
 ```
 
-Before a PR:
+Before you push:
 
 ```sh
 go fmt ./...              # in the module; CI fails if `gofmt -l .` prints anything
 ```
 
-then the area's `make lint-<area> vet-<area> test-<area>`, which its guide lists. The areas are `cli` (`cli` and `dashboard`), `libs` and `cluster-api`. `lint-<area>` checks gofmt, the license headers and the coverage markers. `vet-<area>` runs `go vet` for this platform and for `GOOS=windows`, `scripts/check-go-fix.sh` and staticcheck. `test-<area>` runs `go test -race`. Ignore a staticcheck finding with `//lint:ignore <check> <reason>` on the line above it. Don't commit a `vendor/` directory.
+then the area's `make lint-<area> vet-<area>-changed test-<area>-changed cover-<area>-changed`, which its guide lists. The areas are `cli` (`cli` and `dashboard`), `libs` and `cluster-api`. `lint-<area>` checks gofmt, the license headers and the coverage markers. `vet-<area>-changed` runs `go vet` and the `go fix` check on what the change reaches; `vet-<area>` adds staticcheck, with its unused-code check (U1000) off, over the whole area. Both vet this platform alone; CI vets every platform. `test-<area>` runs `go test -race`. Ignore a staticcheck finding with `//lint:ignore <check> <reason>` on the line above it. Don't commit a `vendor/` directory.
 
 Coverage is measured per area: every test binary counts every package of its area (`-coverpkg`), so a `libs/go-common` line counts only when its own tests reach it. Each area's `make cover-<area>-changed` runs only the changed packages' tests; `FULL=1` runs them all, as CI does. → [ADR: measure and gate coverage per area](docs/adr/2026-11-19-measure-and-gate-coverage-per-area.md)
 
@@ -154,19 +153,19 @@ Each area's guide adds its tooling and how it waits. → [ADR: test conventions]
 
 ## Checks
 
-Each area's guide has a `## Checks` section: what to run while working, and what to run before a PR, ending with the area's `make cover-<area>-changed` where its coverage is measured. Run the second list of every area you touched before you finish. CI runs every check on every platform and is the backstop. A guide's `## Checks` and the one in the `README.md` beside it say the same; change both together. → [ADR: run each area's own checks locally, with CI as the backstop](docs/adr/2026-11-19-run-each-areas-own-checks-locally-with-ci-as-the-backstop.md)
+Each area's guide has a `## Checks` section: what to run while working, and what to run before you push, which is the area's `make lint-<area>`, `vet-<area>-changed` and `test-<area>-changed`, and `cover-<area>-changed` where its coverage is measured. Run the second list of every area you touched before you push. The full `make vet-<area>` and `test-<area>` check the whole area on this platform; CI runs the same checks on every platform. Run one locally to reproduce a CI failure. After you push, watch the pull request's checks and fix what fails; the work is done when they pass. A guide's `## Checks` and the one in the `README.md` beside it say the same; change both together. → [ADR: run each area's own checks locally, with CI as the backstop](docs/adr/2026-11-19-run-each-areas-own-checks-locally-with-ci-as-the-backstop.md), [ADR: scope local test and vet runs to what a change reaches](docs/adr/2026-11-26-scope-local-test-and-vet-runs-to-what-a-change-reaches.md)
 
 A change in one place can break another area. Also run:
 
 | A change to | Also run |
 |---|---|
-| `libs/go-common/` | `make test-cli test-cluster-api` |
-| `libs/graphql/*/schema.graphqls` | `make generate`, `make vet-web` |
+| `libs/go-common/` | `make test-cli-changed test-cluster-api-changed` |
+| `libs/graphql/*/schema.graphqls` | `make generate`, `make vet-web-changed` |
 | `libs/proto/` | `make generate`, the Go and Rust checks |
-| `apps/desktop/proto/` or the sidecar's GraphQL schema | `make generate-desktop`, then `make vet-desktop test-desktop` |
+| `apps/desktop/proto/` or the sidecar's GraphQL schema | `make generate-desktop`, then `make vet-desktop-changed test-desktop-changed` |
 | a `Dockerfile` or a toolchain version | `make lint-repo-toolchains lint-repo-digests` |
 | `.github/` or other YAML | `make lint-repo-yaml` |
-| `scripts/` | `make lint-repo-sh test-repo` |
+| `scripts/` | `make lint-repo-sh test-repo-changed` |
 | `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...`, and `make lint-desktop` for `designsync` or `securitymodel` |
 | Markdown | `make lint-repo-md` |
 | `config/` or `hack/` | CI runs no code job for these: name the checks you ran in the PR |

@@ -17,11 +17,17 @@ The Go packages that `cli`, `dashboard` and `cluster/api` import. No binary ship
 
 [The root guide's *Go modules › Checks*](../../CLAUDE.md#checks) holds the commands every Go module shares.
 
-Before a PR:
+While working, from the repo root:
 
 ```sh
-make lint-libs vet-libs test-libs   # from the repo root
-make test-cli test-cluster-api      # from the repo root: every module that imports this one
-make cover-libs-changed             # from the repo root; only this module's own tests count
+make vet-libs-changed test-libs-changed          # what the change reaches in this module
+make test-cli-changed test-cluster-api-changed   # what it reaches in the modules that import this one
+```
+
+Before you push, from the repo root:
+
+```sh
+make lint-libs vet-libs-changed test-libs-changed cover-libs-changed   # only this module's own tests count toward its coverage
+make test-cli-changed test-cluster-api-changed                         # the modules that import this one
 ```
 

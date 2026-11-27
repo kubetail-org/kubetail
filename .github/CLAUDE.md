@@ -4,13 +4,13 @@ How the workflows are built. The root guide's *Checks* holds what every change n
 
 ## Checks
 
-While working, and before a PR:
+While working, and before you push:
 
 ```sh
 make lint-repo-yaml   # from the repo root: yamllint, actionlint, zizmor and tools/cicallers
 ```
 
-It needs `uv`, Go and `shellcheck`; CI's `Lint · YAML` runs it. A change to `scripts/` also runs `make lint-repo-sh test-repo`.
+It needs `uv`, Go and `shellcheck`; CI's `Lint · YAML` runs it. A change to `scripts/` also runs `make lint-repo-sh test-repo-changed`.
 
 ## Workflows
 

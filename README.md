@@ -335,19 +335,19 @@ Now access the dashboard at [http://localhost:5173](http://localhost:5173). The 
 
 ### Checks
 
-[CONTRIBUTING.md](CONTRIBUTING.md) describes how to test a change and open a pull request. Each component's README has a *Checks* section (for example [dashboard/README.md](dashboard/README.md#checks)): what to run while you work, and what to run before you open a pull request. CI runs every check on every platform.
+[CONTRIBUTING.md](CONTRIBUTING.md) describes how to test a change and open a pull request. Each component's README has a *Checks* section (for example [dashboard/README.md](dashboard/README.md#checks)): what to run while you work, and what to run before you push. CI runs the full checks on every platform; after you push, watch the pull request's checks and fix what fails.
 
 A change in one place can break another component. Also run:
 
 | A change to | Also run |
 |---|---|
-| `libs/go-common/` | `make test-cli test-cluster-api` |
-| `libs/graphql/*/schema.graphqls` | `make generate`, `make vet-web` |
+| `libs/go-common/` | `make test-cli-changed test-cluster-api-changed` |
+| `libs/graphql/*/schema.graphqls` | `make generate`, `make vet-web-changed` |
 | `libs/proto/` | `make generate`, the Go and Rust checks |
-| `apps/desktop/proto/` or the sidecar's GraphQL schema | `make generate-desktop`, then `make vet-desktop test-desktop` |
+| `apps/desktop/proto/` or the sidecar's GraphQL schema | `make generate-desktop`, then `make vet-desktop-changed test-desktop-changed` |
 | a `Dockerfile` or a toolchain version | `make lint-repo-toolchains lint-repo-digests` |
 | `.github/` or other YAML | `make lint-repo-yaml` |
-| `scripts/` | `make lint-repo-sh test-repo` |
+| `scripts/` | `make lint-repo-sh test-repo-changed` |
 | `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...`, and `make lint-desktop` for `designsync` or `securitymodel` |
 | Markdown | `make lint-repo-md` |
 | `config/`, `hack/` | CI runs no code job for these: name the checks you ran in the pull request |

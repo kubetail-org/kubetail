@@ -8,7 +8,18 @@
 # sidecar ships for macOS, Linux and Windows, on two Linux architectures
 # (seccomp_linux_<arch>.go), and keeps code behind the debug tag and the live
 # checks' tags.
+#
+# With GO_BUILDS=host, as make sets it, each build runs for this platform
+# instead, once per set of tags: CI checks the other platforms.
 go_builds() {
+	if [ "${GO_BUILDS:-}" = host ]; then
+		all_go_builds "$1" | awk -v goos="$(go env GOOS)" '{ $1 = goos; $2 = "-" } !seen[$0]++'
+	else
+		all_go_builds "$1"
+	fi
+}
+
+all_go_builds() {
 	case "$1" in
 	apps/desktop/sidecar)
 		echo "linux amd64 - ./..."
