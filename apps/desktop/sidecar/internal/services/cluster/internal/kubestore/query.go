@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"modernc.org/sqlite"
 	sqlitelib "modernc.org/sqlite/lib"
@@ -37,13 +38,14 @@ const queryPoolSize = 2
 //go:embed query_views.sql
 var queryViews string
 
-// queryDriver opens query connections alone, so body() and the views reach no other
-// connection in the process.
-var queryDriver = newQueryDriver()
-
-func newQueryDriver() *sqlite.Driver {
+// newQueryDriver is the driver of a manager's query connections alone, so body() and the
+// views reach no other connection in the process. Each call of body() adds one to bodyCalls.
+func newQueryDriver(bodyCalls *atomic.Int64) *sqlite.Driver {
 	d := &sqlite.Driver{}
-	d.MustRegisterDeterministicScalarFunction("body", 1, bodyFunc)
+	d.MustRegisterDeterministicScalarFunction("body", 1, func(fc *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+		bodyCalls.Add(1)
+		return bodyFunc(fc, args)
+	})
 	d.MustRegisterDeterministicScalarFunction("quantity", 1, quantityFunc)
 	d.RegisterConnectionHook(func(conn sqlite.ExecQuerierContext, _ string) error {
 		_, err := conn.ExecContext(context.Background(), queryViews, nil)

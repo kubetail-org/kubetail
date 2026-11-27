@@ -447,21 +447,18 @@ FROM objects n WHERE n.api_version = 'v1' AND n.kind = 'Node' AND n.name IN (`+c
 // kubectl logs reads it — and the filters narrow it, so the row cap counts only
 // what the view reads, and nothing else applies them.
 func podsStatement(src ScopeSource, kind mirrorKind, filters []ScopeFilter) (string, []any) {
-	where, args := containersWhere(src, kind, filters)
-	if src.Previous {
-		where += " AND c.last_container_id <> ''"
-	} else {
-		where += " AND (c.container_id <> '' OR c.last_container_id <> '')"
-	}
-	return `SELECT p.name, c.name, p.node, p.uid, c.container_id, c.last_container_id, c.state,
+	sql, args := containersSelect(`p.name, c.name, p.node, p.uid, c.container_id, c.last_container_id, c.state,
 coalesce(p.body -> '$.metadata.labels', '{}'),
-c.name = ` + defaultContainer + `,
+c.name = `+defaultContainer+`,
 (SELECT s.value FROM json_each(p.body,
 	CASE c.init WHEN 1 THEN '$.status.initContainerStatuses' ELSE '$.status.containerStatuses' END) s
 WHERE s.value ->> '$.name' = c.name),
-` + podOwners + `
-FROM objects p JOIN containers c ON c.pod_uid = p.uid
-WHERE p.api_version = 'v1' AND p.kind = 'Pod' AND ` + where + fmt.Sprintf(` ORDER BY p.name, c.init DESC, c.position LIMIT %d`, MaxStreams+1), args
+`+podOwners, src, kind, filters)
+	hasLog := "c.container_id <> '' OR c.last_container_id <> ''"
+	if src.Previous {
+		hasLog = "c.last_container_id <> ''"
+	}
+	return sql + " WHERE " + hasLog + fmt.Sprintf(` ORDER BY p.name, c.init DESC, c.position LIMIT %d`, MaxStreams+1), args
 }
 
 // podOwners is the controllers above the pod p as a JSON array of UIDs, nearest
@@ -472,19 +469,29 @@ UNION ALL
 SELECT r.owner_uid, up.depth + 1 FROM up JOIN owners r ON r.uid = up.uid WHERE r.controller = 1 AND up.depth < 8
 ) SELECT uid FROM up ORDER BY depth))`
 
-// containersWhere is the condition on the container c of the pod p that src reads
-// it and the filters keep it, with the args it binds.
-func containersWhere(src ScopeSource, kind mirrorKind, filters []ScopeFilter) (string, []any) {
+// containersSelect is the SELECT of columns from the containers c that src reads
+// of the pods p that it reads and the filters keep, with the args it binds. It has
+// no WHERE clause: the caller adds its own.
+func containersSelect(columns string, src ScopeSource, kind mirrorKind, filters []ScopeFilter) (string, []any) {
 	pods, args := podsOf(src, kind)
-	containers, containerArgs := containersOf(src)
-	where := pods + containers
-	args = append(args, containerArgs...)
 	for _, f := range filters {
 		cond, condArgs := filterWhere(f)
-		where += " AND " + cond
+		pods += " AND " + cond
 		args = append(args, condArgs...)
 	}
-	return where, args
+	containers, containerArgs := containersOf(src)
+	return withPods(pods) + "SELECT " + columns + `
+FROM pods p JOIN containers c ON c.pod_uid = p.uid` + containers, append(args, containerArgs...)
+}
+
+// withPods is the WITH clause that names the pods p the condition keeps as pods.
+// MATERIALIZED has SQLite decompress each pod's body once a statement, where reading
+// p.body off objects decompresses it at every mention: for each container row, and
+// again inside each defaultContainer.
+func withPods(cond string) string {
+	return `WITH pods AS MATERIALIZED (SELECT p.uid, p.name, p.node, p.body FROM objects p
+WHERE p.api_version = 'v1' AND p.kind = 'Pod' AND ` + cond + `)
+`
 }
 
 // starting is whether a container view reads has no log yet: its pod not yet
@@ -499,9 +506,8 @@ func (r reading) starting(scope Scope) (bool, error) {
 		if err != nil { // coverage:ignore streamsOf refused an unknown kind before resolve asks
 			return false, err
 		}
-		where, args := containersWhere(src, kind, scope.Filters)
-		rows, err := r.rows(`SELECT 1 FROM objects p JOIN containers c ON c.pod_uid = p.uid
-WHERE p.api_version = 'v1' AND p.kind = 'Pod' AND `+where+` AND coalesce(c.container_id, '') = '' AND coalesce(c.last_container_id, '') = '' LIMIT 1`, args...)
+		sql, args := containersSelect("1", src, kind, scope.Filters)
+		rows, err := r.rows(sql+` WHERE coalesce(c.container_id, '') = '' AND coalesce(c.last_container_id, '') = '' LIMIT 1`, args...)
 		if err != nil || len(rows) > 0 {
 			return len(rows) > 0, err
 		}
@@ -522,9 +528,10 @@ func (r reading) podSources(scope Scope) (uids, current, defaults map[string]str
 		if src.Kind != SourcePod {
 			continue
 		}
-		rows, err := r.rows(`SELECT p.uid, coalesce(`+defaultContainer+`, ''), p.node,
+		pods, args := podsOf(src, mirrorKinds[SourcePod])
+		rows, err := r.rows(withPods(pods)+`SELECT p.uid, coalesce(`+defaultContainer+`, ''), p.node,
 (SELECT json_group_object(c.name, coalesce(nullif(c.container_id, ''), c.last_container_id, '')) FROM containers c WHERE c.pod_uid = p.uid)
-FROM objects p WHERE p.api_version = 'v1' AND p.kind = 'Pod' AND p.namespace = ? AND p.name = ?`, src.Namespace, src.Name)
+FROM pods p`, args...)
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}

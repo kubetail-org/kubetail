@@ -37,6 +37,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/amorey/gobus/conflate"
@@ -88,6 +89,11 @@ type Manager struct {
 	// holding a view of the cache from before its teardown, from opening a fresh file
 	// nothing will ever name again.
 	removed map[int64]bool
+
+	// queryDriver opens every file's query connections, and bodyCalls counts the calls of
+	// body() on them.
+	queryDriver *sqlite.Driver
+	bodyCalls   atomic.Int64
 }
 
 // entry is one cache's open file and the claims on it. The file pointer is what Clear
@@ -160,10 +166,17 @@ func newManagerWithOptions(dir string, opts ...option) *Manager {
 		closeFile:    (*file).close,
 		removed:      map[int64]bool{},
 	}
+	m.queryDriver = newQueryDriver(&m.bodyCalls)
 	for _, opt := range opts {
 		opt(m)
 	}
 	return m
+}
+
+// BodyCalls is how many times the statements on m's files have called body(), each call
+// a decompression: what a test bounds a statement's cost by.
+func (m *Manager) BodyCalls() int64 {
+	return m.bodyCalls.Load()
 }
 
 // OpenOrCreate claims cacheID's store — creating the directory, the file, and the
@@ -566,8 +579,8 @@ func (m *Manager) openFile(cacheID int64) (*file, error) {
 	}
 
 	f := newFile(path, cacheID, db, readDB,
-		sqlitepool.OpenQuery(queryDriver, path, queryPoolSize),
-		sqlitepool.OpenOwnQuery(queryDriver, path, queryPoolSize), set, m.sizeLimitHub.Sender(),
+		sqlitepool.OpenQuery(m.queryDriver, path, queryPoolSize),
+		sqlitepool.OpenOwnQuery(m.queryDriver, path, queryPoolSize), set, m.sizeLimitHub.Sender(),
 		m.closeBudget)
 	f.startJanitor(m.retention)
 	return f, nil
