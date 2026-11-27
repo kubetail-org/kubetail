@@ -18,4 +18,5 @@ Ref #
 - [ ] Title is `📜 Spec: <what it builds>` and the PR is labelled `spec`
 - [ ] The issue it answers is linked above
 - [ ] Named for its shape, per *Naming* in `docs/specs/README.md`
+- [ ] Each desktop read it adds or changes names its read contract
 - [ ] Says what it changes in the `CLAUDE.md` guides and ADRs when it lands

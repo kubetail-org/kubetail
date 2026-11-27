@@ -12,6 +12,8 @@ Whether something is worth building is settled first, in an issue. An issue whos
 
 The goal and the issue it answers, the design, the tasks in build order, the acceptance cases, and a *When it lands* section naming the guides and ADRs the landing PR updates. Leave out what the code will say for itself.
 
+**A spec that adds or changes a desktop read names its contract**: the family, the kind, and whether it is a query or a subscription. It also names the read on each surface it crosses. Choose the contract with [*Choosing a contract*](../../apps/desktop/docs/read-contracts/README.md#choosing-a-contract) in the desktop's read-contract guide.
+
 ## Where a spec lives
 
 **A spec never reaches `main`.** It lives on a pull request, then on a `wip/<topic>` branch of this repository, and the PR that lands its code deletes it.
