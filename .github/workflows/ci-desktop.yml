@@ -130,15 +130,7 @@ jobs:
           go-cache-key: desktop-sidecar-test-linux-amd64
           go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Vet
-        working-directory: ./apps/desktop/sidecar
-        run: |
-          GOOS=linux GOARCH=amd64 go vet ./...
-          GOOS=linux GOARCH=arm64 go vet ./...
-          GOOS=darwin go vet ./...
-          GOOS=windows go vet ./...
-          go vet -tags debug ./...
-          go vet -tags livecache ./internal/agent/catalog
-          go vet -tags liveswitch ./internal/agent/catalog
+        run: sh scripts/go-vet.sh apps/desktop/sidecar
       - name: Check sidecar dependencies
         run: sh apps/desktop/scripts/check-sidecar-deps.sh
       - name: Check go fix

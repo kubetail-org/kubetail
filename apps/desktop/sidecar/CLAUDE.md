@@ -318,11 +318,11 @@ root; the host shows it on the start screen. Tests use `sqlitemigrate/sqlitemigr
   doing edge detection needs a lossless fan-out instead.
 - A test outside `services/cluster` that needs a real cache store uses `cluster/clustertest`; its
   `Connection` is one a test can `Retire`.
-- **CI runs staticcheck and the `go fix` check on every build `scripts/go-builds.sh`
-  lists** (each GOOS, linux/arm64, the `debug`, `livecache` and `liveswitch` tags), and
-  `desktop-sidecar-vet` runs go vet on each. `make vet-desktop` runs them for this platform
-  alone, under each tag. A new split joins that list and that job's `go vet` lines; a new tag,
-  `vet-desktop`'s too.
+- **CI runs go vet, staticcheck and the `go fix` check on every build `scripts/go-builds.sh`
+  lists**: each GOOS, linux/arm64, `debug` over the packages whose files it changes (derived
+  with `go list`), and `livecache,liveswitch` together over `internal/agent/catalog`.
+  `make vet-desktop` runs them for this platform alone, under each tag. A new split or tag
+  joins that list.
 - **CI's race step runs `go test -race -short ./...`** with `GORACE=atexit_sleep_ms=0`. A sweep too
   slow for the race detector shrinks under `testing.Short()`; a test never skips under it.
 - **The nightly stress run** (`stress-desktop.yml`) runs every desktop runner, `-shuffle=on

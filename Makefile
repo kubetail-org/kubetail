@@ -283,8 +283,7 @@ vet-desktop: vet-desktop-sidecar vet-desktop-host vet-desktop-webview ## Vet the
 # check-sidecar-deps.sh keeps the typed Kubernetes clients out of the binary.
 vet-desktop-sidecar: ## Vet the desktop sidecar for this platform and each tag, check its deps, and run go fix and staticcheck
 	$(call changed-note,vet-desktop-changed)
-	cd $(DESKTOP_DIR)/sidecar && go vet ./... && go vet -tags debug ./... \
-		&& go vet -tags livecache ./internal/agent/catalog && go vet -tags liveswitch ./internal/agent/catalog
+	GO_BUILDS=host sh scripts/go-vet.sh apps/desktop/sidecar
 	sh $(DESKTOP_DIR)/scripts/check-sidecar-deps.sh
 	GO_BUILDS=host sh scripts/check-go-fix.sh apps/desktop/sidecar
 	GO_BUILDS=host sh scripts/staticcheck.sh apps/desktop/sidecar
