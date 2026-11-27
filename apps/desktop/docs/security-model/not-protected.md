@@ -111,6 +111,7 @@ Every row of the model that no test enforces, and every residual an enforced row
 - [CMD-86](commands.md#cmd-86), By decision. At most 4 background commands run at once in a chat and 16 in the app.
 - [CMD-87](commands.md#cmd-87), By decision. A background command's output file is raw on disk and redacted when `Read` opens it.
 - [CMD-88](commands.md#cmd-88), By decision. A sandboxed command ends with the sidecar however it dies, through the lifeline its forwarder watches. Residual: On macOS a process that left the run's group survives the lifeline too.
+- [CMD-89](commands.md#cmd-89), residual. A default set outside opens every new chat; each command there still asks.
 
 ## Sign-in, connectors and stored credentials
 
