@@ -17,10 +17,11 @@
 //! docs/adr/2026-08-09-host-json-settings.md and
 //! docs/adr/2026-11-21-host-json-lives-under-the-kubetail-config-directory.md.
 //!
-//! Reaches the webview two ways, both fed from one read in
-//! `window_manager::build_window`: [`init_script`] (`window.__KUBETAIL_HOST__`,
-//! injected before any page script) and the [`UPDATED_EVENT`] broadcast after
-//! every write. Writes come through the `update_host_file` command.
+//! Reaches the webview as `window.__KUBETAIL_HOST__`, set before any page
+//! script by [`init_script`], and as the [`UPDATED_EVENT`] broadcast after
+//! every write. Writes come through the `update_host_file` command, which also
+//! runs [`update_script`] in every window so a reload reads the latest file.
+//! A page that has just loaded asks for the file itself (`read_host_file`).
 //!
 //! Versioned JSON, all-`Option` fields, partial patches ([`HostFilePatch`]) —
 //! a new setting is a new `Option` field, not a new command. Defensive reads
@@ -43,6 +44,10 @@ const CURRENT_SCHEMA_VERSION: u32 = 1;
 pub const UPDATED_EVENT: &str = "host-file-updated";
 
 const FILE_NAME: &str = "host.json";
+
+/// The `sessionStorage` key holding the latest file a window was sent. It
+/// survives a reload, which reruns [`init_script`] with its build-time snapshot.
+const SESSION_KEY: &str = "kubetail:host-file";
 
 /// Where `host.json` is ([`manage`]).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -188,11 +193,36 @@ fn write_new_file(
 
 /// Initialization script exposing the file as `window.__KUBETAIL_HOST__`.
 /// `build_window` injects it into every window; Tauri runs it before any page
-/// script, so the webview's first-paint code reads it synchronously.
+/// script on every load, so the webview's first-paint code reads it
+/// synchronously. `file` is the window's build-time snapshot: a load after a
+/// write takes the file [`update_script`] stored instead, unless what is
+/// stored is not a JSON object.
 pub fn init_script(file: &HostFile) -> String {
+    format!(
+        "window.__KUBETAIL_HOST__ = (function () {{ \
+         try {{ var latest = JSON.parse(sessionStorage.getItem(\"{SESSION_KEY}\")); \
+         if (latest && typeof latest === \"object\" && !Array.isArray(latest)) return latest; \
+         }} catch (e) {{}} \
+         return {}; }})();",
+        to_json(file)
+    )
+}
+
+/// Script `window_manager::send_host_file` runs in a window: sets
+/// `window.__KUBETAIL_HOST__` to `file` and stores it where [`init_script`]
+/// looks on the next load.
+pub fn update_script(file: &HostFile) -> String {
+    format!(
+        "window.__KUBETAIL_HOST__ = {}; \
+         try {{ sessionStorage.setItem(\"{SESSION_KEY}\", \
+         JSON.stringify(window.__KUBETAIL_HOST__)); }} catch (e) {{}}",
+        to_json(file)
+    )
+}
+
+fn to_json(file: &HostFile) -> String {
     // Fallback rather than unwrap; the inline script defaults missing fields.
-    let json = serde_json::to_string(file).unwrap_or_else(|_| "{}".into());
-    format!("window.__KUBETAIL_HOST__ = {json};")
+    serde_json::to_string(file).unwrap_or_else(|_| "{}".into())
 }
 
 #[cfg(test)]
@@ -409,7 +439,11 @@ mod tests {
         };
         assert_eq!(
             init_script(&file),
-            r#"window.__KUBETAIL_HOST__ = {"schemaVersion":1,"colorSchemePreference":"dark"};"#
+            "window.__KUBETAIL_HOST__ = (function () { \
+             try { var latest = JSON.parse(sessionStorage.getItem(\"kubetail:host-file\")); \
+             if (latest && typeof latest === \"object\" && !Array.isArray(latest)) return latest; \
+             } catch (e) {} \
+             return {\"schemaVersion\":1,\"colorSchemePreference\":\"dark\"}; })();"
         );
     }
 
@@ -418,9 +452,43 @@ mod tests {
         // An unset preference must be absent (webview reads `undefined`), not
         // `null` — the inline script treats both as "system", but absence keeps
         // the contract identical to the file on disk.
-        assert_eq!(
-            init_script(&HostFile::default()),
-            r#"window.__KUBETAIL_HOST__ = {"schemaVersion":1};"#
+        assert!(init_script(&HostFile::default()).ends_with(r#"return {"schemaVersion":1}; })();"#));
+    }
+
+    /// The stored copy is `kubetail:*` storage: anything but a JSON object
+    /// falls through to the build-time snapshot.
+    #[test]
+    fn init_script_takes_only_a_stored_object() {
+        let script = init_script(&HostFile::default());
+        assert!(
+            script.contains(
+                r#"if (latest && typeof latest === "object" && !Array.isArray(latest)) return latest;"#
+            ),
+            "{script}"
         );
+    }
+
+    /// A write after the window was built reaches its next load: the update
+    /// stores the new file under the key the init script reads first.
+    #[test]
+    fn a_reload_after_a_write_reads_the_written_file() {
+        let built = HostFile::default();
+        let written = HostFile {
+            color_scheme_preference: Some(ColorSchemePreference::Dark),
+            ..HostFile::default()
+        };
+
+        let update = update_script(&written);
+        assert!(
+            update.starts_with(
+                r#"window.__KUBETAIL_HOST__ = {"schemaVersion":1,"colorSchemePreference":"dark"};"#
+            ),
+            "{update}"
+        );
+        let reload = init_script(&built);
+        let stored = format!(r#"sessionStorage.setItem("{SESSION_KEY}""#);
+        let read = format!(r#"sessionStorage.getItem("{SESSION_KEY}")"#);
+        assert!(update.contains(&stored), "{update}");
+        assert!(reload.contains(&read), "{reload}");
     }
 }

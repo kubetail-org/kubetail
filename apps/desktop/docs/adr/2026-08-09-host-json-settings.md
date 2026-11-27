@@ -3,7 +3,9 @@ title: Persist app settings in host-owned host.json, not webview localStorage
 date: 2026-08-09
 scope: cross-cutting
 status: Accepted
-amended_by: [Keep host.json in the Kubetail config directory](2026-11-21-host-json-lives-under-the-kubetail-config-directory.md)
+amended_by:
+  - [Keep host.json in the Kubetail config directory](2026-11-21-host-json-lives-under-the-kubetail-config-directory.md)
+  - [A reload reads the latest host.json from the window's sessionStorage](2026-11-26-a-reload-reads-the-latest-host-json-from-session-storage.md)
 ---
 
 # Persist app settings in host-owned host.json, not webview localStorage

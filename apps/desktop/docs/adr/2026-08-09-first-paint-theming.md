@@ -3,6 +3,8 @@ title: Class-based color scheme with pre-paint inline script and host-painted na
 date: 2026-08-09
 scope: cross-cutting
 status: Accepted
+amended_by:
+  - [A reload reads the latest host.json from the window's sessionStorage](2026-11-26-a-reload-reads-the-latest-host-json-from-session-storage.md)
 ---
 
 # Class-based color scheme with pre-paint inline script and host-painted native background
