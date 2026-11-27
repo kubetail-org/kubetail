@@ -163,7 +163,7 @@ test_changed() {
   sidecar
   test_changed desktop apps/desktop/sidecar/internal/p/p.go
   [ "$status" -eq 0 ]
-  [[ "$output" == *"→ env GORACE=atexit_sleep_ms=0 SSH_AUTH_SOCK= go -C apps/desktop/sidecar test -race -short -gcflags=modernc.org/...=-d=checkptr=0 . ./internal/p"$'\n'* ]]
+  [[ "$output" == *"→ env GORACE=atexit_sleep_ms=0 SSH_AUTH_SOCK= go -C apps/desktop/sidecar test -race -short -gcflags=modernc.org/...=-d=checkptr=0 -gcflags=modernc.org/sqlite/lib=-race=false . ./internal/p"$'\n'* ]]
   [[ "$output" == *"ok  "*"/internal/p"* ]]
 }
 

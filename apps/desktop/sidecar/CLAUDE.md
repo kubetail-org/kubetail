@@ -323,13 +323,16 @@ root; the host shows it on the start screen. Tests use `sqlitemigrate/sqlitemigr
   with `go list`), and `livecache,liveswitch` together over `internal/agent/catalog`.
   `make vet-desktop` runs them for this platform alone, under each tag. A new split or tag
   joins that list.
-- **CI's race step runs `go test -race -short ./...`** with `GORACE=atexit_sleep_ms=0`. A sweep too
-  slow for the race detector shrinks under `testing.Short()`; a test never skips under it.
+- **CI's race step runs `go test -race -short ./...`** with `GORACE=atexit_sleep_ms=0`, as
+  `make test-desktop-sidecar` and `test-desktop-changed` do: `checkptr` off for `modernc.org/...`,
+  and `-race=false` for `modernc.org/sqlite/lib` alone. Never widen that to `modernc.org/...`:
+  without `libc` instrumented, the detector reports false races. A sweep too slow for the race
+  detector shrinks under `testing.Short()`; a test never skips under it.
 - **The nightly stress run** (`stress-desktop.yml`) runs every desktop runner, `-shuffle=on
   -count=3`, a job per `-cpu` value (1 and 4; the `cpu` dispatch input is a JSON array), each with
-  `-race` (keeping `checkptr` on for modernc's SQLite) and without, and sets neither `-short` nor
-  `GORACE`. A test that hangs under `-cpu 1` is a finding. An issue's command reproduces it from
-  the repo root: `go -C apps/desktop/sidecar test -race -cpu 1 -shuffle=<seed> -count=3 ./internal/agent/chat`.
+  `-race` (instrumenting modernc's SQLite, `checkptr` included, as the backstop) and without, and
+  sets neither `-short` nor `GORACE`. A test that hangs under `-cpu 1` is a finding. An issue's
+  command reproduces it from the repo root: `go -C apps/desktop/sidecar test -race -cpu 1 -shuffle=<seed> -count=3 ./internal/agent/chat`.
 - **Coverage is `coverage-desktop.yml`'s `Measure · Go`**, one runner per OS: the suite untagged
   and, on Linux alone, with `-tags debug`, both with `-coverpkg=./...` and `CGO_ENABLED=0`, as the
   release is built. `debug` is the only build with the environment overrides and `KUBETAIL_FAULTS`;

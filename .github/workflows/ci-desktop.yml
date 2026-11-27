@@ -336,7 +336,8 @@ jobs:
         if: ${{ matrix.os == 'windows' && matrix.arch == 'arm64' }}
         working-directory: ./apps/desktop/sidecar
         run: go test ./...
-      # As make test-desktop runs them: checkptr is off for modernc's SQLite,
+      # As make test-desktop runs them: checkptr is off for modernc's packages
+      # and the race instrumentation for its transpiled SQLite (sqlite/lib),
       # the login shell's tests read SSH_AUTH_SOCK, and GORACE drops the race
       # detector's one-second sleep at each clean exit. -short: a sweep a test
       # shrinks under it runs whole in stress-desktop.yml.
@@ -346,7 +347,7 @@ jobs:
         env:
           GORACE: atexit_sleep_ms=0
           SSH_AUTH_SOCK: ""
-        run: go test -race -short -gcflags='modernc.org/...=-d=checkptr=0' ./...
+        run: go test -race -short -gcflags='modernc.org/...=-d=checkptr=0' -gcflags='modernc.org/sqlite/lib=-race=false' ./...
       # After every test passed, so a failed job leaves its runner's last cache
       # the newest. The test flags must match a PR's, or a PR replays nothing.
       - name: Save Go cache
