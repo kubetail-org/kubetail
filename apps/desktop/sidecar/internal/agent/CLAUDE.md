@@ -1,4 +1,4 @@
-# internal/agent — catalog, loop and chat
+# internal/agent — catalog, loop, chat and monitor
 
 `catalog` decides which providers and tools a turn is offered; `loop` takes one turn (ask the
 model, run its calls, ask again); `chat` files a send, runs its turn in the background and serves
@@ -302,3 +302,17 @@ reverse direction is not caught, so `TestLLMDialectBindsEveryMember` walks `llm.
 
 **A refused mutation names its reason in `extensions.code`** (`chatErr`, `graph/util.go`).
 **Return `errors.Clone(…)`, never the `graph/errors` value itself**: gqlgen stamps `Path` onto it.
+
+## Monitor (`internal/agent/monitor`)
+
+Reads each monitored cluster's cache, folds the signals into incidents in `app.db`, and calls no
+model. `signals.go` reads, `fold.go` is pure, `store.go` writes.
+
+- **A signal is judged only while each kind it reads is `Watching`** (`CacheReading.Health()`,
+  paused kinds included) **and no answer was cut** (`More`). An unjudged signal's pairs neither
+  start nor end, and its absence does not count.
+- **Cache statements name `main.` tables**: the own-query connection's TEMP views shadow them.
+  Each names its index with `INDEXED BY`, and `body()` runs only over a `MATERIALIZED` candidate
+  set.
+- **Memory moves only after the fold commits**; `Notify(KeyIncidents)` follows the commit, and a
+  fold that only moves `last_seen_at` sends none.

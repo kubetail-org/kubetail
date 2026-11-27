@@ -134,6 +134,10 @@ const (
 	// KeyClusters: a clusters row was inserted, edited, marked, or removed. Re-read
 	// and diff; the mirror and the chat sweeper re-read too.
 	KeyClusters = "clusters"
+	// KeyIncidents: the monitor opened an incident or started or ended an
+	// occurrence, or deleted incidents past their retention. A fold that only moves an
+	// open incident's last_seen_at notifies nothing.
+	KeyIncidents = "incidents"
 	// KeyMemories: a memories row was inserted, rewritten or removed by a write of
 	// the memory service. A cascade from a clusters delete notifies KeyClusters alone.
 	KeyMemories = "memories"

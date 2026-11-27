@@ -585,6 +585,17 @@ func TestTheMemoryServiceOutlivesTheChatService(t *testing.T) {
 	assert.Less(t, partIndex(t, a, "memory service"), partIndex(t, a, "chat service"))
 }
 
+// The monitor is built after the chat service, which step 4's triage calls from it,
+// and stops before the cluster service it reads.
+func TestTheMonitorRunsAfterTheChatService(t *testing.T) {
+	a, err := New(t.Context(), withDirs(t, Config{}))
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, a.Close()) })
+
+	assert.Less(t, partIndex(t, a, "chat service"), partIndex(t, a, "monitor"))
+	assert.Less(t, partIndex(t, a, "cluster service"), partIndex(t, a, "monitor"))
+}
+
 // The UIDs memory stamps are the cluster service's last probe; a cluster it
 // does not know, or has never probed, has none.
 func TestServerUIDLookupReadsTheClusterService(t *testing.T) {

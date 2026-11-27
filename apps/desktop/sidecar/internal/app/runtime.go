@@ -27,6 +27,7 @@ import (
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/catalog"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/appdb"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/filelock"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/lifecycle"
@@ -100,6 +101,7 @@ type Runtime struct {
 	Memory       memory.Service
 	Tools        tools.Box
 	Chat         chat.Service
+	Monitor      *monitor.Monitor
 
 	// parts is added to as each service is built, so start order is build order;
 	// stop and close run in reverse, which is what keeps poke's hub open until its
@@ -336,6 +338,12 @@ func build(ctx context.Context, cfg Config) (*Runtime, error) {
 		return fail(err)
 	}
 	rt.add("chat service", rt.Chat)
+
+	rt.Monitor, err = monitor.New(db, rt.Cluster)
+	if err != nil { // coverage:ignore the statements prepare on the schema app.db was just migrated to
+		return fail(err)
+	}
+	rt.add("monitor", rt.Monitor)
 
 	// Edges back to a service built later, set once both exist. The part goes
 	// with the edge, so it closes before the service it reads.
