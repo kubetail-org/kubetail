@@ -64,6 +64,22 @@ func TestUnderHoldsAFolderInAnotherCase(t *testing.T) {
 	assert.False(t, Under(filepath.Join(base, "DISK"), folder))
 }
 
+// A folder that decides one dir and not another leaves the other to a folder
+// further up: Holds answers as UnderAny of each dir apart.
+func TestDirsHoldsWhatAnyOfItsDirsHolds(t *testing.T) {
+	base := canonicalOf(t, t.TempDir())[0]
+	folder := mkdirs(t, base, "Disk/kube")[0]
+	upper := filepath.Join(base, "DISK")
+	skipIfCaseSensitive(t, upper)
+	p := filepath.Join(folder, "config")
+	dirs := ResolveDirs([]string{filepath.Join(upper, "KUBE", "new"), upper})
+
+	assert.False(t, Under(p, filepath.Join(upper, "KUBE", "new")), "kube decides new: config is not in it")
+	assert.True(t, dirs.Holds(p), "Disk is DISK, and holds config")
+	assert.False(t, ResolveDirs([]string{filepath.Join(upper, "KUBE", "new")}).Holds(p))
+	assert.False(t, ResolveDirs(nil).Holds(p))
+}
+
 // Why Canonical asks the kernel: following a link keeps the link's own
 // capitalization, so a resolved path need not match the disk's spelling.
 func TestEvalSymlinksKeepsALinksCapitalization(t *testing.T) {

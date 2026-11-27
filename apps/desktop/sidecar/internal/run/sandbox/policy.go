@@ -290,8 +290,9 @@ func (p Policy) paths() []string {
 // Outside is f less every Read or Write rule on or inside one of paths,
 // compared as files. It reads the disk.
 func (f FilePolicy) Outside(paths ...string) FilePolicy {
+	dirs := realpath.ResolveDirs(paths)
 	keep := func(rules []string) []string {
-		return slices.DeleteFunc(slices.Clone(rules), func(r string) bool { return realpath.UnderAny(r, paths) })
+		return slices.DeleteFunc(slices.Clone(rules), dirs.Holds)
 	}
 	return FilePolicy{Read: keep(f.Read), Write: keep(f.Write), Deny: f.Deny}
 }
