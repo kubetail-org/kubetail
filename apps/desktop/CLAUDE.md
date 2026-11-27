@@ -24,7 +24,7 @@ Host and sidecar share one Unix socket / named pipe, served by the sidecar's `ne
 **A query or a subscription is a read, and takes its contract from [`docs/read-contracts/`](docs/read-contracts/README.md)**, which states each contract and what its consumer may assume. Its name on each surface is in the guide beside it: `go.md`, `graphql.md`, `webview.md`. → [ADR: name every read](docs/adr/2026-11-25-name-every-data-access-for-its-family-kind-and-operation.md), [ADR: write the read contracts once](docs/adr/2026-11-26-write-the-read-contracts-once-and-each-surfaces-rules-beside-them.md).
 
 - **The webview joins client-side**: caches onto clusters by `clusterID`, kinds onto caches by `owner.id`, health values by `cacheID`.
-- **A cluster's id is the `ClusterID` scalar, every other record's is `ObjectID`; the webview never builds or parses either.**
+- **A cluster's id is the `ClusterID` scalar, a beehive object's (a cache, a per-kind record) is `ObjectID`, and each `app.db` record's is a scalar of its own (`ChatID`, `MemoryID`…); the webview never builds or parses any of them.**
 - Until the launch has read the keyring, a connection's phase or a provider's source is `Restoring`, and `authStateWatch` carries `restoring`. → [ADR](docs/adr/2026-11-20-a-launch-restores-keyring-credentials-in-the-background.md).
 
 A reachable cluster whose credentials can read `kube-system` gets a cache, which mirrors each served kind (`sidecar/internal/services/cluster/CLAUDE.md`).
