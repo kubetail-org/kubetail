@@ -76,7 +76,7 @@ Before a PR:
 go fmt ./...              # in the module; CI fails if `gofmt -l .` prints anything
 ```
 
-then the area's `make lint-<area> vet-<area> test-<area>`, which its guide lists. The areas are `cli` (`cli` and `dashboard`), `libs` and `cluster-api`. `lint-<area>` checks gofmt, the license headers and the coverage markers. `vet-<area>` runs `go vet` for this platform and for `GOOS=windows`, `scripts/check-go-fix.sh` and staticcheck. `test-<area>` runs `go test -race`. Ignore a staticcheck finding with `//lint:ignore <check> <reason>` on the line above it. Don't commit a `vendor/` directory.
+then the area's `make lint-<area> vet-<area> test-<area>`, which its guide lists. The areas are `cli` (`cli` and `dashboard`), `libs` and `cluster-api`. `lint-<area>` checks gofmt, the license headers and the coverage markers. `vet-<area>` runs `go vet`, `scripts/check-go-fix.sh` and staticcheck for this platform alone, with staticcheck's unused-code check (U1000) off; CI runs every platform. `test-<area>` runs `go test -race`. Ignore a staticcheck finding with `//lint:ignore <check> <reason>` on the line above it. Don't commit a `vendor/` directory.
 
 Coverage is measured per area: every test binary counts every package of its area (`-coverpkg`), so a `libs/go-common` line counts only when its own tests reach it. Each area's `make cover-<area>-changed` runs only the changed packages' tests; `FULL=1` runs them all, as CI does. → [ADR: measure and gate coverage per area](docs/adr/2026-11-19-measure-and-gate-coverage-per-area.md)
 

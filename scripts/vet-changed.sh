@@ -68,7 +68,7 @@ case "$area" in
     else
       echo "Skipped go vet and go fix: no change reaches a package in ${mods[*]}."
     fi
-    echo "Skipped GOOS=windows go vet and staticcheck: make vet-$area runs them."
+    echo "Skipped staticcheck: make vet-$area runs it."
     ;;
   cluster-agent)
     if has_code '^(cluster/agent|libs/proto)/'; then

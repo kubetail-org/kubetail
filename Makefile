@@ -66,13 +66,11 @@ define lint-go
 	sh scripts/check-coverage-markers.sh $(1)
 endef
 
-# The Windows pass is the one place _windows.go files are vetted.
-# scripts/staticcheck.sh runs once per GOOS and merges; tools/go.mod pins staticcheck.
+# For this platform alone: CI vets the others. tools/go.mod pins staticcheck.
 define vet-go
 	go vet $(foreach m,$(1),./$(m)/...)
-	GOOS=windows go vet $(foreach m,$(1),./$(m)/...)
-	sh scripts/check-go-fix.sh $(1)
-	sh scripts/staticcheck.sh $(1)
+	GO_BUILDS=host sh scripts/check-go-fix.sh $(1)
+	GO_BUILDS=host sh scripts/staticcheck.sh $(1)
 endef
 
 define test-go
@@ -84,7 +82,7 @@ endef
 lint-cli: ## Check cli/'s and dashboard/'s Go formatting, license headers and coverage markers
 	$(call lint-go,cli dashboard)
 
-vet-cli: ## Run go vet for the host and Windows, the go fix check and staticcheck on cli/ and dashboard/
+vet-cli: ## Run go vet, the go fix check and staticcheck for this platform on cli/ and dashboard/
 	$(call vet-go,cli dashboard)
 
 test-cli: ## Test cli/ and dashboard/ with the race detector
@@ -108,7 +106,7 @@ cover-cli-changed: ## List the changed lines in cli/ and dashboard/ no test cove
 lint-libs: ## Check libs/go-common/'s Go formatting, license headers and coverage markers
 	$(call lint-go,libs/go-common)
 
-vet-libs: ## Run go vet for the host and Windows, the go fix check and staticcheck on libs/go-common/
+vet-libs: ## Run go vet, the go fix check and staticcheck for this platform on libs/go-common/
 	$(call vet-go,libs/go-common)
 
 test-libs: ## Test libs/go-common/ with the race detector
@@ -128,7 +126,7 @@ cover-libs-changed: ## List the changed lines in libs/go-common/ no test covers 
 lint-cluster-api: ## Check cluster/api/'s Go formatting, license headers and coverage markers
 	$(call lint-go,cluster/api)
 
-vet-cluster-api: ## Run go vet for the host and Windows, the go fix check and staticcheck on cluster/api/
+vet-cluster-api: ## Run go vet, the go fix check and staticcheck for this platform on cluster/api/
 	$(call vet-go,cluster/api)
 
 test-cluster-api: ## Test cluster/api/ with the race detector
@@ -258,19 +256,18 @@ lint-desktop: ## Lint the desktop app's webview, Tailwind classes, Go and Rust f
 	cd tools && go run ./designsync check
 	cd tools && go run ./securitymodel check
 
-# go vet checks the sidecar for this platform, untagged and under each tag
-# scripts/go-builds.sh lists: the live checks sit behind tags no other target
-# builds, and vetting them keeps them compiling. CI's desktop-sidecar-vet vets
-# the other platforms, each of which recompiles every dependency. go fix and
-# staticcheck run on every build go-builds.sh lists. check-sidecar-deps.sh
-# keeps the typed Kubernetes clients out of the binary.
+# go vet, go fix and staticcheck check the sidecar for this platform, untagged
+# and under each tag scripts/go-builds.sh lists: the live checks sit behind
+# tags no other target builds, and vetting them keeps them compiling. CI vets
+# the other platforms, each of which recompiles every dependency.
+# check-sidecar-deps.sh keeps the typed Kubernetes clients out of the binary.
 vet-desktop: build-desktop-sidecar ## Type-check the desktop's webview, vet its sidecar for this platform and each tag, check its deps, run go fix and staticcheck, and run clippy on its host
 	cd $(DESKTOP_DIR) && pnpm install && pnpm exec tsc -b
 	cd $(DESKTOP_DIR)/sidecar && go vet ./... && go vet -tags debug ./... \
 		&& go vet -tags livecache ./internal/agent/catalog && go vet -tags liveswitch ./internal/agent/catalog
 	sh $(DESKTOP_DIR)/scripts/check-sidecar-deps.sh
-	sh scripts/check-go-fix.sh apps/desktop/sidecar
-	sh scripts/staticcheck.sh apps/desktop/sidecar
+	GO_BUILDS=host sh scripts/check-go-fix.sh apps/desktop/sidecar
+	GO_BUILDS=host sh scripts/staticcheck.sh apps/desktop/sidecar
 	cd $(DESKTOP_DIR)/src-tauri && cargo clippy --all-targets -- -D warnings
 
 # As CI tests the sidecar. checkptr, which -race turns on, is off for modernc's

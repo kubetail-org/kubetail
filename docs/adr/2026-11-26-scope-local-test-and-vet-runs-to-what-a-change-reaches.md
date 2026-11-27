@@ -20,7 +20,7 @@ Some full targets are too slow to run during development. `make test-desktop` re
 Each area with tests has `make test-<area>-changed`, and each area with vet passes `make vet-<area>-changed`: `cli`, `libs`, `cluster-api`, `cluster-agent`, `web` and `desktop`, plus `make test-repo-changed`. They wrap `scripts/test-changed.sh` and `scripts/vet-changed.sh`, which read the change from `scripts/changed.sh`:
 
 - A Go area runs the changed packages and every package of the area whose build or tests import one, from any module of the workspace (`go_scope`). A `go.mod` or `go.sum` change runs its module whole. Tests keep `-race`, with `GORACE=atexit_sleep_ms=0`.
-- Vetting is `go vet` and the `go fix` check for this platform and the default build tags, `tsc -b` on a TypeScript change, and clippy when a crate's inputs changed. Staticcheck, the other platforms and the other build tags stay in `vet-<area>` and CI.
+- Vetting is `go vet` and the `go fix` check for this platform and the default build tags, `tsc -b` on a TypeScript change, and clippy when a crate's inputs changed. Staticcheck and the other build tags stay in `vet-<area>` and CI; the other platforms, in CI alone.
 - A web app runs the tests vitest relates to its changed files; a crate runs its whole suite when its inputs changed.
 - `test-repo-changed` runs the bats files of the changed scripts, and of the scripts that source a changed helper (`bats_scope`).
 
@@ -28,7 +28,7 @@ The targets answer both objections. Each covers one area, prints each command it
 
 These targets trade correctness for speed. `make <verb>-<area>` remains what runs before a PR, and CI remains the backstop.
 
-`make vet-desktop` vets the sidecar for this platform alone, untagged and under each tag. CI's `desktop-sidecar-vet` runs the other platforms' passes with its own commands.
+Every `make vet-<area>` vets for this platform alone, as the `-changed` targets do: go vet, and `scripts/check-go-fix.sh` and `scripts/staticcheck.sh` under `GO_BUILDS=host`, which runs each build `scripts/go-builds.sh` lists for this platform, once per set of tags. Staticcheck's U1000 is off there, since one platform reports code only another uses as unused. CI runs every build: `GOOS=windows go vet` in each Go area's vet job, the sidecar's other platforms in `desktop-sidecar-vet`, and both scripts without `GO_BUILDS`.
 
 This amends "Run each area's own checks locally, with CI as the backstop": the removal of `test-changed` and `vet-go-changed` is reversed in this form. The rest of it stands.
 
@@ -44,7 +44,7 @@ This amends "Run each area's own checks locally, with CI as the backstop": the r
 - During development an area's tests and vet cost what the change reaches, not the whole area.
 - A guide's "while working" list names `make vet-<area>-changed test-<area>-changed` first.
 - `go_scope` runs `go list -test` over the workspace on every call, under a second on this repo.
-- A test reached only at run time, through a dynamic import or a file read by path from another package, is missed. So is a Windows-only vet finding.
+- A test reached only at run time, through a dynamic import or a file read by path from another package, is missed. So is a finding on another platform, and unused code, even before a PR: CI reports them.
 - A new area or a new kind of input adds a case to both scripts and to their bats files.
 
 ## Revisit when
