@@ -113,10 +113,11 @@ go_scope() {
   # -test adds each package's test variants, p.test and `p [p.test]`, whose
   # Deps hold its tests' imports. ForTest names the package of a variant.
   for m in $mods; do patterns+=("$repo/$m/..."); done
+  # pkgs reaches awk through ENVIRON: macOS's awk rejects a newline in a -v value.
   go -C "$1" list -e -test -f '{{or .ForTest .ImportPath}} {{join .Deps " "}}' "${patterns[@]}" |
-    awk -v repo="$repo/" -v pkgs="$pkgs" -v asked="${asked[*]}" '
+    pkgs=$pkgs awk -v repo="$repo/" -v asked="${asked[*]}" '
       BEGIN {
-        split(pkgs, p, "\n")
+        split(ENVIRON["pkgs"], p, "\n")
         for (i in p) changed[repo p[i]] = 1
         n = split(asked, a, " ")
       }
