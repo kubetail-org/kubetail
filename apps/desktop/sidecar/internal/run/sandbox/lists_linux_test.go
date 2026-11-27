@@ -23,6 +23,8 @@ import (
 // System reads the system's folders, /etc whole, with its secret files on
 // Never.
 func TestLinuxListsReadTheSystemAndHideItsSecrets(t *testing.T) {
+	t.Parallel()
+
 	for _, p := range []string{"/usr", "/etc", "/opt", "/nix/store", "/home/linuxbrew/.linuxbrew", "/snap", "/nix/var/nix/profiles", "/run/current-system"} {
 		assert.Contains(t, platformLists.System, p)
 	}
@@ -36,6 +38,8 @@ func TestLinuxListsReadTheSystemAndHideItsSecrets(t *testing.T) {
 }
 
 func TestLinuxNoWriteHoldsTheUserServices(t *testing.T) {
+	t.Parallel()
+
 	got := NoWrite("/home/me")
 	for _, p := range []string{
 		"/home/me/.config/systemd", "/home/me/.local/share/systemd/user", "/home/me/.config/environment.d", "/home/me/.config/autostart",

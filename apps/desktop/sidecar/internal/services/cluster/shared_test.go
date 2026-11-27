@@ -28,6 +28,8 @@ import (
 // Messages come from unbounded sources (raw client-go errors, kilobyte /readyz
 // bodies) and are re-serialized to every watcher on every frame.
 func TestTruncateMessageCapsOverlongInput(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, "short", TruncateMessage("short"))
 
 	exact := strings.Repeat("x", MaxMessageLen)
@@ -40,6 +42,8 @@ func TestTruncateMessageCapsOverlongInput(t *testing.T) {
 // LiveCondition is the sole constructor, which is what makes the message cap and
 // the liveness flag unskippable.
 func TestLiveConditionCapsItsMessageAndMarksLiveness(t *testing.T) {
+	t.Parallel()
+
 	c := LiveCondition(ConditionConnected, ConditionFalse, ReasonProbeFailed, strings.Repeat("x", MaxMessageLen+1))
 	assert.Equal(t, string(ConditionConnected), c.Type)
 	assert.Equal(t, ConditionFalse, c.Status)
@@ -51,6 +55,8 @@ func TestLiveConditionCapsItsMessageAndMarksLiveness(t *testing.T) {
 // FindCondition returns a pointer INTO the slice, so a caller can read the live row
 // rather than a copy.
 func TestFindCondition(t *testing.T) {
+	t.Parallel()
+
 	conds := []Condition{
 		{Type: string(ConditionConnected), Reason: ReasonConnected},
 		{Type: string(ConditionIdentified), Reason: ReasonIdentified},
@@ -69,6 +75,8 @@ func TestFindCondition(t *testing.T) {
 // wall-clock struct, is what keeps two readings of the same stamp from looking
 // different — a monotonic-clock reading or a differing location would.
 func TestTimePtrEqual(t *testing.T) {
+	t.Parallel()
+
 	at := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
 	other := at.In(time.FixedZone("elsewhere", 3600))
 	later := at.Add(time.Second)
@@ -89,6 +97,8 @@ func TestTimePtrEqual(t *testing.T) {
 // removal would never land and the record would sit on screen for the life of the
 // subscription.
 func TestToOwnerRefWithNoOwnerIsTheZeroRef(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	client := beehive.NewClient[ClusterCacheSpec, ClusterCacheStatus](newTestBeehive(t), ClusterCacheGroupKind)
 	_, err := client.Create(ctx, "orphan", ClusterCacheSpec{})
@@ -106,6 +116,8 @@ func TestToOwnerRefWithNoOwnerIsTheZeroRef(t *testing.T) {
 // Forgetting beehive.LoadOwner is a caller bug, not a state the store can be in, so it
 // stays an error rather than reading as an absent owner.
 func TestToOwnerRefReportsAnUnloadedEdge(t *testing.T) {
+	t.Parallel()
+
 	_, err := toOwnerRef(&beehive.Object[ClusterCacheSpec, ClusterCacheStatus]{ID: 7, Kind: "ClusterCache"})
 
 	assert.ErrorIs(t, err, beehive.ErrNotLoaded)

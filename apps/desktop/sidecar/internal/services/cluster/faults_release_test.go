@@ -26,6 +26,8 @@ import (
 )
 
 func TestAReleaseBuildHandsKubesyncTheManager(t *testing.T) {
+	t.Parallel()
+
 	mgr := kubestore.NewManager(t.TempDir(), kubestore.Retention{})
 	t.Cleanup(func() { _ = mgr.Close() })
 

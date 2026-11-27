@@ -30,6 +30,8 @@ import (
 
 // What pasta and bwrap wrote for a run that never started is kept for it.
 func TestUntilStartedKeepsTheOutputOfARunThatNeverStarted(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, "External interface not usable\n",
 		string(untilStarted(strings.NewReader("External interface not usable\n"))))
 }
@@ -37,6 +39,8 @@ func TestUntilStartedKeepsTheOutputOfARunThatNeverStarted(t *testing.T) {
 // Once the run has started, pasta's notices before it and anything after are
 // dropped, and the pipe is read to its end, so pasta never blocks on it.
 func TestUntilStartedDropsTheOutputOfARunThatStarted(t *testing.T) {
+	t.Parallel()
+
 	r := strings.NewReader("Couldn't get any nameserver address\n" + runStarted + "later\n")
 
 	assert.Nil(t, untilStarted(r))
@@ -45,17 +49,23 @@ func TestUntilStartedDropsTheOutputOfARunThatStarted(t *testing.T) {
 
 // A marker split across reads is still found.
 func TestUntilStartedFindsASplitMarker(t *testing.T) {
+	t.Parallel()
+
 	assert.Nil(t, untilStarted(iotest.OneByteReader(strings.NewReader("notice\n"+runStarted))))
 }
 
 // A run that never started reports at most pastaOutputLimit bytes.
 func TestUntilStartedKeepsAtMostTheLimit(t *testing.T) {
+	t.Parallel()
+
 	got := untilStarted(iotest.OneByteReader(strings.NewReader(strings.Repeat("x", pastaOutputLimit+10))))
 
 	assert.Len(t, got, pastaOutputLimit)
 }
 
 func TestTheLauncherNeedsACommand(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, initFailed, PastaMain([]string{"/usr/bin/pasta"}))
 	assert.Equal(t, initFailed, PastaMain([]string{"--"}))
 }
@@ -64,6 +74,8 @@ func TestTheLauncherNeedsACommand(t *testing.T) {
 // the command's own stderr reaches it and its stdin is the null device. The
 // pasta here writes a notice and runs bwrap in the sidecar's own network.
 func TestPastasNoticesStayOutOfTheRun(t *testing.T) {
+	t.Parallel()
+
 	s := *confining(t)
 	s.pasta = fakeBwrap(t, filepath.Join(t.TempDir(), "pasta"),
 		`echo "Couldn't get any nameserver address" >&2; while [ "$1" != -- ]; do shift; done; shift; exec "$@"`)
@@ -91,6 +103,7 @@ func stderrTo(t *testing.T) *os.File {
 // Called in a test's own process, the launcher answers its command's status
 // and passes on what the command wrote before the run started.
 func TestPastaMainInProcessReportsARunThatNeverStarted(t *testing.T) {
+	// stderrTo swaps the process's stderr, so this test stays serial.
 	stderr := stderrTo(t)
 
 	code := PastaMain([]string{"--", "/bin/sh", "-c", "echo 'External interface not usable' >&2; exit 3"})
@@ -104,6 +117,7 @@ func TestPastaMainInProcessReportsARunThatNeverStarted(t *testing.T) {
 // Once the run has started, what the command wrote on the launcher's pipe is
 // dropped.
 func TestPastaMainInProcessDropsTheOutputOfARunThatStarted(t *testing.T) {
+	// stderrTo swaps the process's stderr, so this test stays serial.
 	stderr := stderrTo(t)
 
 	code := PastaMain([]string{"--", "/bin/sh", "-c", `printf 'notice\n\0sandbox-init: started\0' >&2`})
@@ -116,6 +130,7 @@ func TestPastaMainInProcessDropsTheOutputOfARunThatStarted(t *testing.T) {
 
 // A command the launcher cannot start is its own failure.
 func TestPastaMainInProcessRefusesAMissingCommand(t *testing.T) {
+	// stderrTo swaps the process's stderr, so this test stays serial.
 	stderr := stderrTo(t)
 
 	assert.Equal(t, initFailed, PastaMain([]string{"--", "/nonexistent/pasta"}))
@@ -127,6 +142,8 @@ func TestPastaMainInProcessRefusesAMissingCommand(t *testing.T) {
 // sandbox-pasta told of a lifeline it was not given fails before pasta
 // starts.
 func TestTheLauncherNeedsTheLifelineItIsTold(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, initFailed, PastaMain([]string{lifelineFlag, "1000", "--", "/bin/true"}))
 	assert.Equal(t, initFailed, PastaMain([]string{lifelineFlag, "2", "--", "/bin/true"}))
 	assert.Equal(t, initFailed, PastaMain([]string{lifelineFlag, "x", "--", "/bin/true"}))
@@ -147,6 +164,8 @@ func TestTheLauncherNeedsADescriptorForItsPipe(t *testing.T) {
 // At the lifeline's EOF the launcher kills its group: the pasta it started,
 // and the child pasta left there.
 func TestTheLauncherEndsPastasGroupAtTheLifelinesEOF(t *testing.T) {
+	t.Parallel()
+
 	r, w := pipe(t)
 	pasta := fakeBwrap(t, filepath.Join(t.TempDir(), "pasta"), "sleep 1000 & echo up; wait")
 	cmd := exec.Command(os.Args[0], PastaCommand, lifelineFlag+"="+strconv.Itoa(lifelineFD), "--", pasta)

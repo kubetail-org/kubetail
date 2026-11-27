@@ -32,6 +32,8 @@ import (
 // run's proxy-url, which holds the grant's token, one user with nothing in it,
 // and one context, current, named as the card names it.
 func TestTheRunsKubeconfigNamesTheCardsContext(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "kubeconfig")
 
 	require.NoError(t, writeKubeconfig(path, "prod-admin", 41234, "the-token"))
@@ -57,6 +59,8 @@ func TestTheRunsKubeconfigNamesTheCardsContext(t *testing.T) {
 // A kubeconfig is written only where there is none: one already at the path is
 // left as it is.
 func TestTheRunsKubeconfigReplacesNothing(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "kubeconfig")
 	require.NoError(t, os.WriteFile(path, []byte("planted"), 0o600))
 
@@ -70,6 +74,8 @@ func TestTheRunsKubeconfigReplacesNothing(t *testing.T) {
 // The context's name is the user's kubeconfig text: it is written as data, and
 // loads back unchanged whatever it holds.
 func TestAContextNameIsDataInTheKubeconfig(t *testing.T) {
+	t.Parallel()
+
 	name := "a \"quoted\": {{ .Name }}\nsecond line"
 	path := filepath.Join(t.TempDir(), "kubeconfig")
 
@@ -84,6 +90,8 @@ func TestAContextNameIsDataInTheKubeconfig(t *testing.T) {
 // A context too long for the card is named as the card names it, so the
 // prompts' --context with the card's text selects it.
 func TestALongContextIsNamedAsTheCardNamesIt(t *testing.T) {
+	t.Parallel()
+
 	name := clustercard.ContextName(kubeCluster(strings.Repeat("c", 100), ""))
 	path := filepath.Join(t.TempDir(), "kubeconfig")
 	require.NoError(t, writeKubeconfig(path, name, 1, "t"))

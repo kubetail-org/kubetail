@@ -46,6 +46,7 @@ func gitBashTool(t *testing.T, rc string) *Tool {
 // timeout outlasts a cold Git Bash on a loaded runner, and a dump that gives up
 // all the same fails with its logged reason.
 func TestTheSnapshotHoldsTheGitBashProfile(t *testing.T) {
+	// CaptureLogs swaps the process's default logger, so this test stays serial.
 	logs := testutil.CaptureLogs(t)
 	rt := testRuntime(t)
 	tl := gitBashTool(t, "alias ll='ls -l'\n")
@@ -72,6 +73,7 @@ func TestTheSnapshotHoldsTheGitBashProfile(t *testing.T) {
 // write, and a command runs all the same. The shrunk timeout is the assertion:
 // only it can end the hanging shell.
 func TestAFailedSnapshotLeavesNoFileOnWindows(t *testing.T) {
+	// gitBashTool sets $HOME on the process, so this test stays serial.
 	rt := testRuntime(t)
 	tl := gitBashTool(t, "sleep 300\n")
 	tl.snapTimeout = 250 * time.Millisecond
@@ -85,6 +87,7 @@ func TestAFailedSnapshotLeavesNoFileOnWindows(t *testing.T) {
 // A launch that cannot reach a shell fails as no shell: no home to start in, no
 // directory or file for the dump, or a shell that will not start or resume.
 func TestALaunchWithoutAShellIsNoShell(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	missing := filepath.Join(t.TempDir(), "bash.exe")
 	for name, tl := range map[string]*Tool{
 		"scripts": {shell: missing, scripts: notADir(t)},
@@ -107,6 +110,8 @@ func TestALaunchWithoutAShellIsNoShell(t *testing.T) {
 
 // A dump that runs past the limit before its end marker is cut off.
 func TestADumpPastTheLimitIsRefused(t *testing.T) {
+	t.Parallel()
+
 	got := readDump(strings.NewReader(strings.Repeat("x", 64)), 16)
 	assert.Equal(t, dumpRead{reason: "output limit"}, got)
 }

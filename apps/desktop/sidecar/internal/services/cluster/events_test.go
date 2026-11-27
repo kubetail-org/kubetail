@@ -52,6 +52,8 @@ func reasonsOf(events []Event) []string {
 // One reader serves all three kinds: an event carries no kind of its own, so the read
 // is by id and a per-kind branch would be three copies of one call.
 func TestListEventsReadsEveryKindsTimeline(t *testing.T) {
+	t.Parallel()
+
 	d, bh := newTestDepsAndBeehive(t)
 	ctx := context.Background()
 	cluster := createCluster(t, d, "prod")
@@ -96,6 +98,8 @@ func TestListEventsReadsEveryKindsTimeline(t *testing.T) {
 // through: a nil category must add no option at all, since WithEventCategory("")
 // selects the default timeline — which nothing in this package ever writes to.
 func TestListEventsMapsCategoryAndLimit(t *testing.T) {
+	t.Parallel()
+
 	d, bh := newTestDepsAndBeehive(t)
 	ctx := context.Background()
 	cluster := createCluster(t, d, "prod")
@@ -145,6 +149,8 @@ func awaitRun(t *testing.T, stream *Stream[EventFeedFrame], what string) Event {
 // The snapshot arrives as runs, one Bookmark closes it, and what the log grows by
 // follows. The bookmark is what tells an empty timeline from one still arriving.
 func TestSubscribeObjectEventFeedSnapshotsThenBookmarksThenTails(t *testing.T) {
+	t.Parallel()
+
 	d, bh := newRunningRegisteredDeps(t)
 	ctx := t.Context()
 	cluster := createCluster(t, d, "prod")
@@ -165,6 +171,8 @@ func TestSubscribeObjectEventFeedSnapshotsThenBookmarksThenTails(t *testing.T) {
 // An empty timeline bookmarks too: without it a client cannot tell "no events" from a
 // snapshot still on its way.
 func TestSubscribeObjectEventFeedBookmarksAnEmptyTimeline(t *testing.T) {
+	t.Parallel()
+
 	d, _ := newRunningRegisteredDeps(t)
 	cluster := createCluster(t, d, "prod")
 
@@ -183,6 +191,8 @@ func TestSubscribeObjectEventFeedBookmarksAnEmptyTimeline(t *testing.T) {
 // row, and the watch floor is how the reader notices — only an event WRITE wakes it,
 // and collection is not one.
 func TestSubscribeObjectEventFeedEndsCleanlyWhenTheRecordIsCollected(t *testing.T) {
+	t.Parallel()
+
 	d, bh := newRunningRegisteredDeps(t,
 		beehive.WithGCInterval(time.Millisecond),
 		beehive.WithWatchFloorInterval(time.Millisecond))
@@ -207,6 +217,8 @@ func TestSubscribeObjectEventFeedEndsCleanlyWhenTheRecordIsCollected(t *testing.
 // is always fine". A guard rather than a red test: nobody writes this errors.Is from
 // "Err is forwarded", and without it the silent-broken-watch bug ships unnoticed.
 func TestTerminalErrKeepsTheReasonsAConsumerCanActOn(t *testing.T) {
+	t.Parallel()
+
 	assert.NoError(t, terminalErr(beehive.ErrNotFound), "a collected record is a clean end")
 	assert.NoError(t, terminalErr(nil))
 	assert.ErrorIs(t, terminalErr(beehive.ErrWatchTooOld), beehive.ErrWatchTooOld,
@@ -219,6 +231,8 @@ func TestTerminalErrKeepsTheReasonsAConsumerCanActOn(t *testing.T) {
 // cancelled once the first run fills Frames' one-frame buffer, with nothing reading, so
 // the check is what unblocks the second rather than a race with the buffer.
 func TestSubscribeObjectEventFeedStopsForAConsumerThatIsGone(t *testing.T) {
+	t.Parallel()
+
 	d, bh := newTestDepsAndBeehive(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	cluster := createCluster(t, d, "prod")
@@ -238,6 +252,8 @@ func TestSubscribeObjectEventFeedStopsForAConsumerThatIsGone(t *testing.T) {
 // The Bookmark is a send like any other: one run fills the buffer, and the bookmark behind
 // it is where a departed consumer ends the stream.
 func TestSubscribeObjectEventFeedStopsOnTheBookmarkForAConsumerThatIsGone(t *testing.T) {
+	t.Parallel()
+
 	d, bh := newTestDepsAndBeehive(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	cluster := createCluster(t, d, "prod")
@@ -257,6 +273,8 @@ func TestSubscribeObjectEventFeedStopsOnTheBookmarkForAConsumerThatIsGone(t *tes
 // the name to the object and reads the same log; an id naming nothing is empty, or the
 // Bookmark alone, held open until the caller is done.
 func TestClusterEventsResolveByName(t *testing.T) {
+	t.Parallel()
+
 	d, bh := newRunningRegisteredDeps(t)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -287,6 +305,8 @@ func TestClusterEventsResolveByName(t *testing.T) {
 
 // The name resolution is a store read, so a store that will not answer fails both.
 func TestClusterEventsReportAStorageFault(t *testing.T) {
+	t.Parallel()
+
 	d, closeStore := newTestDepsWithABreakableStore(t)
 	cluster := createCluster(t, d, "prod")
 	closeStore()

@@ -33,6 +33,8 @@ import (
 // One run of the login shell answers both readers: its environment is set
 // and its PATH handed on.
 func TestResolveIsRunOnceAtLaunch(t *testing.T) {
+	t.Parallel()
+
 	runs := 0
 	got := runShell(t.Context(), nil, nil, func(context.Context, loginshell.Start, []string) (loginshell.Result, *loginshell.Fault) {
 		runs++
@@ -51,6 +53,7 @@ func TestResolveIsRunOnceAtLaunch(t *testing.T) {
 // and no log line carries it. It is never set on the process, so a credential
 // plugin the sidecar spawns does not inherit it.
 func TestAKeyFromTheShellIsRedactedAndNeverInherited(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	const key = "sk-ant-shell-0123456789"
 	t.Cleanup(safe.ResetSecrets)
 	t.Setenv("ANTHROPIC_API_KEY", "")
@@ -83,6 +86,8 @@ func TestAKeyFromTheShellIsRedactedAndNeverInherited(t *testing.T) {
 // The launch resolution runs in the sandbox, its output leaving it, so the
 // denied-always list is shut to it; a refused policy runs no shell.
 func TestTheLaunchResolutionRunsInTheSandbox(t *testing.T) {
+	t.Parallel()
+
 	sb := &refusingSandbox{never: []string{"/never"}}
 	kubetailDirs := []string{t.TempDir(), t.TempDir(), t.TempDir()}
 	tmpDir := filepath.Join(kubetailDirs[1], "tmp")

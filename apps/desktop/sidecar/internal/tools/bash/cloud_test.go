@@ -213,6 +213,8 @@ func mountSwitched(t *testing.T, p *fakePlatform, sw *switches) CloudMount {
 }
 
 func TestTwoCloudPlatformsCannotSetOneVariableTwoWays(t *testing.T) {
+	t.Parallel()
+
 	_, err := cloudEnv([]CloudMount{{Env: []string{"A=1", "B=2"}}, {Env: []string{"B=2", "C=3"}}})
 	assert.NoError(t, err, "one value set twice agrees")
 	_, err = cloudEnv([]CloudMount{{Env: []string{"A=1"}}, {Env: []string{"A=2"}}})
@@ -220,6 +222,8 @@ func TestTwoCloudPlatformsCannotSetOneVariableTwoWays(t *testing.T) {
 }
 
 func TestAProxyVariableBringsNoProxy(t *testing.T) {
+	t.Parallel()
+
 	env, err := cloudEnv([]CloudMount{{Env: []string{"GH_HOST=github.localhost"}}})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"GH_HOST=github.localhost"}, env)
@@ -240,6 +244,8 @@ func TestAProxyVariableBringsNoProxy(t *testing.T) {
 // cloudAsker hands the runtime's asker every field of what was sent, as the
 // request's cloud half, and the action as decided.
 func TestACloudRequestReachesTheAskerWhole(t *testing.T) {
+	t.Parallel()
+
 	a := newAnsweringAsker()
 	a.answers <- true
 	req := runproxy.Request{
@@ -269,6 +275,8 @@ func TestACloudRequestReachesTheAskerWhole(t *testing.T) {
 // A grant's requests go to the runtime's asker for a foreground call, and are
 // refused naming the cloud platform for a background command or no asker.
 func TestCloudAskerFor(t *testing.T) {
+	t.Parallel()
+
 	a := newAnsweringAsker()
 	asker, refusal := cloudAskerFor(tools.Runtime{ActionAsker: a}, false, permissions.GCP)
 	assert.Equal(t, cloudAsker{a}, asker)
@@ -295,6 +303,8 @@ func (grantlessPlatform) Mount(context.Context, CloudRun) (CloudMount, error) {
 // A mount with no grant fails the run, and keeps nothing the run's end would
 // reach.
 func TestAMountWithNoGrantFailsTheRun(t *testing.T) {
+	t.Parallel()
+
 	p := &runProxy{}
 	_, err := p.mount(t.Context(), Cloud{}, []CloudPlatform{grantlessPlatform{}}, tools.Runtime{}, false, CloudRun{})
 	require.EqualError(t, err, "the AWS mount names no grant")
@@ -321,6 +331,8 @@ func (durationAsker) Ask(context.Context, tools.ActionRequest) (tools.Answer, er
 
 // The user's duration reaches the grant, so a command answer adds its rule.
 func TestACloudAnswerCarriesItsDuration(t *testing.T) {
+	t.Parallel()
+
 	answer, err := cloudAsker{durationAsker{newAnsweringAsker()}}.Ask(t.Context(), runproxy.Request{})
 	require.NoError(t, err)
 	assert.Equal(t, permissions.Answer{Approved: true, Duration: permissions.DurationCommand}, answer)

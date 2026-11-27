@@ -54,6 +54,8 @@ func init() {
 // A process's threads are counted by the real uid in its status, though its
 // /proc entry is root's.
 func TestThreadsAreCounted(t *testing.T) {
+	t.Parallel()
+
 	cmd := helperCmd("threads")
 	in, err := cmd.StdinPipe()
 	require.NoError(t, err)
@@ -72,6 +74,8 @@ func TestThreadsAreCounted(t *testing.T) {
 // The base is 0 only on a kernel that counts per namespace, in a run whose
 // namespace is its own; anything else scans.
 func TestTheBaseIsZeroOnlyInANamespaceOfItsOwn(t *testing.T) {
+	t.Parallel()
+
 	for _, s := range []*Sandbox{{perNamespace: true}, {ownUserNS: true}} {
 		n, err := s.CountedProcesses(false)
 		require.NoError(t, err)
@@ -92,6 +96,8 @@ func TestTheBaseIsZeroOnlyInANamespaceOfItsOwn(t *testing.T) {
 }
 
 func TestANewNamespaceCountsNothing(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	if !s.perNamespace || !s.ownUserNS {
 		t.Skip("the kernel counts the user's whole machine, or the run has no user namespace of its own")

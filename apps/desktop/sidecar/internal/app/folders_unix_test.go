@@ -56,6 +56,8 @@ func assertPerm(t *testing.T, want os.FileMode, dirs ...string) {
 // A layout folder that is a link starts, and is named by its target, which
 // is what the fence holds.
 func TestALinkedLayoutFolderIsResolved(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	target := filepath.Join(root, "big", "kubetail")
 	require.NoError(t, os.MkdirAll(target, 0o700))
@@ -76,6 +78,8 @@ func TestALinkedLayoutFolderIsResolved(t *testing.T) {
 // A root reached through a linked parent starts, and is named by where the
 // link leads.
 func TestARootUnderALinkedParentIsResolved(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	target := filepath.Join(root, "var", "home")
 	require.NoError(t, os.MkdirAll(target, 0o700))
@@ -93,6 +97,8 @@ func TestARootUnderALinkedParentIsResolved(t *testing.T) {
 
 // A layout folder that is a link to nothing fails the start, naming both.
 func TestALinkedLayoutFolderWhoseTargetIsMissingFailsTheStart(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	n := linuxNamed(root)
 	target := filepath.Join(root, "gone")
@@ -107,6 +113,8 @@ func TestALinkedLayoutFolderWhoseTargetIsMissingFailsTheStart(t *testing.T) {
 
 // A cycle of links at a layout folder stops the start, naming the folder.
 func TestACycleOfLinksAtALayoutFolderFailsTheStart(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	n := linuxNamed(root)
 	symlink(t, n.Cache, filepath.Join(root, "loop"))
@@ -120,6 +128,8 @@ func TestACycleOfLinksAtALayoutFolderFailsTheStart(t *testing.T) {
 // The runtime folder's parent can be shared, so a link at the folder itself
 // is refused; one above it is followed.
 func TestALinkedRuntimeFolderFailsTheStart(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	n := linuxNamed(root)
 	symlink(t, t.TempDir(), n.Runtime)
@@ -130,6 +140,8 @@ func TestALinkedRuntimeFolderFailsTheStart(t *testing.T) {
 }
 
 func TestARuntimeFolderUnderALinkedParentIsResolved(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	target := filepath.Join(root, "private", "var")
 	require.NoError(t, os.MkdirAll(target, 0o700))
@@ -147,6 +159,8 @@ func TestARuntimeFolderUnderALinkedParentIsResolved(t *testing.T) {
 // Two kinds linked to one folder fail the start, and so does a kind linked
 // inside another.
 func TestKindsLinkedOntoOneAnotherFailTheStart(t *testing.T) {
+	t.Parallel()
+
 	t.Run("one folder", func(t *testing.T) {
 		root := scratch(t)
 		n := linuxNamed(root)
@@ -174,6 +188,8 @@ func TestKindsLinkedOntoOneAnotherFailTheStart(t *testing.T) {
 
 // Logs linked out of the state are fine: they resolve outside it.
 func TestLogsLinkedOutOfTheStateStart(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	n := linuxNamed(root)
 	target := filepath.Join(root, "mnt", "logs")
@@ -189,6 +205,8 @@ func TestLogsLinkedOutOfTheStateStart(t *testing.T) {
 // A layout the check refuses is left as it was: no folder made, no mode
 // changed.
 func TestARefusedLayoutChangesNoMode(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	n := linuxNamed(root)
 	leaveOpen(t, n.Data)
@@ -204,6 +222,8 @@ func TestARefusedLayoutChangesNoMode(t *testing.T) {
 // A folder the host did not make, as in a run without it, is made
 // owner-only.
 func TestResolveFoldersMakesAMissingFolderOwnerOnly(t *testing.T) {
+	t.Parallel()
+
 	f, err := ResolveFolders(linuxNamed(scratch(t)))
 
 	require.NoError(t, err)
@@ -213,6 +233,8 @@ func TestResolveFoldersMakesAMissingFolderOwnerOnly(t *testing.T) {
 // An earlier build left the data and cache directories, and the app folder
 // above them, open: each is tightened before the sidecar writes in it.
 func TestResolveFoldersTightensItsFoldersAndTheAppFolderAbove(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	n := namedOn(layout.MacOS, root, macOSRoots(root))
 	leaveOpen(t, n.Layout.App, n.Data, n.Cache)
@@ -226,6 +248,8 @@ func TestResolveFoldersTightensItsFoldersAndTheAppFolderAbove(t *testing.T) {
 // A debug build's moved folder may be one the developer shares: one that
 // exists keeps its mode.
 func TestResolveFoldersLeavesAMovedFolderAsItIs(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	n := linuxNamed(root)
 	n.Data, n.Cache = filepath.Join(root, "shared-data"), filepath.Join(root, "shared-cache")
@@ -240,6 +264,8 @@ func TestResolveFoldersLeavesAMovedFolderAsItIs(t *testing.T) {
 // A moved folder spelling the layout's own folder another way is that
 // folder, and is tightened.
 func TestResolveFoldersTightensTheLayoutsFolderSpelledAnotherWay(t *testing.T) {
+	t.Parallel()
+
 	n := linuxNamed(scratch(t))
 	leaveOpen(t, n.Data, n.Cache)
 	data, cache := n.Data, n.Cache
@@ -254,6 +280,8 @@ func TestResolveFoldersTightensTheLayoutsFolderSpelledAnotherWay(t *testing.T) {
 // A moved folder reaching the layout's own through a link is that folder: it
 // is tightened, and the app folder holding it too.
 func TestResolveFoldersTightensTheLayoutsFolderReachedThroughALink(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	n := namedOn(layout.MacOS, root, macOSRoots(root))
 	leaveOpen(t, n.Layout.App, n.Data)
@@ -268,6 +296,8 @@ func TestResolveFoldersTightensTheLayoutsFolderReachedThroughALink(t *testing.T)
 
 // A profile that is a link to nothing fails the start, naming it.
 func TestResolveFoldersFailsOnAWindowsProfileLinkedToNothing(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	n := namedOn(layout.Windows, root, sharedWindowsRoots(root))
 	n.Profile = filepath.Join(root, "profile")
@@ -282,6 +312,8 @@ func TestResolveFoldersFailsOnAWindowsProfileLinkedToNothing(t *testing.T) {
 // the profile itself, fails the start: the profile's ACL is what keeps the
 // folder private. Nothing is made.
 func TestResolveFoldersRefusesALinkOutOfTheWindowsProfile(t *testing.T) {
+	t.Parallel()
+
 	for _, c := range []struct {
 		name   string
 		target func(root string) string

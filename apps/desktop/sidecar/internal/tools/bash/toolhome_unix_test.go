@@ -30,6 +30,8 @@ import (
 // A link planted at any level of the tool home is refused, so a command that
 // swaps one in reaches no other folder.
 func TestALinkInTheToolHomeIsRefused(t *testing.T) {
+	t.Parallel()
+
 	for _, level := range []string{"toolhome", "toolhome/xdg", "toolhome/xdg/cache"} {
 		t.Run(level, func(t *testing.T) {
 			dir := testChatDir(t)
@@ -56,6 +58,8 @@ func confiningTool(t *testing.T) *Tool {
 // Through the real sandbox, a run writes its own chat's tool home and not
 // another chat's.
 func TestARunWritesOnlyItsOwnToolHome(t *testing.T) {
+	t.Parallel()
+
 	tl := confiningTool(t)
 	own, other := testRuntime(t), testRuntime(t)
 	require.NoError(t, makeToolHome(other.Dir))
@@ -71,6 +75,8 @@ func TestARunWritesOnlyItsOwnToolHome(t *testing.T) {
 
 // helm, where the machine has it, names the tool home and writes there.
 func TestHelmWritesItsCache(t *testing.T) {
+	t.Parallel()
+
 	tl := confiningTool(t)
 	withTool(t, tl, "helm")
 	rt := testRuntime(t)

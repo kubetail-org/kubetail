@@ -25,6 +25,8 @@ import (
 
 // Each subfolder pathsOf names is made at start, under its folder.
 func TestMakeSubfoldersMakesEachSubfolder(t *testing.T) {
+	t.Parallel()
+
 	p := pathsOf(Config{Folders: testFolders(t)})
 
 	require.NoError(t, makeSubfolders(p))
@@ -36,6 +38,8 @@ func TestMakeSubfoldersMakesEachSubfolder(t *testing.T) {
 
 // A file where a subfolder goes fails the start, naming it.
 func TestAFileWhereASubfolderGoesFailsTheStart(t *testing.T) {
+	t.Parallel()
+
 	f := testFolders(t)
 	file := filepath.Join(f.Data, "chats")
 	require.NoError(t, os.WriteFile(file, nil, 0o600))
@@ -47,6 +51,8 @@ func TestAFileWhereASubfolderGoesFailsTheStart(t *testing.T) {
 
 // A missing folder to make subfolders in fails the start.
 func TestMakeSubfoldersFailsOnAMissingFolder(t *testing.T) {
+	t.Parallel()
+
 	f := testFolders(t)
 	f.Cache = filepath.Join(t.TempDir(), "missing")
 

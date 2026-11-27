@@ -62,6 +62,8 @@ func (g *fakeGoogle) RoundTrip(r *http.Request) (*http.Response, error) {
 // A run started with Google off holds none of gcloud's variables; one
 // started with it on holds them.
 func TestGcloudsVariablesRideOnlyARunWithGoogleOn(t *testing.T) {
+	t.Parallel()
+
 	p := NewGCP(gcpauth.New(helperAnswering("users-token", "proj-1")), nil)
 
 	off := startRun(t, cloudTool(t, switchesOn(), p), chatRuntime(t, session.Chat, nil), false)

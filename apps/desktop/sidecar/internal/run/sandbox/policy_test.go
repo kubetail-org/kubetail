@@ -41,6 +41,8 @@ func foldingCase() func(string) (fileID, bool) {
 // A policy's rules are compared by text, so one naming a folder two ways is
 // refused: a Deny in one spelling would be dropped under a Read in the other.
 func TestAPolicyNamingOneFolderTwoWaysIsRefused(t *testing.T) {
+	t.Parallel()
+
 	native := func(paths ...string) []string {
 		for i, p := range paths {
 			paths[i] = filepath.FromSlash(p)
@@ -67,6 +69,8 @@ func TestAPolicyNamingOneFolderTwoWaysIsRefused(t *testing.T) {
 // A policy fails Check for each thing it refuses, and passes when every
 // rule is where a run's rules go.
 func TestAPolicyChecks(t *testing.T) {
+	t.Parallel()
+
 	base := realpath.Resolved(t.TempDir())
 	p := func(rel string) string { return filepath.Join(base, filepath.FromSlash(rel)) }
 	workspace := func() Policy {
@@ -130,6 +134,8 @@ func TestAPolicyChecks(t *testing.T) {
 // Outside drops a Read and a Write rule on or inside the paths it is given,
 // keeps one beside them and one above them, and keeps every Deny.
 func TestOutsideDropsWhatIsOnOrInsideItsPaths(t *testing.T) {
+	t.Parallel()
+
 	f := FilePolicy{
 		Read:  []string{"/k", "/k/bin", "/kx", "/"},
 		Write: []string{"/k/w", "/w"},
@@ -144,6 +150,8 @@ func TestOutsideDropsWhatIsOnOrInsideItsPaths(t *testing.T) {
 // A Deny is compiled only where a Files Read or Write reaches it: inside one,
 // on one, or holding one. Anywhere else its path is off limits already.
 func TestADenyIsCompiledOnlyWhereAReadOrWriteReachesIt(t *testing.T) {
+	t.Parallel()
+
 	base := realpath.Resolved(t.TempDir())
 	d := mkdirs(t, base, "home/.local/share/keyrings", "home/.kube", "srv/tools", "home/.ssh")
 	keyrings, kube, tools, ssh := d[0], d[1], d[2], d[3]
@@ -164,6 +172,8 @@ func TestADenyIsCompiledOnlyWhereAReadOrWriteReachesIt(t *testing.T) {
 
 // A Kubetail folder inside another is denied once, with the one around it.
 func TestAKubetailFolderInsideAnotherIsDeniedOnce(t *testing.T) {
+	t.Parallel()
+
 	base := realpath.Resolved(t.TempDir())
 	d := mkdirs(t, base, "state/logs", "state", "data")
 	logs, state, data := d[0], d[1], d[2]
@@ -180,6 +190,8 @@ func TestAKubetailFolderInsideAnotherIsDeniedOnce(t *testing.T) {
 }
 
 func TestLimitsAreChecked(t *testing.T) {
+	t.Parallel()
+
 	assert.NoError(t, Policy{}.Check(), "no limits")
 	assert.NoError(t, Policy{Limits: Limits{CPUSeconds: 1, MemoryBytes: 1, OpenFiles: 1, Processes: 1}}.Check())
 	for name, l := range map[string]Limits{

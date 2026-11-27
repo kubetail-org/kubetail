@@ -89,6 +89,8 @@ func limitsOf(t *testing.T, first string, args ...string) string {
 }
 
 func TestTheShellSetsTheLimits(t *testing.T) {
+	t.Parallel()
+
 	p := strconv.Itoa(ownProcesses(t))
 
 	got := limitsOf(t, "true", "--cpu", "7", "--cpu-grace", "5", "--files", "64", "--processes", p)
@@ -99,6 +101,8 @@ func TestTheShellSetsTheLimits(t *testing.T) {
 // A limit above sandbox-shell's own hard one is lowered to it, which an
 // unprivileged process cannot raise.
 func TestTheShellLowersALimitToItsOwnHardOne(t *testing.T) {
+	t.Parallel()
+
 	got := limitsOf(t, "ulimit -n 512", "--files", "4096")
 
 	assert.Contains(t, got, "files=512/512")
@@ -106,12 +110,16 @@ func TestTheShellLowersALimitToItsOwnHardOne(t *testing.T) {
 
 // With no room above the CPU limit for the grace, soft and hard are equal.
 func TestTheCPULimitWithNoRoomHasNoGrace(t *testing.T) {
+	t.Parallel()
+
 	got := limitsOf(t, "ulimit -t 7", "--cpu", "600")
 
 	assert.Contains(t, got, "cpu=7/7")
 }
 
 func TestClampedAddsTheGraceUnderItsOwnHardLimit(t *testing.T) {
+	t.Parallel()
+
 	var own unix.Rlimit
 	require.NoError(t, unix.Getrlimit(unix.RLIMIT_CPU, &own))
 
@@ -122,6 +130,8 @@ func TestClampedAddsTheGraceUnderItsOwnHardLimit(t *testing.T) {
 }
 
 func TestClampedLowersAValueToItsOwnHardLimit(t *testing.T) {
+	t.Parallel()
+
 	var own unix.Rlimit
 	require.NoError(t, unix.Getrlimit(unix.RLIMIT_NOFILE, &own))
 	if own.Max == unix.RLIM_INFINITY {
@@ -135,6 +145,8 @@ func TestClampedLowersAValueToItsOwnHardLimit(t *testing.T) {
 }
 
 func TestClampedFailsOnAnUnknownResource(t *testing.T) {
+	t.Parallel()
+
 	_, err := clamped(-1, 7, 0)
 
 	assert.ErrorIs(t, err, unix.EINVAL)
@@ -143,6 +155,7 @@ func TestClampedFailsOnAnUnknownResource(t *testing.T) {
 // The open-files limit is set soft and hard. At the soft limit the process
 // runs under, nothing it can open changes.
 func TestSetTimeAndFilesSetsTheOpenFilesLimit(t *testing.T) {
+	// unix.Setrlimit lowers the process's open-files limit, so this test stays serial.
 	var own unix.Rlimit
 	require.NoError(t, unix.Getrlimit(unix.RLIMIT_NOFILE, &own))
 	t.Cleanup(func() { _ = unix.Setrlimit(unix.RLIMIT_NOFILE, &own) })
@@ -158,6 +171,8 @@ func TestSetTimeAndFilesSetsTheOpenFilesLimit(t *testing.T) {
 // any time a test runs, it changes nothing a test notices; the hard limit it
 // lowers stays lowered for the rest of the process.
 func TestSetTimeAndFilesSetsTheCPULimit(t *testing.T) {
+	t.Parallel()
+
 	var own unix.Rlimit
 	require.NoError(t, unix.Getrlimit(unix.RLIMIT_CPU, &own))
 	const far = 1 << 40 // seconds
@@ -171,9 +186,13 @@ func TestSetTimeAndFilesSetsTheCPULimit(t *testing.T) {
 
 // A run with neither limit sets none.
 func TestSetTimeAndFilesWithNoLimitsSetsNone(t *testing.T) {
+	t.Parallel()
+
 	assert.NoError(t, setTimeAndFiles(shellArgs{}))
 }
 
 func TestSetClampedFailsOnAnUnknownResource(t *testing.T) {
+	t.Parallel()
+
 	assert.ErrorIs(t, setClamped(-1, 7, 0), unix.EINVAL)
 }

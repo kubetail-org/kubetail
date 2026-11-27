@@ -59,6 +59,8 @@ func internetRun(t *testing.T, s *Sandbox, args ...string) Run {
 // A machine with no pasta offers no network, says why, and refuses a run
 // with the internet; a run without it still starts.
 func TestNoPastaNoNetwork(t *testing.T) {
+	t.Parallel()
+
 	s := &Sandbox{self: os.Args[0], bwrap: "/usr/bin/bwrap"}
 
 	s.probePasta(t.Context(), nil, time.Minute)
@@ -74,6 +76,7 @@ func TestNoPastaNoNetwork(t *testing.T) {
 
 // A pasta that never answers offers no network once the bound is out.
 func TestTheProbeIsBounded(t *testing.T) {
+	// It waits on the package's boundedCalls, which every probe adds to, so this test stays serial.
 	// Latency injected into the code under test: the fake outlasts the bound.
 	pasta := fakeBwrap(t, filepath.Join(t.TempDir(), "pasta"), "exec sleep 60")
 	// The bound can cut off the policy build too.
@@ -89,6 +92,8 @@ func TestTheProbeIsBounded(t *testing.T) {
 
 // A pasta that fails the probe says why in its first line.
 func TestAPastaThatFailsTheProbeSaysWhy(t *testing.T) {
+	t.Parallel()
+
 	pasta := fakeBwrap(t, filepath.Join(t.TempDir(), "pasta"), `echo "Failed to open() /dev/net/tun" >&2; exit 1`)
 	s := &Sandbox{self: os.Args[0], bwrap: "/usr/bin/bwrap"}
 
@@ -102,6 +107,7 @@ func TestAPastaThatFailsTheProbeSaysWhy(t *testing.T) {
 // A pasta probe whose policy never answers fails at its bound, as the bwrap
 // probe's does.
 func TestThePastaProbePolicyIsBounded(t *testing.T) {
+	// It waits on the package's boundedCalls, which every probe adds to, so this test stays serial.
 	release := make(chan struct{})
 	// Cleanups run last first, so the build is released before it is waited on.
 	t.Cleanup(boundedCalls.Wait)
@@ -119,6 +125,8 @@ func TestThePastaProbePolicyIsBounded(t *testing.T) {
 
 // A pasta probe whose check never answers fails at its bound too.
 func TestThePastaProbesCheckIsBounded(t *testing.T) {
+	t.Parallel()
+
 	synctest.Test(t, func(t *testing.T) {
 		s, started, release := hangingCheck()
 		defer release()
@@ -133,6 +141,8 @@ func TestThePastaProbesCheckIsBounded(t *testing.T) {
 // A pasta probe whose denial lookup hangs after its check fails at its bound
 // too.
 func TestThePastaProbesDenialLookupIsBounded(t *testing.T) {
+	t.Parallel()
+
 	synctest.Test(t, func(t *testing.T) {
 		s, started, release := hangingDenial()
 		defer release()
@@ -148,6 +158,7 @@ func TestThePastaProbesDenialLookupIsBounded(t *testing.T) {
 // leaves the child it made for the run's namespaces holding the probe's pipes,
 // so the probe would wait on them forever.
 func TestAProbePastItsBoundEndsPastasChild(t *testing.T) {
+	// It waits on the package's boundedCalls, which every probe adds to, so this test stays serial.
 	token := runToken(t)
 	pasta := fakeBwrap(t, filepath.Join(t.TempDir(), "pasta"), token+` sleep 600 & exec sleep 600`)
 	t.Cleanup(func() {
@@ -174,6 +185,7 @@ func TestAProbePastItsBoundEndsPastasChild(t *testing.T) {
 // A probe whose policy cannot be enforced fails, saying why: here, a home
 // the kernel cannot name.
 func TestAPastaProbeWithARefusedPolicyFails(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	pasta := fakeBwrap(t, filepath.Join(t.TempDir(), "pasta"), "exit 0")
 	t.Setenv("HOME", unnameable(t))
 	s := &Sandbox{self: os.Args[0], bwrap: "/usr/bin/bwrap"}
@@ -187,6 +199,7 @@ func TestAPastaProbeWithARefusedPolicyFails(t *testing.T) {
 
 // With no temporary directory to run in, the pasta probe fails, saying why.
 func TestAPastaProbeWithNoTempDirFails(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	pasta := fakeBwrap(t, filepath.Join(t.TempDir(), "pasta"), "exit 0")
 	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
 	s := &Sandbox{self: os.Args[0], bwrap: "/usr/bin/bwrap"}
@@ -201,6 +214,8 @@ func TestAPastaProbeWithNoTempDirFails(t *testing.T) {
 // A closed Sandbox probes no pasta: a run with the internet is handed the
 // lifeline as any run is.
 func TestAClosedSandboxProbesNoPasta(t *testing.T) {
+	t.Parallel()
+
 	s := lifeline(t)
 	s.self, s.bwrap = os.Args[0], "/usr/bin/bwrap"
 	require.NoError(t, s.Close())
@@ -216,6 +231,8 @@ func TestAClosedSandboxProbesNoPasta(t *testing.T) {
 // reasons are named when both fail; one that passes is never replaced. The
 // passing pastas run bwrap in the sidecar's own network.
 func TestKubetailsOwnPastaStandsInForTheSystems(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	// Each case probes from scratch, as Probe does, whatever pasta this machine has.
 	fresh := func() { s.pasta, s.pastaOwnUserNS, s.networkReason = "", false, "" }
@@ -246,6 +263,8 @@ func TestKubetailsOwnPastaStandsInForTheSystems(t *testing.T) {
 // pasta that fails a run fails it with its own words, and the command never
 // starts.
 func TestAPastaFailureFailsTheRun(t *testing.T) {
+	t.Parallel()
+
 	marker := filepath.Join(t.TempDir(), "ran")
 	pasta := fakeBwrap(t, filepath.Join(t.TempDir(), "pasta"), `echo "No routable interface" >&2; exit 1`)
 	s := &Sandbox{self: os.Args[0], bwrap: "/usr/bin/bwrap", pasta: pasta}
@@ -270,6 +289,8 @@ func splitPastaArgs(t *testing.T, args []string) (flags, command []string) {
 
 // A run with the internet starts pasta through sandbox-pasta.
 func TestARunStartsPastaThroughTheLauncher(t *testing.T) {
+	t.Parallel()
+
 	s := &Sandbox{self: os.Args[0], bwrap: "/usr/bin/bwrap", pasta: "/usr/bin/pasta"}
 
 	cmd := command(t, s, t.Context(), internetRun(t, s, "-c", "true"))
@@ -282,6 +303,8 @@ func TestARunStartsPastaThroughTheLauncher(t *testing.T) {
 // The probe passes pasta every flag a run passes, with probeNet in place of
 // --config-net, so a pasta lacking one fails the probe rather than every run.
 func TestTheProbePassesARunsPastaFlags(t *testing.T) {
+	t.Parallel()
+
 	s := &Sandbox{self: os.Args[0], bwrap: "/usr/bin/bwrap", pasta: "/usr/bin/pasta"}
 	r := internetRun(t, s, "-c", "true")
 
@@ -296,6 +319,8 @@ func TestTheProbePassesARunsPastaFlags(t *testing.T) {
 // user, with no capability, and no network namespace of its own: pasta's is
 // the run's.
 func TestANetworkRunAsksBwrapForTheUsersIDsAndNoCapability(t *testing.T) {
+	t.Parallel()
+
 	s := &Sandbox{self: os.Args[0], bwrap: "/usr/bin/bwrap", pasta: "/usr/bin/pasta"}
 
 	_, rest := splitPastaArgs(t, command(t, s, t.Context(), internetRun(t, s, "-c", "true")).Args)
@@ -309,6 +334,8 @@ func TestANetworkRunAsksBwrapForTheUsersIDsAndNoCapability(t *testing.T) {
 
 // Linux's Command refuses a run with the internet and no resolver.
 func TestARunWithTheInternetNeedsAResolver(t *testing.T) {
+	t.Parallel()
+
 	s := &Sandbox{self: os.Args[0], bwrap: "/usr/bin/bwrap", pasta: "/usr/bin/pasta"}
 	r := internetRun(t, s, "-c", "true")
 	r.Policy.Network.Resolver = ""
@@ -363,6 +390,8 @@ func netRun(t *testing.T, r Run) Run {
 
 // The probe found pasta on a machine whose sandbox gives a run the internet.
 func TestTheProbeFindsPasta(t *testing.T) {
+	t.Parallel()
+
 	s := networked(t)
 
 	assert.NotEmpty(t, s.pasta)
@@ -372,6 +401,8 @@ func TestTheProbeFindsPasta(t *testing.T) {
 // A run with the internet holds no capability and runs as the user, as one
 // without it does.
 func TestANetworkRunHoldsNoCapability(t *testing.T) {
+	t.Parallel()
+
 	s := networked(t)
 
 	code, out := run(t, s, withNet(t, shRun(t, "grep CapEff /proc/self/status; id -u; id -g")))
@@ -383,6 +414,8 @@ func TestANetworkRunHoldsNoCapability(t *testing.T) {
 // A run with the internet cannot unmount the tmpfs over a denied folder to
 // read what lies under it.
 func TestANetworkRunCannotUnmountANeverPath(t *testing.T) {
+	t.Parallel()
+
 	s := networked(t)
 	denied := realpath.Resolved(t.TempDir())
 	require.NoError(t, os.WriteFile(filepath.Join(denied, "secret"), []byte("s3cret"), 0o600))
@@ -412,6 +445,8 @@ func init() {
 
 // Every mount syscall answers EPERM in a run, with the internet or without.
 func TestTheMountSyscallsAreRefused(t *testing.T) {
+	t.Parallel()
+
 	s := networked(t)
 	want := strings.TrimSuffix(strings.Repeat("operation not permitted,", len(mountSyscalls)), ",")
 
@@ -424,6 +459,8 @@ func TestTheMountSyscallsAreRefused(t *testing.T) {
 // pasta passes the command's exit on: a code, and a death by signal as the
 // same run without the internet reports it.
 func TestANetworkRunKeepsTheExitCode(t *testing.T) {
+	t.Parallel()
+
 	s := networked(t)
 
 	code, _ := run(t, s, withNet(t, shRun(t, "exit 7")))
@@ -477,6 +514,8 @@ func otherAddress(t *testing.T) string {
 // With the internet a run reaches an address of the host's other than the one
 // pasta copies; without it, the same listener is out of reach.
 func TestTheInternetReachesOut(t *testing.T) {
+	t.Parallel()
+
 	s := networked(t)
 	ln, err := net.Listen("tcp", net.JoinHostPort(otherAddress(t), "0"))
 	require.NoError(t, err)
@@ -503,6 +542,8 @@ func TestTheInternetReachesOut(t *testing.T) {
 // With the internet the host's loopback stays shut, IPv4 and IPv6, while the
 // run's relay port still reaches the forwarder.
 func TestTheInternetReachesNoHostLoopback(t *testing.T) {
+	t.Parallel()
+
 	s := networked(t)
 	listeners := []string{"127.0.0.1:0"}
 	if ln, err := net.Listen("tcp", "[::1]:0"); err == nil {
@@ -531,6 +572,8 @@ func TestTheInternetReachesNoHostLoopback(t *testing.T) {
 
 // The process count and the memory limit hold in a run with the internet.
 func TestTheLimitsHoldWithTheInternet(t *testing.T) {
+	t.Parallel()
+
 	s := networked(t)
 	dd := []string{"/bin/sh", "-c", "dd if=/dev/zero of=/dev/null bs=1G count=1 2>&1"}
 	code, out := limitedRun(t, s, Limits{MemoryBytes: 512 << 20, OpenFiles: 4096}, nil, dd...)
@@ -612,6 +655,8 @@ func assertRunGone(t *testing.T, cmd *exec.Cmd, token string) {
 // A stop to the run's group, as Bash's Stop and timeout send, ends pasta,
 // bwrap and the command alike.
 func TestStopEndsANetworkRun(t *testing.T) {
+	t.Parallel()
+
 	s := networked(t)
 	token := runToken(t)
 	cmd := startSleeping(t, s, token)
@@ -624,6 +669,8 @@ func TestStopEndsANetworkRun(t *testing.T) {
 // A timed-out run's group is killed once its grace is out, and nothing of it
 // is left.
 func TestATimeoutEndsANetworkRun(t *testing.T) {
+	t.Parallel()
+
 	s := networked(t)
 	token := runToken(t)
 	cmd := startSleeping(t, s, token)
@@ -635,6 +682,8 @@ func TestATimeoutEndsANetworkRun(t *testing.T) {
 
 // sandbox-pasta killed alone takes pasta, bwrap and the command with it.
 func TestKillingTheLauncherEndsTheRun(t *testing.T) {
+	t.Parallel()
+
 	s := networked(t)
 	token := runToken(t)
 	cmd := startSleeping(t, s, token)
@@ -802,6 +851,8 @@ func inOwnNetwork(t *testing.T, helper string, needs ...string) string {
 // server on the namespace's loopback, as systemd-resolved's stub is, since the
 // machine's resolvers are not the test's to rely on.
 func TestTheInternetResolves(t *testing.T) {
+	t.Parallel()
+
 	networked(t)
 
 	assert.Equal(t, "10.1.2.3", inOwnNetwork(t, "resolvens", "ip"))
@@ -811,6 +862,8 @@ func TestTheInternetResolves(t *testing.T) {
 // finds the network, so a Kubetail started offline offers it once the machine
 // is online. The user there is uid 0, which the probe expects of a run.
 func TestTheProbeNeedsNoRoute(t *testing.T) {
+	t.Parallel()
+
 	networked(t)
 
 	assert.Equal(t, "true ", inOwnNetwork(t, "netprobe"))
@@ -819,6 +872,8 @@ func TestTheProbeNeedsNoRoute(t *testing.T) {
 // Without the internet a run reaches neither an address of the host's nor a
 // public one: its namespace holds loopback alone.
 func TestWithoutTheInternetNothingIsReached(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	ln, err := net.Listen("tcp", net.JoinHostPort(otherAddress(t), "0"))
 	require.NoError(t, err)
@@ -835,6 +890,8 @@ func TestWithoutTheInternetNothingIsReached(t *testing.T) {
 // The probe holds when the run was the user, with no capability, and its user
 // namespace is its own when its uid_map differs from the sidecar's.
 func TestThePastaProbeReadsTheRunsIdentity(t *testing.T) {
+	t.Parallel()
+
 	ids := fmt.Sprintf("Uid: %d\nGid: %d\n", os.Getuid(), os.Getgid())
 
 	own, err := readPastaProbe("4242 4242 1\n" + ids + "CapEff: 0000000000000000\n")
@@ -849,6 +906,8 @@ func TestThePastaProbeReadsTheRunsIdentity(t *testing.T) {
 // pasta, between the sidecar and the forwarder, closes the descriptor: it is
 // sandbox-pasta that watches it.
 func TestARunWithTheInternetEndsWithTheLifeline(t *testing.T) {
+	t.Parallel()
+
 	s := networked(t)
 	cmd := command(t, s, t.Context(), withNet(t, shRun(t, "sleep 1000 & echo up; wait")).on(s))
 
@@ -857,6 +916,8 @@ func TestARunWithTheInternetEndsWithTheLifeline(t *testing.T) {
 
 // sandbox-pasta, not the forwarder, is handed the lifeline.
 func TestSandboxPastaWatchesTheLifeline(t *testing.T) {
+	t.Parallel()
+
 	s := lifeline(t)
 	s.self, s.bwrap, s.pasta = os.Args[0], "/usr/bin/bwrap", "/usr/bin/pasta"
 

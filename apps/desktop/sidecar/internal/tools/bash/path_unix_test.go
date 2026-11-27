@@ -91,6 +91,8 @@ func (f *pathFixture) runPathOf(t *testing.T) (string, sandbox.Run) {
 }
 
 func TestTheRunFreezesThePath(t *testing.T) {
+	t.Parallel()
+
 	f := newPathFixture(t)
 	inOpen, inHome := f.dir(t, "open/bin"), f.dir(t, "home/bin")
 	folders := []settings.PathFolder{shell(inOpen), typed(inHome)}
@@ -116,6 +118,8 @@ func TestTheRunFreezesThePath(t *testing.T) {
 
 // A setting that cannot be read, or that Kubetail cannot use, starts no run.
 func TestARunWhosePathCannotBeReadDoesNotStart(t *testing.T) {
+	t.Parallel()
+
 	f := newPathFixture(t)
 	for err, says := range map[error]string{
 		errors.New("disk I/O error"):                              "could not read your PATH setting",
@@ -131,6 +135,7 @@ func TestARunWhosePathCannotBeReadDoesNotStart(t *testing.T) {
 }
 
 func TestTheRunLeavesOutAFolderNoRuleOpens(t *testing.T) {
+	// CaptureLogs swaps the process's default logger, so this test stays serial.
 	f := newPathFixture(t)
 	inNever := f.dir(t, "never/bin")
 	world := f.dir(t, "open/world")
@@ -151,6 +156,8 @@ func TestTheRunLeavesOutAFolderNoRuleOpens(t *testing.T) {
 // A typed folder that is the home, or holds it, is left out of a run: its
 // Read rule would open all of the home.
 func TestTheRunLeavesOutABroadFolder(t *testing.T) {
+	t.Parallel()
+
 	f := newPathFixture(t)
 	f.tl.home = f.home
 	inHome := f.dir(t, "home/bin")
@@ -164,6 +171,8 @@ func TestTheRunLeavesOutABroadFolder(t *testing.T) {
 // A shell folder that leads into an open folder is searched there; once it
 // leads to a closed one, it is left out.
 func TestTheRunFollowsALinkIntoAnOpenFolder(t *testing.T) {
+	t.Parallel()
+
 	f := newPathFixture(t)
 	second := f.dir(t, "open/v2")
 	link := filepath.Join(f.base, "current")
@@ -182,6 +191,8 @@ func TestTheRunFollowsALinkIntoAnOpenFolder(t *testing.T) {
 // Over the real service: a closed folder of the shell's PATH is not searched
 // until the user types it into the setting.
 func TestAClosedShellFolderIsFoundOnceTyped(t *testing.T) {
+	t.Parallel()
+
 	f := newPathFixture(t)
 	scripts := f.dir(t, "home/scripts")
 	require.NoError(t, os.WriteFile(filepath.Join(scripts, "hello"), []byte("#!/bin/sh\necho hi\n"), 0o755))
@@ -206,6 +217,8 @@ func TestAClosedShellFolderIsFoundOnceTyped(t *testing.T) {
 // A typed folder inside a closed folder is searched, its Read rule opening it
 // alone; the closed folder itself, as a grant of it, is left out.
 func TestATypedFolderInsideAClosedOneIsOpened(t *testing.T) {
+	t.Parallel()
+
 	f := newPathFixture(t)
 	closed := f.dir(t, "open/Downloads")
 	inside := f.dir(t, "open/Downloads/bin")

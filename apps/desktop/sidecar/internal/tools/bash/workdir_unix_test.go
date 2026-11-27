@@ -27,6 +27,8 @@ import (
 // home by mode. Outside the sandbox .. may leave either: a directory is a place,
 // not a boundary.
 func TestWhereACallStarts(t *testing.T) {
+	t.Parallel()
+
 	const home, ws = "/home/ana", "/data/chats/c1/workspace"
 	for _, c := range []struct{ workdir, sandboxed, outside string }{
 		{"", ws, ws},
@@ -67,6 +69,8 @@ func TestWhereACallStarts(t *testing.T) {
 
 // checkWorkdir refuses what no home can make valid, and nothing else.
 func TestCheckWorkdir(t *testing.T) {
+	t.Parallel()
+
 	for _, workdir := range []string{"", "~", "~/src", "src", "/tmp"} {
 		assert.NoError(t, checkWorkdir(workdir), workdir)
 	}

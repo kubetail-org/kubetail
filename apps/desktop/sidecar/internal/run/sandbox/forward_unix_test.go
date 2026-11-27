@@ -104,6 +104,8 @@ func (l *flakyListener) Accept() (net.Conn, error) {
 
 // A failed accept is tried again, and only a closed listener ends the loop.
 func TestTheForwarderAcceptsAgainAfterAFailure(t *testing.T) {
+	t.Parallel()
+
 	socket := echoSocket(t)
 	tcpLn, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -129,6 +131,8 @@ func TestTheForwarderAcceptsAgainAfterAFailure(t *testing.T) {
 // A signal reads as 128 plus its number, as a shell reports it; anything else
 // is the exit status.
 func TestASignalReadsAs128PlusIt(t *testing.T) {
+	t.Parallel()
+
 	signalled := func(sig os.Signal) *os.ProcessState {
 		cmd := exec.Command("sleep", "60")
 		require.NoError(t, cmd.Start())
@@ -146,6 +150,8 @@ func TestASignalReadsAs128PlusIt(t *testing.T) {
 
 // The forwarder exits as its child did: its code, or 128 plus the signal.
 func TestInitExitsWithTheChildsStatus(t *testing.T) {
+	t.Parallel()
+
 	for script, want := range map[string]int{"exit 0": 0, "exit 7": 7, "kill -KILL $$": 137} {
 		code, _, _ := runInit(t, initCmd(forwarding("unused", freePort(t), "/bin/sh", "-c", script)...))
 		assert.Equal(t, want, code, script)
@@ -154,6 +160,8 @@ func TestInitExitsWithTheChildsStatus(t *testing.T) {
 
 // A forwarder given neither flag runs its child alone, and exits as it did.
 func TestInitWithNoSocketRunsTheChild(t *testing.T) {
+	t.Parallel()
+
 	code, stdout, stderr := runInit(t, initCmd("--", "/bin/sh", "-c", "echo ran; exit 3"))
 
 	assert.Equal(t, 3, code, stderr)
@@ -163,6 +171,8 @@ func TestInitWithNoSocketRunsTheChild(t *testing.T) {
 // The port is open before the child starts, so a child that connects at once
 // is relayed.
 func TestInitListensBeforeTheChildStarts(t *testing.T) {
+	t.Parallel()
+
 	port := freePort(t)
 	cmd := initCmd(forwarding(echoSocket(t), port, os.Args[0])...)
 	cmd.Env = append(os.Environ(), "KUBETAIL_SANDBOX_TEST_DIAL="+strconv.Itoa(port))
@@ -176,6 +186,8 @@ func TestInitListensBeforeTheChildStarts(t *testing.T) {
 // A port another process holds is the forwarder's failure: 125, the listen
 // line, and a child that never starts.
 func TestInitExitsWhenThePortIsTaken(t *testing.T) {
+	t.Parallel()
+
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	defer ln.Close()
@@ -192,6 +204,8 @@ func TestInitExitsWhenThePortIsTaken(t *testing.T) {
 // A SIGTERM to the group, as a stop sends, ends the child at once, and the
 // forwarder outlives it to exit with its 143 rather than dying of the signal.
 func TestInitWaitsForTheChildOnTerm(t *testing.T) {
+	t.Parallel()
+
 	cmd := initCmd(forwarding("unused", freePort(t), "/bin/sh", "-c", "echo up; exec sleep 60")...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	out, err := cmd.StdoutPipe()
@@ -213,6 +227,8 @@ func TestInitWaitsForTheChildOnTerm(t *testing.T) {
 // ignored across exec, and a shell cannot trap a signal ignored when it
 // started.
 func TestTheChildCanTrapTheSignals(t *testing.T) {
+	t.Parallel()
+
 	for _, sig := range []string{"TERM", "INT", "HUP"} {
 		script := `trap 'echo trapped; exit 3' ` + sig + `; kill -` + sig + ` $$; exit 9`
 		code, stdout, stderr := runInit(t, initCmd(forwarding("unused", freePort(t), "/bin/sh", "-c", script)...))
@@ -223,6 +239,8 @@ func TestTheChildCanTrapTheSignals(t *testing.T) {
 
 // A command that cannot start is the forwarder's failure too.
 func TestInitExitsWhenTheChildCannotStart(t *testing.T) {
+	t.Parallel()
+
 	code, _, stderr := runInit(t, initCmd(forwarding("unused", freePort(t), "/nonexistent/shell")...))
 
 	assert.Equal(t, 125, code)
@@ -257,6 +275,8 @@ func runInit(t *testing.T, cmd *exec.Cmd) (code int, stdout, stderr string) {
 // Arguments the forwarder cannot read are its own failure: 125, and one line
 // saying so.
 func TestInitRefusesBadArguments(t *testing.T) {
+	t.Parallel()
+
 	for name, args := range map[string][]string{
 		"no socket":  {"--port", "1", "--", "true"},
 		"no port":    {"--socket", "s", "--", "true"},
@@ -272,17 +292,23 @@ func TestInitRefusesBadArguments(t *testing.T) {
 // Called in a test's own process, off PID 1, the forwarder waits on its child
 // alone and answers its status.
 func TestInitMainInProcessAnswersTheChildsStatus(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, 3, InitMain([]string{"--", "/bin/sh", "-c", "exit 3"}))
 	assert.Equal(t, 137, InitMain([]string{"--", "/bin/sh", "-c", "kill -KILL $$"}))
 }
 
 // A command the forwarder cannot find is its own failure.
 func TestInitMainInProcessRefusesAMissingCommand(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, 125, InitMain([]string{"--", "/nonexistent/shell"}))
 }
 
 // A command the kernel will not exec is the forwarder's failure too.
 func TestInitMainInProcessRefusesWhatCannotExec(t *testing.T) {
+	t.Parallel()
+
 	garbage := filepath.Join(t.TempDir(), "garbage")
 	require.NoError(t, os.WriteFile(garbage, []byte{0, 1, 2, 3}, 0o700))
 
@@ -322,6 +348,8 @@ func echoSocket(t *testing.T) string {
 // half-close to the other: the echo server sees the client's end of input,
 // and the client sees the server's.
 func TestTheRelayIsByteForByte(t *testing.T) {
+	t.Parallel()
+
 	socket := echoSocket(t)
 	tcpLn, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -351,6 +379,8 @@ func TestTheRelayIsByteForByte(t *testing.T) {
 // A connection whose socket cannot be reached is closed, so its client sees
 // the end at once.
 func TestTheRelayClosesWhatItCannotCarry(t *testing.T) {
+	t.Parallel()
+
 	client, relayed := net.Pipe()
 	done := make(chan struct{})
 	go func() {
@@ -367,6 +397,8 @@ func TestTheRelayClosesWhatItCannotCarry(t *testing.T) {
 // The forwarder starts its child with a core size of zero, so no process of a
 // run dumps its memory outside the sandbox.
 func TestTheCoreSizeIsZero(t *testing.T) {
+	t.Parallel()
+
 	self := "'" + os.Args[0] + "'"
 	cmd := exec.Command("/bin/sh", "-c", "ulimit -c unlimited 2>/dev/null; exec "+self+" "+InitCommand+" -- "+self)
 	cmd.Env = append(os.Environ(), "KUBETAIL_SANDBOX_TEST_HELPER=rlimits")
@@ -401,6 +433,8 @@ func init() {
 // runStarted alone. In-process it moves the test's own descriptors 0 and 2,
 // so it saves and restores them.
 func TestInitMainInProcessTakesTheStderrOnStdin(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	runStderr, err := os.Create(filepath.Join(dir, "run"))
 	require.NoError(t, err)
@@ -434,6 +468,8 @@ func TestInitMainInProcessTakesTheStderrOnStdin(t *testing.T) {
 // child starts. In-process it closes the test's own descriptor 0, so it saves
 // and restores it.
 func TestInitMainInProcessFailsWithoutTheStderrOnStdin(t *testing.T) {
+	t.Parallel()
+
 	saved, err := unix.Dup(0)
 	require.NoError(t, err)
 	defer func() {
@@ -451,6 +487,8 @@ func TestInitMainInProcessFailsWithoutTheStderrOnStdin(t *testing.T) {
 // child starts. In-process it closes the test's own descriptor 2, so it saves
 // and restores it.
 func TestInitMainInProcessFailsWithoutAStderr(t *testing.T) {
+	t.Parallel()
+
 	saved, err := unix.Dup(2)
 	require.NoError(t, err)
 	defer func() {
@@ -467,5 +505,7 @@ func TestInitMainInProcessFailsWithoutAStderr(t *testing.T) {
 // A child the forwarder cannot wait for, here one that is not its child,
 // fails the forwarder.
 func TestWaitForFailsOnWhatIsNotItsChild(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, initFailed, waitFor(os.Getpid(), false))
 }

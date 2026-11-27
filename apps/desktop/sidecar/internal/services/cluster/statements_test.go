@@ -28,6 +28,8 @@ import (
 // answers "attempt to write a readonly database". Nothing but the text can say what
 // a statement does, so the text is what this checks.
 func TestEveryStatementDeclaresWhatItDoes(t *testing.T) {
+	t.Parallel()
+
 	require.Len(t, statements, numStmts)
 	for _, st := range statements {
 		text := strings.TrimSpace(st.Text)

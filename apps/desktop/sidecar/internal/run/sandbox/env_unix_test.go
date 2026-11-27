@@ -24,6 +24,8 @@ import (
 
 // Every variable a platform's toolchain location sets is one the table sets.
 func TestKubetailSetsEveryPlatformToolchainVariable(t *testing.T) {
+	t.Parallel()
+
 	for _, l := range platformLists.Toolchain {
 		for name := range l.Env {
 			assert.True(t, KubetailSets(name), "%s's %s", l.Name, name)

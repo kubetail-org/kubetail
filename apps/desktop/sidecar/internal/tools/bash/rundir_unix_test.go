@@ -38,6 +38,7 @@ var longestRuns = maxSocketPath - len("/") - maxRunDirName - len("/"+socketName)
 // A run's directory is named for the sidecar's pid, under the runs directory,
 // owner-only; the kubeconfig and the socket are named in it.
 func TestARunsDirectoryIsInTheRunsDirectory(t *testing.T) {
+	// syscall.Umask changes the process's umask, so this test stays serial.
 	old := syscall.Umask(0)
 	defer syscall.Umask(old)
 	runs := filepath.Join(shortTemp(t), "runs")
@@ -58,6 +59,7 @@ func TestARunsDirectoryIsInTheRunsDirectory(t *testing.T) {
 // A run's TMPDIR is its own too, named the same way, under the tmp directory
 // the cache directory holds.
 func TestARunsTMPDIRIsInTheCacheDirectory(t *testing.T) {
+	// syscall.Umask changes the process's umask, so this test stays serial.
 	old := syscall.Umask(0)
 	defer syscall.Umask(old)
 	tmpDir := filepath.Join(t.TempDir(), "tmp")
@@ -77,6 +79,8 @@ func TestARunsTMPDIRIsInTheCacheDirectory(t *testing.T) {
 // A tmp directory that cannot be made makes no run: nothing is left in the
 // runs directory.
 func TestARunsTMPDIRNeedsItsDirectory(t *testing.T) {
+	t.Parallel()
+
 	runs := runsIn(t)
 	file := filepath.Join(t.TempDir(), "file")
 	require.NoError(t, os.WriteFile(file, nil, 0o600))
@@ -93,6 +97,8 @@ func TestARunsTMPDIRNeedsItsDirectory(t *testing.T) {
 // leaves no run's directory in the other; the sidecar's lock stays, being the
 // sidecar's rather than the run's.
 func TestAnUnwritableRunsOrTmpDirMakesNoRun(t *testing.T) {
+	t.Parallel()
+
 	if os.Getuid() == 0 {
 		t.Skip("root writes a read-only directory")
 	}
@@ -129,6 +135,8 @@ func TestAnUnwritableRunsOrTmpDirMakesNoRun(t *testing.T) {
 // through a link, makes no run: whoever owns the parent could swap what is in
 // it.
 func TestARunsDirectoryNotThisUsersAloneMakesNoRun(t *testing.T) {
+	t.Parallel()
+
 	open := shortTemp(t)
 	require.NoError(t, os.Chmod(open, 0o777))
 	link := filepath.Join(shortTemp(t), "link")
@@ -143,6 +151,8 @@ func TestARunsDirectoryNotThisUsersAloneMakesNoRun(t *testing.T) {
 // A snapshot in a directory another user could write is never sourced: the
 // command, foreground or background, could not start.
 func TestACommandRefusesASnapshotAnotherCouldSwap(t *testing.T) {
+	t.Parallel()
+
 	open := shortTemp(t)
 	require.NoError(t, os.Chmod(open, 0o777))
 	for name, input := range map[string]json.RawMessage{"call": command("echo ran"), "task": background("echo ran")} {
@@ -162,6 +172,8 @@ func TestACommandRefusesASnapshotAnotherCouldSwap(t *testing.T) {
 
 // A snapshot whose directory has gone is never sourced either.
 func TestACommandRefusesASnapshotWhoseDirectoryWent(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	tl.scripts = filepath.Join(shortTemp(t), "gone", "shell")
 	tl.snapshot = filepath.Join(tl.scripts, "snapshot.sh")
@@ -174,6 +186,8 @@ func TestACommandRefusesASnapshotWhoseDirectoryWent(t *testing.T) {
 
 // Two runs get two of each, and each goes with its own run.
 func TestTheTmpDirIsTheRunsOwn(t *testing.T) {
+	t.Parallel()
+
 	runs, tmpDir := runsIn(t), t.TempDir()
 	a, err := newRunDir(runs, tmpDir, 1)
 	require.NoError(t, err)
@@ -191,6 +205,8 @@ func TestTheTmpDirIsTheRunsOwn(t *testing.T) {
 // A command can leave a directory in its TMPDIR it cannot write; the TMPDIR
 // still goes, and a link there goes without its target.
 func TestAnUnwritableTmpDirIsRemoved(t *testing.T) {
+	t.Parallel()
+
 	if os.Getuid() == 0 {
 		t.Skip("root removes a read-only directory's entries")
 	}
@@ -214,6 +230,8 @@ func TestAnUnwritableTmpDirIsRemoved(t *testing.T) {
 // with the lock, and nothing else: a live sidecar's, a link, and an entry no
 // run is named as.
 func TestAGoneSidecarsRunsAreSwept(t *testing.T) {
+	t.Parallel()
+
 	runs := shortTemp(t)
 	gone := filepath.Join(runs, "111-1")
 	lockless := filepath.Join(runs, "333-1")
@@ -249,6 +267,8 @@ func TestAGoneSidecarsRunsAreSwept(t *testing.T) {
 // A pid a later process took, this one included, keeps nothing: the lock
 // died with the sidecar that made the run.
 func TestAReusedPidsRunsAreSwept(t *testing.T) {
+	t.Parallel()
+
 	runs := shortTemp(t)
 	left := filepath.Join(runs, strconv.Itoa(os.Getpid())+"-1")
 	require.NoError(t, os.Mkdir(left, 0o700))
@@ -262,6 +282,8 @@ func TestAReusedPidsRunsAreSwept(t *testing.T) {
 // holding the file named at the path, whichever went first: a lock on a
 // removed file would guard nothing.
 func TestALockASweepRemovesIsTakenAgain(t *testing.T) {
+	t.Parallel()
+
 	runs := shortTemp(t)
 	path := filepath.Join(runs, lockName(666))
 	sweep, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
@@ -284,6 +306,8 @@ func TestALockASweepRemovesIsTakenAgain(t *testing.T) {
 // A sidecar takes its lock once, so its next run finds the lock held rather
 // than waiting on itself.
 func TestTheLockIsTakenOnce(t *testing.T) {
+	t.Parallel()
+
 	runs := shortTemp(t)
 	require.NoError(t, holdRunLock(runs, 555))
 	require.NoError(t, holdRunLock(runs, 555))
@@ -296,6 +320,8 @@ func TestTheLockIsTakenOnce(t *testing.T) {
 // The login shell's TMPDIR needs its folder, its lock and room in the folder;
 // lacking any, no TMPDIR is made.
 func TestALoginShellTmpDirThatCannotBeMadeIsAnError(t *testing.T) {
+	t.Parallel()
+
 	if os.Getuid() == 0 {
 		t.Skip("root writes any folder")
 	}
@@ -322,6 +348,7 @@ func TestALoginShellTmpDirThatCannotBeMadeIsAnError(t *testing.T) {
 // A login shell's TMPDIR that cannot be removed is left for the next start's
 // sweep, and says so.
 func TestALoginShellTmpDirThatCannotBeRemovedIsLogged(t *testing.T) {
+	// CaptureLogs swaps the process's default logger, so this test stays serial.
 	if os.Getuid() == 0 {
 		t.Skip("root writes any folder")
 	}
@@ -341,6 +368,7 @@ func TestALoginShellTmpDirThatCannotBeRemovedIsLogged(t *testing.T) {
 // New sweeps the runs and tmp directories as it starts, on a goroutine of its
 // own.
 func TestNewSweepsADeadSidecarsRunDirectories(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	runs, tmpDir := shortTemp(t), t.TempDir()
 	t.Setenv("SHELL", "")
 	name := "111-1"
@@ -363,6 +391,8 @@ func TestNewSweepsADeadSidecarsRunDirectories(t *testing.T) {
 // can have — a 7-digit pid and MkdirTemp's 10-digit suffix — still leaves its
 // socket's path within what Go binds.
 func TestTheSocketPathFits(t *testing.T) {
+	t.Parallel()
+
 	runs := "/" + strings.Repeat("t", longestRuns-1)
 	name := strings.Repeat("9", 7) + "-" + strings.Repeat("9", 10)
 	require.Len(t, name, maxRunDirName)
@@ -374,6 +404,8 @@ func TestTheSocketPathFits(t *testing.T) {
 // One byte past it, the run answers before anything is made, naming the runs
 // directory and the limit.
 func TestATooLongRunsDirCouldNotStart(t *testing.T) {
+	t.Parallel()
+
 	assert.Error(t, checkSocketPath("/"+strings.Repeat("t", longestRuns)))
 
 	runs := shortTemp(t)
@@ -394,6 +426,8 @@ func TestATooLongRunsDirCouldNotStart(t *testing.T) {
 
 // A runs directory that cannot be made makes no run's directory.
 func TestARunsDirectoryNeedsItsRunsDirectory(t *testing.T) {
+	t.Parallel()
+
 	file := filepath.Join(shortTemp(t), "file")
 	require.NoError(t, os.WriteFile(file, nil, 0o600))
 	_, err := newRunDir(filepath.Join(file, "runs"), t.TempDir(), 1)
@@ -403,6 +437,8 @@ func TestARunsDirectoryNeedsItsRunsDirectory(t *testing.T) {
 // A run's directory whose runs directory went is an error to remove, which the
 // end of a run logs and goes on from.
 func TestARunsDirectoryUnderAGoneRunsIsLeft(t *testing.T) {
+	t.Parallel()
+
 	runs := filepath.Join(shortTemp(t), "runs")
 	d, err := newRunDir(runs, t.TempDir(), 1)
 	require.NoError(t, err)
@@ -415,6 +451,7 @@ func TestARunsDirectoryUnderAGoneRunsIsLeft(t *testing.T) {
 // A runs directory that is not there yet has nothing to sweep, and one the
 // sweep cannot remove from is left as it is for the next start.
 func TestTheSweepLeavesWhatItCannotRemove(t *testing.T) {
+	// CaptureLogs swaps the process's default logger, so this test stays serial.
 	if os.Getuid() == 0 {
 		t.Skip("root removes a read-only directory's entries")
 	}
@@ -440,6 +477,8 @@ func TestTheSweepLeavesWhatItCannotRemove(t *testing.T) {
 // A login shell's TMPDIR is a run's: under the tmp directory, behind the
 // sidecar's lock, and gone with the cleanup.
 func TestTheLoginShellsTempDirIsARuns(t *testing.T) {
+	t.Parallel()
+
 	tmp := filepath.Join(t.TempDir(), "tmp")
 
 	dir, cleanup, err := TempDir(tmp)()

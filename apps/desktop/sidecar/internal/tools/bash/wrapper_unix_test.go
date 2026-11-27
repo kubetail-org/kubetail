@@ -29,6 +29,8 @@ import (
 // A quoted string reaches the shell as the one word it was, whatever it holds
 // but NUL, which argv cannot carry.
 func TestQuoteRoundTrips(t *testing.T) {
+	t.Parallel()
+
 	var all []byte
 	for b := 1; b < 256; b++ {
 		all = append(all, byte(b))
@@ -63,6 +65,8 @@ func shellTool(t *testing.T, kind, snapshot string) *Tool {
 // Each command sources the snapshot first and runs through eval with stdin
 // closed, under either shell.
 func TestTheWrapperSourcesTheSnapshot(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	for _, kind := range []string{"bash", "zsh"} {
 		tl := shellTool(t, kind, "greet() { echo hi from $1; }\n")
@@ -75,6 +79,8 @@ func TestTheWrapperSourcesTheSnapshot(t *testing.T) {
 // A profile that turns on zsh's extended globbing still leaves bash-style text
 // alone: # and ~ are not glob syntax in the command.
 func TestZshKeepsBashStyleGlobs(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := shellTool(t, "zsh", "setopt extendedglob\n")
 	text, isError := tl.Run(t.Context(), rt, command(`echo a#b x~y`))
@@ -85,6 +91,8 @@ func TestZshKeepsBashStyleGlobs(t *testing.T) {
 // Under zsh a glob matching nothing stays the word it was, and an unquoted
 // variable splits into words, both as bash has it.
 func TestZshKeepsBashStyleWords(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := shellTool(t, "zsh", "")
 	text, isError := tl.Run(t.Context(), rt, command(`echo {.items[*].metadata.name}; x="a b"; for w in $x; do echo "[$w]"; done`))
@@ -94,6 +102,8 @@ func TestZshKeepsBashStyleWords(t *testing.T) {
 
 // With no snapshot, a command runs all the same.
 func TestTheWrapperRunsWithoutASnapshot(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := shellTool(t, "bash", "")
 	text, isError := tl.Run(t.Context(), rt, command(`echo ok`))

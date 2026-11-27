@@ -88,6 +88,8 @@ func accessOf(t *testing.T, s *Sandbox, base string, files FilePolicy, always Al
 // the deepest rule wins, the narrower wins a tie, and inside a Kubetail path
 // only the run's own paths open anything.
 func TestEveryPairOfRulesAnswersAlike(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	for name, c := range map[string]struct {
 		files  func(outer, inner string) FilePolicy
@@ -149,6 +151,8 @@ func TestEveryPairOfRulesAnswersAlike(t *testing.T) {
 // is the one place it writes. The base is outside /tmp, which a Linux run
 // mounts privately.
 func TestTheLoginShellsPolicyAnswersAlike(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	base := testutil.GrantableDir(t)
 	kubetail := mkdirs(t, base, "data", "cache", "runtime")
@@ -167,6 +171,8 @@ func TestTheLoginShellsPolicyAnswersAlike(t *testing.T) {
 // A Kubetail directory nested in another, as the logs sit in the state on Linux,
 // is accepted and denied with the one around it.
 func TestANestedKubetailPathIsAcceptedAndDenied(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	base := testutil.GrantableDir(t)
 	kubetail := mkdirs(t, base, "data", "cache", "runtime", "data/logs")
@@ -183,6 +189,8 @@ func TestANestedKubetailPathIsAcceptedAndDenied(t *testing.T) {
 // A Read on the home reads ~/.zshrc and not ~/.ssh, a denied-always path;
 // and a Read inside ~/.ssh is refused by Check. Step 4D's grants rest on this.
 func TestTheDeniedAlwaysListWinsOverARead(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	base := realpath.Resolved(t.TempDir())
 	home := filepath.Join(base, "home")
@@ -198,6 +206,8 @@ func TestTheDeniedAlwaysListWinsOverARead(t *testing.T) {
 // linked home, and a credential path that is itself a link, each lie where
 // they resolve, inside the Read that holds them.
 func TestARuleIsCompiledWhereItsLinkLeads(t *testing.T) {
+	t.Parallel()
+
 	base := realpath.Resolved(t.TempDir())
 	home := mkdirs(t, base, "home")[0]
 	linked := filepath.Join(base, "home-link")
@@ -222,6 +232,8 @@ func TestARuleIsCompiledWhereItsLinkLeads(t *testing.T) {
 // It cannot be compared, so a Deny that overlaps it under another name could
 // be dropped as out of reach.
 func TestARuleTheKernelCannotNameIsRefused(t *testing.T) {
+	t.Parallel()
+
 	svc := unnameable(t)
 
 	require.ErrorContains(t, Policy{Files: FilePolicy{Read: []string{svc}}}.Check(), svc)
@@ -229,6 +241,8 @@ func TestARuleTheKernelCannotNameIsRefused(t *testing.T) {
 }
 
 func TestARunsOwnPathThatIsALinkIsRefused(t *testing.T) {
+	t.Parallel()
+
 	base := realpath.Resolved(t.TempDir())
 	d := mkdirs(t, base, "data/chats/c/workspace", "cache/tmp/1-a", "runtime/runs/1-a")
 	link := filepath.Join(base, "data/chats/c/linked")
@@ -249,6 +263,8 @@ func TestARunsOwnPathThatIsALinkIsRefused(t *testing.T) {
 // A run's own path that cannot be looked at is refused, since it could be a
 // link.
 func TestARunsOwnPathThatCannotBeLookedAtIsRefused(t *testing.T) {
+	t.Parallel()
+
 	if os.Geteuid() == 0 {
 		t.Skip("root looks through any folder's mode")
 	}
@@ -309,6 +325,8 @@ func limitedRun(t *testing.T, s *Sandbox, l Limits, env []string, argv ...string
 
 // A process past its CPU time dies of SIGXCPU, which a shell reports as 152.
 func TestACPUSpinEndsWithSIGXCPU(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 
 	code, _ := limitedRun(t, s, Limits{CPUSeconds: 1}, nil, "/bin/sh", "-c", "while :; do :; done")
@@ -317,6 +335,8 @@ func TestACPUSpinEndsWithSIGXCPU(t *testing.T) {
 }
 
 func TestOpeningPastTheFileLimitFails(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 
 	code, out := limitedRun(t, s, Limits{OpenFiles: 64}, []string{"KUBETAIL_SANDBOX_TEST_HELPER=files"}, os.Args[0])
@@ -388,6 +408,8 @@ func forkLoop(t *testing.T, s *Sandbox, l Limits, most int, whileFull func() err
 // still stops a fork loop. Other tests move the count, so the bound is loose:
 // the test proves a limit holds, not its value.
 func TestAForkLoopStopsUnderAMachineWideCount(t *testing.T) {
+	t.Parallel()
+
 	if os.Getuid() == 0 {
 		t.Skip("the kernel holds root to no process limit")
 	}
@@ -407,6 +429,8 @@ func TestAForkLoopStopsUnderAMachineWideCount(t *testing.T) {
 // sudo cannot gain root: Linux sets no_new_privs, and macOS refuses to start
 // it.
 func TestSudoCannotGainRoot(t *testing.T) {
+	t.Parallel()
+
 	if out, err := exec.Command("sudo", "-n", "id", "-u").Output(); err != nil || string(out) != "0\n" {
 		t.Skip("sudo does not gain root outside the sandbox without a password")
 	}
@@ -422,6 +446,8 @@ func TestSudoCannotGainRoot(t *testing.T) {
 // own path is: absolute, not a link, inside Kubetail's directories, and only with
 // the internet.
 func TestTheResolverIsChecked(t *testing.T) {
+	t.Parallel()
+
 	base := realpath.Resolved(t.TempDir())
 	d := mkdirs(t, base, "runtime/runs/1-a", "home")
 	resolver := filepath.Join(d[0], "resolv.conf")

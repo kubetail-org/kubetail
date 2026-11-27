@@ -24,6 +24,8 @@ import (
 
 // A junction at a subfolder fails the start, as a symlink does on Unix.
 func TestAJunctionedSubfolderFailsTheStart(t *testing.T) {
+	t.Parallel()
+
 	f := testFolders(t)
 	link := filepath.Join(f.Cache, "kube")
 	out, err := exec.Command("cmd", "/c", "mklink", "/J", link, t.TempDir()).CombinedOutput()

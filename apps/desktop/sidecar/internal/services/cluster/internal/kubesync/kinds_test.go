@@ -42,6 +42,8 @@ import (
 var podKind = kubestore.Kind{APIVersion: "v1", Kind: "Pod", Resource: "pods"}
 
 func TestAColdKindIsListedIntoTheCacheAndThenWatched(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10", object("v1", "Pod", "one", "1"), object("v1", "Pod", "two", "2"))
@@ -61,6 +63,8 @@ func TestAColdKindIsListedIntoTheCacheAndThenWatched(t *testing.T) {
 }
 
 func TestAColdKindSaysItIsSyncingBeforeItHasAnything(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.streamKind(podKind)
@@ -78,6 +82,8 @@ func TestAColdKindSaysItIsSyncingBeforeItHasAnything(t *testing.T) {
 }
 
 func TestADeltaLandsInTheCacheAndProvesTheStreamLive(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -101,6 +107,8 @@ func TestADeltaLandsInTheCacheAndProvesTheStreamLive(t *testing.T) {
 }
 
 func TestABookmarkProvesTheStreamLiveWithoutData(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -128,6 +136,8 @@ func TestABookmarkProvesTheStreamLiveWithoutData(t *testing.T) {
 
 // A stream that has sent a bookmark has shown it sends them, so its silence is evidence.
 func TestABookmarkedStreamThatGoesSilentReadsStaleUntilItsNextFrame(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -155,6 +165,8 @@ func TestABookmarkedStreamThatGoesSilentReadsStaleUntilItsNextFrame(t *testing.T
 // A hung reopen proves nothing a Stale stream's silence did not, so it stays Stale until a
 // frame arrives.
 func TestAStaleStreamWhoseReopenHangsStaysStaleUntilTheReopenLands(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -196,6 +208,8 @@ func TestAStaleStreamWhoseReopenHangsStaysStaleUntilTheReopenLands(t *testing.T)
 }
 
 func TestAQuietWatchIsReopenedFromItsCookieAndStaysWatching(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -230,6 +244,8 @@ func TestAQuietWatchIsReopenedFromItsCookieAndStaysWatching(t *testing.T) {
 // The quiet window proved the stream it closed, not the one that replaces it: a replacement that
 // dies before its first frame fails the run and leaves LastLiveAt where the window put it.
 func TestAQuietWatchsReplacementMustProveItself(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -265,6 +281,8 @@ func TestAQuietWatchsReplacementMustProveItself(t *testing.T) {
 // on the same five minutes the window runs, so a quiet reopen is routinely refused as expired. The
 // run relists and goes on watching: no failure, no backoff, no restart.
 func TestAQuietWatchWhoseReopenIsExpiredRelistsInPlace(t *testing.T) {
+	t.Parallel()
+
 	expired := apierrors.NewResourceExpired("too old resource version")
 	for name, onOpen := range map[string]bool{"on the open": true, "on the stream's first frame": false} {
 		t.Run(name, func(t *testing.T) {
@@ -313,6 +331,8 @@ func TestAQuietWatchWhoseReopenIsExpiredRelistsInPlace(t *testing.T) {
 // A hung reopen over a stream that sent no bookmark is a slow server, not stale rows: the
 // connection's pings fail a dead one's streams long before the window.
 func TestAQuietWatchWhoseReopenHangsReadsResuming(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -334,6 +354,8 @@ func TestAQuietWatchWhoseReopenHangsReadsResuming(t *testing.T) {
 }
 
 func TestAResumeHoldsTheReasonTheRunBeforeItCommitted(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10", object("v1", "Pod", "one", "1"))
@@ -357,6 +379,8 @@ func TestAResumeHoldsTheReasonTheRunBeforeItCommitted(t *testing.T) {
 }
 
 func TestAKindThatWillNotListRetriesAndSaysWhy(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.refuseList(podKind, errors.New("the collection is forbidden"))
@@ -382,6 +406,8 @@ func TestAKindThatWillNotListRetriesAndSaysWhy(t *testing.T) {
 // through SyncFailed every few minutes. Restarts is what the rotation moves, which is the
 // flapping question the retry streak cannot answer.
 func TestARotatedStreamIsRebuiltAtTheFloorWithoutReportingAFailure(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -409,6 +435,8 @@ func TestARotatedStreamIsRebuiltAtTheFloorWithoutReportingAFailure(t *testing.T)
 // ladder where a rotation waits out the floor. Only a frame settles it — and the streak's own
 // accumulation is the supervisor's, tested there.
 func TestAWatchDroppedBeforeItsFirstFrameClimbsTheLadder(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -433,6 +461,8 @@ func TestAWatchDroppedBeforeItsFirstFrameClimbsTheLadder(t *testing.T) {
 }
 
 func TestAWatchRefusedIsRetried(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -448,6 +478,8 @@ func TestAWatchRefusedIsRetried(t *testing.T) {
 }
 
 func TestAForbiddenWatchNamesItsClassOfFailure(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -464,6 +496,8 @@ func TestAForbiddenWatchNamesItsClassOfFailure(t *testing.T) {
 
 // A failure that is not a request's names no class, since nothing observed one.
 func TestAFailureThatIsNotARequestsNamesNoClass(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -480,6 +514,8 @@ func TestAFailureThatIsNotARequestsNamesNoClass(t *testing.T) {
 }
 
 func TestAWatchThatErrorsOutIsRetried(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -498,6 +534,8 @@ func TestAWatchThatErrorsOutIsRetried(t *testing.T) {
 }
 
 func TestAFrameThatIsNotAnObjectEndsTheRun(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -520,6 +558,8 @@ func TestAFrameThatIsNotAnObjectEndsTheRun(t *testing.T) {
 // to give up with. Remove is what stops it ever being dispatched, and forgetting is synchronous
 // either way — nothing has reached the server on its behalf.
 func TestAColdListQueuedBehindTheWorkerCapNeverListsOnceItIsForgotten(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.streamKind(podKind)
@@ -561,6 +601,8 @@ func TestAColdListQueuedBehindTheWorkerCapNeverListsOnceItIsForgotten(t *testing
 }
 
 func TestAConnectionRetiredUnderAKindIsReplacedRatherThanRetried(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10", object("v1", "Pod", "one", "1"))
@@ -588,6 +630,8 @@ func TestAConnectionRetiredUnderAKindIsReplacedRatherThanRetried(t *testing.T) {
 // establishing ends that run with a cancel too, and the bridge's wake has already been and found
 // it running. A ladder cannot stand in for it — the exit records nothing, so there is no rung.
 func TestAConnectionRetiredWhileAKindEstablishesIsReplacedRatherThanParked(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10", object("v1", "Pod", "one", "1"))
@@ -626,6 +670,8 @@ func TestAConnectionRetiredWhileAKindEstablishesIsReplacedRatherThanParked(t *te
 // its own context still live. That error is not this kind's to report: reading it as one
 // puts a kind the pool just moved onto the ladder, where only a rung can free it.
 func TestARetiredConnectionEndsARunWhoseCancelHasNotLandedYet(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	conn := cluster.connection(t)
 	conn.Retire()
@@ -634,11 +680,15 @@ func TestARetiredConnectionEndsARunWhoseCancelHasNotLandedYet(t *testing.T) {
 }
 
 func TestAKindWhoseAPIVersionIsUnparseableStillNamesItsCollection(t *testing.T) {
+	t.Parallel()
+
 	gvr := gvrOf(kubestore.Kind{APIVersion: "a/b/c", Kind: "Broken", Resource: "brokens"})
 	assert.Equal(t, "brokens", gvr.Resource, "a corrupt catalog row is not a panic")
 }
 
 func TestASlowResumeSaysSoOnceItHasStoppedBeingCurrent(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10", object("v1", "Pod", "one", "1"))
@@ -660,6 +710,8 @@ func TestASlowResumeSaysSoOnceItHasStoppedBeingCurrent(t *testing.T) {
 }
 
 func TestACacheRemovedUnderAKindFailsItsRunRatherThanWritingOn(t *testing.T) {
+	t.Parallel()
+
 	for _, tc := range []struct {
 		name string
 		send func(*watch.RaceFreeFakeWatcher)
@@ -689,6 +741,8 @@ func TestACacheRemovedUnderAKindFailsItsRunRatherThanWritingOn(t *testing.T) {
 }
 
 func TestAKindTrackedAgainstARemovedCacheFailsBeforeItReadsAnything(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -707,6 +761,8 @@ func TestAKindTrackedAgainstARemovedCacheFailsBeforeItReadsAnything(t *testing.T
 }
 
 func TestAPositionTheServerHasDroppedIsColdListedRatherThanResumedForever(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10", object("v1", "Pod", "one", "1"))
@@ -739,6 +795,8 @@ func TestAPositionTheServerHasDroppedIsColdListedRatherThanResumedForever(t *tes
 }
 
 func TestAStreamThatSettlesBetweenClosuresReopensAtTheFloor(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -767,6 +825,8 @@ func TestAStreamThatSettlesBetweenClosuresReopensAtTheFloor(t *testing.T) {
 // The cache mirrors what the server holds: nothing here ages events out, so every row a list
 // carried and every one a delta brought is still there.
 func TestEveryEventTheServerSentIsKept(t *testing.T) {
+	t.Parallel()
+
 	eventKind := kubestore.Kind{APIVersion: "v1", Kind: "Event", Resource: "events"}
 	cluster := newFakeCluster(t)
 	cluster.serveKind(eventKind, true)
@@ -786,6 +846,8 @@ func TestEveryEventTheServerSentIsKept(t *testing.T) {
 }
 
 func TestASlowResumeThatFinishesReportsTheStreamItEstablished(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10", object("v1", "Pod", "one", "1"))
@@ -811,6 +873,8 @@ func TestASlowResumeThatFinishesReportsTheStreamItEstablished(t *testing.T) {
 }
 
 func TestAResumeParkedOnItsOpenStillGivesUpWithItsRun(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10", object("v1", "Pod", "one", "1"))
@@ -837,6 +901,8 @@ func TestAResumeParkedOnItsOpenStillGivesUpWithItsRun(t *testing.T) {
 }
 
 func TestARelistRefusedOnceIsRetriedAsARelist(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10", object("v1", "Pod", "one", "1"))
@@ -865,6 +931,8 @@ func TestARelistRefusedOnceIsRetriedAsARelist(t *testing.T) {
 // A restart is a cancel, and a clean exit carries no error — so the run it wakes re-establishes
 // at once rather than paying a rung for a stream nothing was wrong with.
 func TestRestartAllReEstablishesWithoutARung(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -888,6 +956,8 @@ func TestRestartAllReEstablishesWithoutARung(t *testing.T) {
 // ForgetKind nothing can still write through the kind, which is what the seam promises and what
 // lets a caller clear its rows straight after.
 func TestForgetKindJoinsTheStreamBeforeItReturns(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -910,6 +980,8 @@ func TestForgetKindJoinsTheStreamBeforeItReturns(t *testing.T) {
 // are keyed by that name — so the run and the stream started with the old value both come down
 // before the replacement lists.
 func TestARenameCancelsTheOldRunBeforeTheNewOneLists(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10", object("v1", "Pod", "one", "1"))
@@ -934,6 +1006,8 @@ func TestARenameCancelsTheOldRunBeforeTheNewOneLists(t *testing.T) {
 // pinned at the backoff cap forever. Two ordinary paths land here, a reopen after a clean stop
 // and a cold start off a cookie on disk, and neither carries an Error frame.
 func TestAPositionRefusedByTheWatchOpenIsColdListedRatherThanResumedForever(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10", object("v1", "Pod", "one", "1"))
@@ -965,6 +1039,8 @@ func TestAPositionRefusedByTheWatchOpenIsColdListedRatherThanResumedForever(t *t
 // ever committed a stream, so the position being dead is a fact only the refused open can
 // report. A relist decided from anything the process held would never escape it.
 func TestAColdStartOffAPositionTheServerHasDroppedRelists(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10", object("v1", "Pod", "one", "1"))
@@ -1000,6 +1076,8 @@ func TestAColdStartOffAPositionTheServerHasDroppedRelists(t *testing.T) {
 // stream down: a cache of three hundred kinds would otherwise re-list on any pass the pool
 // published. A parked kind is what it starts.
 func TestAStateFrameLeavesALiveStreamAlone(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -1024,6 +1102,8 @@ func TestAStateFrameLeavesALiveStreamAlone(t *testing.T) {
 // cancels and joins, and the session's own join behind that — and this pins the promise rather
 // than which of them delivered it.
 func TestATeardownMidListJoinsTheWorkerBeforeReleasingTheStore(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -1050,6 +1130,8 @@ func TestATeardownMidListJoinsTheWorkerBeforeReleasingTheStore(t *testing.T) {
 // answer a reader would get has MOVED. Without the baseline behind that, every pass would wake
 // every record on the cache.
 func TestAPassThatMovedNothingWakesNoRecord(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -1077,6 +1159,8 @@ func TestAPassThatMovedNothingWakesNoRecord(t *testing.T) {
 
 // A pass for a kind under a cache nobody armed is no news: no record stands behind it to wake.
 func TestAPassUnderAnUnarmedCacheNotifiesNothing(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 	cacheID, id, ok := parseKindSubject(kindSubject(7, podKind))
 	require.True(t, ok)
@@ -1091,6 +1175,8 @@ func TestAPassUnderAnUnarmedCacheNotifiesNothing(t *testing.T) {
 // nothing for hours, so slots held until a frame would be taken indefinitely by whichever kinds
 // started first, and the rest of the cache would never list a row.
 func TestQuietKindsDoNotHoldTheStartSlotsOfTheRest(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	kinds := []kubestore.Kind{
 		podKind,
@@ -1122,6 +1208,8 @@ func TestQuietKindsDoNotHoldTheStartSlotsOfTheRest(t *testing.T) {
 // carries it rather than folding it away — a cold list is not live, and a stream nothing has
 // proven current still is.
 func TestOnlyAnOpenWatchReadsLive(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -1155,6 +1243,8 @@ func TestOnlyAnOpenWatchReadsLive(t *testing.T) {
 // A subject reads back as the cache and kind it names, the apiVersion's own slash included,
 // and one that does not name both reads as nothing.
 func TestAKindSubjectReadsBackAsItsCacheAndKind(t *testing.T) {
+	t.Parallel()
+
 	deployments := kubestore.Kind{APIVersion: "apps/v1", Kind: "Deployment", Resource: "deployments"}
 	cacheID, id, ok := parseKindSubject(kindSubject(7, deployments))
 	require.True(t, ok)
@@ -1171,6 +1261,8 @@ func TestAKindSubjectReadsBackAsItsCacheAndKind(t *testing.T) {
 // nothing tracks, or one tracked under a cache nobody armed, whose claims a run would write
 // through are not there.
 func TestARunWithNothingToRunAgainstIsSkipped(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 	svc.TrackKind(7, podKind)
 	w := kindSync{s: svc, pacing: defaultPacing()}
@@ -1188,6 +1280,8 @@ func TestARunWithNothingToRunAgainstIsSkipped(t *testing.T) {
 // A file removed under a quiet watch fails the run at the reopen, which reads its position
 // off that file, rather than resuming from a position nothing holds.
 func TestACacheRemovedUnderAQuietKindFailsItsReopen(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -1212,6 +1306,8 @@ func TestACacheRemovedUnderAQuietKindFailsItsReopen(t *testing.T) {
 // A resume parked on its open gives up with its run before the window is out, so forgetting the
 // kind does not wait for a server that may never answer.
 func TestAResumeParkedBeforeItsWindowGivesUpWithItsRun(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10", object("v1", "Pod", "one", "1"))
@@ -1235,6 +1331,8 @@ func TestAResumeParkedBeforeItsWindowGivesUpWithItsRun(t *testing.T) {
 // A page that carries nothing touches no file, so a file removed while the last page was being
 // fetched is found at the commit, which fails the run rather than persisting a position.
 func TestACacheRemovedBeforeTheListCommitsFailsTheRun(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.streamKind(podKind)

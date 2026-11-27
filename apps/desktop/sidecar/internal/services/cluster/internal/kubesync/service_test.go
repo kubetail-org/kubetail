@@ -32,6 +32,8 @@ import (
 var testParams = Params{ContextName: "prod", ServerUID: "uid-1"}
 
 func TestTrackDiscoveryClaimsTheContextAndForgetGivesItBack(t *testing.T) {
+	t.Parallel()
+
 	svc, pool := newTestService(t)
 
 	svc.TrackDiscovery(1, testParams)
@@ -42,6 +44,8 @@ func TestTrackDiscoveryClaimsTheContextAndForgetGivesItBack(t *testing.T) {
 }
 
 func TestTrackDiscoveryIsIdempotentForUnchangedParams(t *testing.T) {
+	t.Parallel()
+
 	svc, pool := newTestService(t)
 
 	svc.TrackDiscovery(1, testParams)
@@ -51,6 +55,8 @@ func TestTrackDiscoveryIsIdempotentForUnchangedParams(t *testing.T) {
 }
 
 func TestTrackDiscoveryRebuildsWhenParamsMove(t *testing.T) {
+	t.Parallel()
+
 	svc, pool := newTestService(t)
 
 	svc.TrackDiscovery(1, testParams)
@@ -61,6 +67,8 @@ func TestTrackDiscoveryRebuildsWhenParamsMove(t *testing.T) {
 }
 
 func TestKindTrackedAgainstAnUnarmedCacheIsHeldUntilItIsArmed(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	svc, pool := newTestService(t, fake.option())
 	pool.lease("prod").vouch(t, "uid-1")
@@ -77,6 +85,8 @@ func TestKindTrackedAgainstAnUnarmedCacheIsHeldUntilItIsArmed(t *testing.T) {
 }
 
 func TestARegistrationOutlivesItsCacheBeingForgotten(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	svc, pool := newTestService(t, fake.option())
 	pool.lease("prod").vouch(t, "uid-1")
@@ -93,6 +103,8 @@ func TestARegistrationOutlivesItsCacheBeingForgotten(t *testing.T) {
 }
 
 func TestAKindWaitsForAConnectionVouchingForItsServerUID(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	svc, pool := newTestService(t, fake.option())
 	start(t, svc)
@@ -109,6 +121,8 @@ func TestAKindWaitsForAConnectionVouchingForItsServerUID(t *testing.T) {
 }
 
 func TestForgetKindWaitsForItsWorker(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	svc, pool := newTestService(t, fake.option())
 	pool.lease("prod").vouch(t, "uid-1")
@@ -125,6 +139,8 @@ func TestForgetKindWaitsForItsWorker(t *testing.T) {
 }
 
 func TestForgetDiscoveryWaitsForEveryWorkerUnderIt(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	svc, pool := newTestService(t, fake.option())
 	pool.lease("prod").vouch(t, "uid-1")
@@ -139,6 +155,8 @@ func TestForgetDiscoveryWaitsForEveryWorkerUnderIt(t *testing.T) {
 }
 
 func TestGetStateReportsNothingBeforeARunCommits(t *testing.T) {
+	t.Parallel()
+
 	svc, pool := newTestService(t)
 	pool.lease("prod").vouch(t, "uid-1")
 	kind := testKind("apps/v1", "Deployment", "deployments")
@@ -154,6 +172,8 @@ func TestGetStateReportsNothingBeforeARunCommits(t *testing.T) {
 }
 
 func TestDiscoveryNewsIsKeyedByCacheID(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 
@@ -169,6 +189,8 @@ func TestDiscoveryNewsIsKeyedByCacheID(t *testing.T) {
 }
 
 func TestKindNewsIsKeyedByCacheAndKind(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	svc, pool := newTestService(t, fake.option())
 	runs := fake.runs
@@ -193,6 +215,8 @@ func TestKindNewsIsKeyedByCacheAndKind(t *testing.T) {
 }
 
 func TestReplacingAKindDropsTheStoppedWorkersVerdict(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	fake.admit = make(chan struct{})
 	svc, pool := newTestService(t, fake.option())
@@ -227,6 +251,8 @@ func TestReplacingAKindDropsTheStoppedWorkersVerdict(t *testing.T) {
 }
 
 func TestRestartAllReEntersEveryArmedKind(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	svc, pool := newTestService(t, fake.option())
 	pool.lease("prod").vouch(t, "uid-1")
@@ -249,6 +275,8 @@ func TestRestartAllReEntersEveryArmedKind(t *testing.T) {
 // what a teardown must drop: a cluster removed and added back would otherwise leave a cache's
 // worth of kinds behind on every cycle, held for a resume that can never come.
 func TestForgetCacheDropsTheRegistrationsPauseKeeps(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	svc, pool := newTestService(t, fake.option())
 	pool.lease("prod").vouch(t, "uid-1")
@@ -273,6 +301,8 @@ func TestForgetCacheDropsTheRegistrationsPauseKeeps(t *testing.T) {
 }
 
 func TestStopDrainsEveryWorker(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	svc, pool := newTestService(t, fake.option())
 	pool.lease("prod").vouch(t, "uid-1")
@@ -292,6 +322,8 @@ func TestStopDrainsEveryWorker(t *testing.T) {
 }
 
 func TestACacheWhoseStoreWillNotOpenArmsNothing(t *testing.T) {
+	t.Parallel()
+
 	stores := refusing("open cache store")
 	svc, pool := newTestServiceOverStore(t, stores)
 
@@ -318,6 +350,8 @@ func (r *refusingStores) OpenOrCreate(int64) (*kubestore.Store, error) {
 }
 
 func TestForgettingACacheNobodyArmedIsANoOp(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 
 	svc.ForgetDiscovery(7)
@@ -325,6 +359,8 @@ func TestForgettingACacheNobodyArmedIsANoOp(t *testing.T) {
 }
 
 func TestAStoppedServiceArmsNothing(t *testing.T) {
+	t.Parallel()
+
 	svc, pool := newTestService(t)
 	require.NoError(t, svc.Close())
 
@@ -335,6 +371,8 @@ func TestAStoppedServiceArmsNothing(t *testing.T) {
 }
 
 func TestAKindStateIsAnsweredOnlyForAKindTheCacheTracks(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 	kind := testKind("apps/v1", "Deployment", "deployments")
 
@@ -347,6 +385,8 @@ func TestAKindStateIsAnsweredOnlyForAKindTheCacheTracks(t *testing.T) {
 }
 
 func TestAPassPublishesNothingForASubjectThatIsNotACache(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 
 	// The supervisor names its own subjects, so both of these are reads the seam must survive
@@ -356,6 +396,8 @@ func TestAPassPublishesNothingForASubjectThatIsNotACache(t *testing.T) {
 }
 
 func TestAStoppedSessionsAnswerIsDropped(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 	kind := testKind("apps/v1", "Deployment", "deployments")
 	svc.TrackDiscovery(1, testParams)
@@ -374,6 +416,8 @@ func TestAStoppedSessionsAnswerIsDropped(t *testing.T) {
 }
 
 func TestStoppingWithNoTimeLeftReportsTheEngineRefusing(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 	svc, pool := newTestService(t)
@@ -398,6 +442,8 @@ func TestStoppingWithNoTimeLeftReportsTheEngineRefusing(t *testing.T) {
 // is minutes, and forgetting is synchronous. The join is outside armMu, so arming another cache
 // is not held behind it either.
 func TestForgetKindCancelsTheRunInFlightRatherThanWaitingItOut(t *testing.T) {
+	t.Parallel()
+
 	fake := newParkingKindSync()
 	svc, pool := newTestService(t, fake.option())
 	pool.lease("prod").vouch(t, "uid-1")
@@ -422,6 +468,8 @@ func TestForgetKindCancelsTheRunInFlightRatherThanWaitingItOut(t *testing.T) {
 // collection, and a rename gives them different singulars to key rows by. A generation is a run
 // and the stream it starts, and it ends when that stream is joined.
 func TestARenameNeverRunsTwoGenerationsAtOnce(t *testing.T) {
+	t.Parallel()
+
 	kinds := newParkingKindSync()
 	svc, pool := newTestService(t, kinds.option())
 	pool.lease("prod").vouch(t, "uid-1")
@@ -443,6 +491,8 @@ func TestARenameNeverRunsTwoGenerationsAtOnce(t *testing.T) {
 // again, commitKind stops refusing that run, and its last act is published as the new
 // registration's answer.
 func TestARetrackDuringAForgetCannotReviveTheWithdrawnRunsWrite(t *testing.T) {
+	t.Parallel()
+
 	kinds := newParkingKindSync()
 	svc, pool := newTestService(t, kinds.option())
 	pool.lease("prod").vouch(t, "uid-1")
@@ -473,6 +523,8 @@ func TestARetrackDuringAForgetCannotReviveTheWithdrawnRunsWrite(t *testing.T) {
 // generation reports on its way down. Its verdict must still not be served for the generation
 // that replaced it: the rows are keyed by the new singular and nothing has listed them yet.
 func TestARenameDropsTheOldGenerationsVerdictThoughTheKindStaysTracked(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	fake.reportOnExit = true
 	svc, pool := newTestService(t, fake.option())
@@ -495,6 +547,8 @@ func TestARenameDropsTheOldGenerationsVerdictThoughTheKindStaysTracked(t *testin
 // down for the whole swap and unable to start inside it. kubesync runs the clear itself, since
 // only it can stop them.
 func TestRunWithKindSyncStoppedJoinsTheWorkerAndArmsItAgain(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	svc, pool := newTestService(t, fake.option())
 	pool.lease("prod").vouch(t, "uid-1")
@@ -520,6 +574,8 @@ func TestRunWithKindSyncStoppedJoinsTheWorkerAndArmsItAgain(t *testing.T) {
 // The error is the caller's, and the kind comes back either way: a clear that failed leaves a
 // cache that still syncs.
 func TestRunWithKindSyncStoppedArmsAgainWhenTheClearFails(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	svc, pool := newTestService(t, fake.option())
 	pool.lease("prod").vouch(t, "uid-1")
@@ -538,6 +594,8 @@ func TestRunWithKindSyncStoppedArmsAgainWhenTheClearFails(t *testing.T) {
 // A paused cache has no session and its file is still there to clear, which is the whole reason
 // the store work stays with the caller.
 func TestRunWithCacheSyncStoppedRunsTheClearForACacheNobodyArmed(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 	start(t, svc)
 
@@ -553,6 +611,8 @@ func TestRunWithCacheSyncStoppedRunsTheClearForACacheNobodyArmed(t *testing.T) {
 // A cache-wide clear takes the sweep down too: kind_catalog is written through the same file, so
 // a SyncKinds landing across the swap is the same hazard as a relist page.
 func TestRunWithCacheSyncStoppedJoinsEveryKindAndTheSweep(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	svc, pool := newTestService(t, fake.option())
 	pool.lease("prod").vouch(t, "uid-1")
@@ -583,6 +643,8 @@ func TestRunWithCacheSyncStoppedJoinsEveryKindAndTheSweep(t *testing.T) {
 // A second Start would put a second pair of loops on the same wait group, so the first stop
 // would drain loops only the second stop can end. beehive refuses one for the same reason.
 func TestStartRefusesASecondStart(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 	start(t, svc)
 
@@ -596,6 +658,8 @@ func TestStartRefusesASecondStart(t *testing.T) {
 // come out of — and with none, every read below it answers "nothing yet" and the user sees a
 // cluster stuck at Syncing with no reason anywhere. The failure is carried out of arm instead.
 func TestArmReportsAStoreThatWillNotOpen(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestServiceOverStore(t, refusing("disk full"))
 
 	svc.TrackDiscovery(1, testParams)
@@ -610,6 +674,8 @@ func TestArmReportsAStoreThatWillNotOpen(t *testing.T) {
 // leaves by two paths — the state watch and an event run — neither of which bounds one. So it is
 // bounded where it is recorded rather than at either boundary.
 func TestArmCapsWhatADriverErrorCanSay(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestServiceOverStore(t, refusing(strings.Repeat("x", 5000)))
 
 	svc.TrackDiscovery(1, testParams)
@@ -621,6 +687,8 @@ func TestArmCapsWhatADriverErrorCanSay(t *testing.T) {
 // Bounded is not the same as safe: the same message is persisted and served to the UI, so
 // it is rendered where it is recorded, for the same reason it is bounded there.
 func TestArmRendersWhatADriverErrorCanSay(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestServiceOverStore(t, refusing(`open "https://cache.example/db?token=SEKRIT": denied`))
 
 	svc.TrackDiscovery(1, testParams)
@@ -634,6 +702,8 @@ func TestArmRendersWhatADriverErrorCanSay(t *testing.T) {
 // next TrackDiscovery finds none and arms again. Clearing on the way in is what keeps the
 // map holding exactly the caches whose MOST RECENT arm failed.
 func TestArmStopsReportingAFailureItHasRecoveredFrom(t *testing.T) {
+	t.Parallel()
+
 	store := newHealingStore(t)
 	svc, _ := newTestServiceOverStore(t, store)
 	svc.TrackDiscovery(1, testParams)
@@ -665,6 +735,8 @@ func storeFailures(svc *Service) map[int64]string {
 // a cache with no session — so the clear sits inside the first critical section, above that
 // guard. Below it, forgetting would leave the entry behind for good.
 func TestForgetDiscoveryDropsAStoreFailure(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestServiceOverStore(t, refusing("disk full"))
 	svc.TrackDiscovery(1, testParams)
 	require.True(t, hasStoreFailure(svc, 1))
@@ -678,6 +750,8 @@ func TestForgetDiscoveryDropsAStoreFailure(t *testing.T) {
 // supervisor holds a subject whose cache is not armed. That kind has no answer: the stamps
 // it would be assembled from went with the session.
 func TestAKindUnderAnUnarmedCacheHasNoState(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 	svc.kindSupervisor.Add(kindSubject(7, podKind))
 	_, held := svc.kindSupervisor.Read(kindSubject(7, podKind))

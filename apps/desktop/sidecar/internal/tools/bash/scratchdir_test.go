@@ -26,6 +26,8 @@ import (
 // A scratch directory's Root makes the folder when asked, and says why it could
 // not.
 func TestAScratchDirectorysRootMakesTheFolder(t *testing.T) {
+	t.Parallel()
+
 	file := filepath.Join(t.TempDir(), "file")
 	require.NoError(t, os.WriteFile(file, nil, 0o600))
 	_, err := scratchDir(filepath.Join(file, "scratch")).Root(true)

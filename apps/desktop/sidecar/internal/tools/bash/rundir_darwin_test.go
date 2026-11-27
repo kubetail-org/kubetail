@@ -27,6 +27,7 @@ import (
 // A run's TMPDIR starts with xcrun's lookup cache, so a developer tool the
 // user has run needs no xcodebuild under the sandbox.
 func TestARunsTMPDIRStartsWithXcrunsCache(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	runs, tmpDir := runsIn(t), t.TempDir()
 	host := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(host, "xcrun_db"), []byte("cache"), 0o600))
@@ -46,6 +47,8 @@ func TestARunsTMPDIRStartsWithXcrunsCache(t *testing.T) {
 // dev build's fresh folder beside a refused one, which did not fit under /var
 // either.
 func TestTheSocketPathFitsUnderAResolvedTMPDIR(t *testing.T) {
+	t.Parallel()
+
 	tmpdir := "/private/var/folders/" + strings.Repeat("x", 2) + "/" + strings.Repeat("x", 30) + "/T"
 	require.Len(t, tmpdir, len("/private")+48)
 	for _, name := range []string{"kubetail-501", "kubetail-dev-501", "kubetail-501-XXXXXX"} {

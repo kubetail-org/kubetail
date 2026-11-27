@@ -26,6 +26,8 @@ import (
 
 // A region is AWS's commercial partition alone, in AWS's own form.
 func TestAWSRegion(t *testing.T) {
+	t.Parallel()
+
 	for _, region := range []string{"us-east-1", "eu-west-1", "ap-southeast-5", "il-central-1"} {
 		assert.True(t, AWSRegion(region), region)
 	}
@@ -40,6 +42,8 @@ func TestAWSRegion(t *testing.T) {
 
 // A profile is a name that cannot end its section header or start another.
 func TestAWSProfile(t *testing.T) {
+	t.Parallel()
+
 	for _, profile := range []string{"default", "prod", "my-org_dev.admin", "a@b", "team/role", "acct:123", "x+y", "_x"} {
 		assert.True(t, AWSProfile(profile), profile)
 	}
@@ -82,6 +86,8 @@ func awsRun(t *testing.T, extra ...string) Run {
 // another port, another region or a file elsewhere does not, whoever put it
 // there, and no other AWS name passes at all.
 func TestOnlyAPlaceholderPassesTheCheck(t *testing.T) {
+	t.Parallel()
+
 	assert.NoError(t, checked(awsRun(t)))
 	for _, kv := range []string{
 		"AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE",
@@ -108,6 +114,8 @@ func TestOnlyAPlaceholderPassesTheCheck(t *testing.T) {
 // Unpassable names every placeholder still, so a caller that builds no mount,
 // the sandboxed login shell among them, passes none of them.
 func TestEveryAWSNameIsUnpassable(t *testing.T) {
+	t.Parallel()
+
 	for name := range placeholders {
 		assert.True(t, Unpassable(name), name)
 	}

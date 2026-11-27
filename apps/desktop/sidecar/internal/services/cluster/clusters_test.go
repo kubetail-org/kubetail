@@ -45,6 +45,8 @@ func clusterObj(uid string) *beehive.Object[ClusterRuntimeSpec, ClusterStatus] {
 }
 
 func TestClusterActiveUID(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, "uid-1", ClusterActiveUID(clusterObj("uid-1")))
 	assert.Empty(t, ClusterActiveUID(clusterObj("")), "probed, but no UID yet")
 	assert.Empty(t, ClusterActiveUID(&beehive.Object[ClusterRuntimeSpec, ClusterStatus]{}),
@@ -56,6 +58,8 @@ func TestClusterActiveUID(t *testing.T) {
 // unknown identity must match nothing, or a disconnected cluster would sync every
 // cache it has ever owned.
 func TestCacheIsActive(t *testing.T) {
+	t.Parallel()
+
 	assert.True(t, CacheIsActive(clusterObj("uid-1"), "uid-1"))
 	assert.False(t, CacheIsActive(clusterObj("uid-1"), "uid-2"), "a superseded identity")
 	assert.False(t, CacheIsActive(clusterObj(""), ""), "unknown identity matches nothing — not even an empty UID")
@@ -76,6 +80,8 @@ func kubeconfigObj(contextName string, status *ClusterStatus) *beehive.Object[Cl
 }
 
 func TestObserveKubeconfigRecordsAPresentContext(t *testing.T) {
+	t.Parallel()
+
 	observed := observeKubeconfig(cfgCurrent("prod", "prod", "staging"), "prod", nil)
 
 	require.NotNil(t, observed)
@@ -90,6 +96,8 @@ func TestObserveKubeconfigRecordsAPresentContext(t *testing.T) {
 }
 
 func TestObserveKubeconfigMarksANonCurrentContext(t *testing.T) {
+	t.Parallel()
+
 	observed := observeKubeconfig(cfgCurrent("prod", "prod", "staging"), "staging", nil)
 
 	require.NotNil(t, observed)
@@ -100,6 +108,8 @@ func TestObserveKubeconfigMarksANonCurrentContext(t *testing.T) {
 // A departed context keeps its last-known names: an orphaned record has to stay
 // identifiable in a list, and blanking it would leave the row nameless.
 func TestObserveKubeconfigKeepsLastKnownNamesWhenAbsent(t *testing.T) {
+	t.Parallel()
+
 	prev := &ClusterStatusSourceKubeconfig{
 		Cluster:   ClusterStatusSourceKubeconfigCluster{Name: "prod-cluster"},
 		User:      ClusterStatusSourceKubeconfigUser{Name: "prod-user"},
@@ -118,6 +128,8 @@ func TestObserveKubeconfigKeepsLastKnownNamesWhenAbsent(t *testing.T) {
 
 // A never-present context has nothing to keep, and must not read as present.
 func TestObserveKubeconfigMarksAnUnseenContextAbsent(t *testing.T) {
+	t.Parallel()
+
 	observed := observeKubeconfig(cfgCurrent("staging", "staging"), "prod", nil)
 
 	require.NotNil(t, observed)
@@ -128,6 +140,8 @@ func TestObserveKubeconfigMarksAnUnseenContextAbsent(t *testing.T) {
 // The entry the context names, mirrored as the file states it — no verdict is drawn
 // here, so a reader of the block sees the same two facts the file does.
 func TestObserveKubeconfigMirrorsTheClusterEntry(t *testing.T) {
+	t.Parallel()
+
 	cfg := cfgCurrent("prod", "prod")
 	cfg.Clusters["prod-cluster"].InsecureSkipTLSVerify = true
 
@@ -143,6 +157,8 @@ func TestObserveKubeconfigMirrorsTheClusterEntry(t *testing.T) {
 // defaults a schemeless server to, so their presence is mirrored — presence alone,
 // never the bytes or the path.
 func TestObserveKubeconfigMirrorsWhetherCertificatesAreNamed(t *testing.T) {
+	t.Parallel()
+
 	cfg := cfgCurrent("prod", "prod")
 	cfg.Clusters["prod-cluster"].CertificateAuthorityData = []byte("ca")
 	cfg.AuthInfos = map[string]*api.AuthInfo{"prod-user": {ClientCertificate: "/home/me/.kube/prod.crt"}}
@@ -169,6 +185,8 @@ func TestObserveKubeconfigMirrorsWhetherCertificatesAreNamed(t *testing.T) {
 // A context can name a cluster entry the file never defines. Nil says so, which is
 // what keeps "unresolvable" distinguishable from "resolved and verified".
 func TestObserveKubeconfigLeavesTheClusterEntryNilWhenUndefined(t *testing.T) {
+	t.Parallel()
+
 	cfg := cfgCurrent("prod", "prod")
 	delete(cfg.Clusters, "prod-cluster")
 
@@ -181,6 +199,8 @@ func TestObserveKubeconfigLeavesTheClusterEntryNilWhenUndefined(t *testing.T) {
 // The entry outlives the context, like the rest of the cached block: an orphaned
 // record that was reached insecurely must not read as secure.
 func TestObserveKubeconfigKeepsTheClusterEntryWhenAbsent(t *testing.T) {
+	t.Parallel()
+
 	prev := &ClusterStatusSourceKubeconfig{
 		Cluster: ClusterStatusSourceKubeconfigCluster{
 			Name:  "prod-cluster",
@@ -198,6 +218,8 @@ func TestObserveKubeconfigKeepsTheClusterEntryWhenAbsent(t *testing.T) {
 // Another source's record is not this observation's to write — its own variant is,
 // and overwriting would claim a kube-context it never referenced.
 func TestObserveKubeconfigLeavesAnotherSourceAlone(t *testing.T) {
+	t.Parallel()
+
 	assert.Nil(t, observeKubeconfig(cfgCurrent("prod", "prod"), "", nil))
 }
 
@@ -314,6 +336,8 @@ func loggedEvent(t *testing.T, client *stubControllerClient) beehive.EventSpec {
 // The reason a cluster will not connect is the whole point of the timeline: without it
 // the UI's attempt list is empty and a user has nothing to report.
 func TestReconcileLogsAFailedProbe(t *testing.T) {
+	t.Parallel()
+
 	c := identityControllerOver(t, answering(kubeconn.Identity{}, errors.New("connection refused")))
 	obj := createCluster(t, c.deps, "prod")
 
@@ -329,6 +353,8 @@ func TestReconcileLogsAFailedProbe(t *testing.T) {
 
 // Each class of failure has its own remedy, so Connected names the probe's class.
 func TestReconcileNamesTheProbesClassOfFailure(t *testing.T) {
+	t.Parallel()
+
 	refused := kubeconn.Observation[string]{
 		Attempts: kubeconn.Attempts{LastAttempt: finished(kubeconn.ReasonTLSInvalid, "x509: unknown authority")},
 	}
@@ -345,6 +371,8 @@ func TestReconcileNamesTheProbesClassOfFailure(t *testing.T) {
 
 // A failure the probe left unclassified still reads as a failure.
 func TestReconcileCallsAnUnclassifiedFailureProbeFailed(t *testing.T) {
+	t.Parallel()
+
 	unclassified := kubeconn.Observation[string]{
 		Attempts: kubeconn.Attempts{LastAttempt: finished(kubeconn.ReasonUnknown, "boom")},
 	}
@@ -360,6 +388,8 @@ func TestReconcileCallsAnUnclassifiedFailureProbeFailed(t *testing.T) {
 // A working cluster still writes one, so the timeline shows when it came up rather than
 // only that it is not down.
 func TestReconcileLogsASuccessfulProbe(t *testing.T) {
+	t.Parallel()
+
 	c := identityControllerOver(t, answering(kubeconn.Identity{ServerUID: "uid-1"}, nil))
 	obj := createCluster(t, c.deps, "prod")
 
@@ -375,6 +405,8 @@ func TestReconcileLogsASuccessfulProbe(t *testing.T) {
 // cannot be identified never gets a cache. Reporting Connected's success there would say
 // the cluster is fine while nothing syncs.
 func TestReconcileLogsTheIdentityFailureWhenTheServerAnswered(t *testing.T) {
+	t.Parallel()
+
 	c := identityControllerOver(t, knowing(kubeconn.State{
 		Connection: answeredWith("https://prod.example:6443"),
 		Readiness:  answeredWith(kubeconn.ComponentStatus{}),
@@ -394,6 +426,8 @@ func TestReconcileLogsTheIdentityFailureWhenTheServerAnswered(t *testing.T) {
 // Switching a cluster off is a choice, not a fault: it belongs on the timeline, but a
 // warning would read as something to fix.
 func TestReconcileLogsBeingDisabledWithoutWarning(t *testing.T) {
+	t.Parallel()
+
 	c := identityControllerOver(t, answering(kubeconn.Identity{ServerUID: "uid-1"}, nil))
 	obj := createCluster(t, c.deps, "prod")
 	obj.Spec.Enabled = false
@@ -409,6 +443,8 @@ func TestReconcileLogsBeingDisabledWithoutWarning(t *testing.T) {
 // A record whose source names no context produces no verdict, so it has nothing to log
 // either — an empty timeline is the honest answer.
 func TestReconcileLogsNothingForAnotherSource(t *testing.T) {
+	t.Parallel()
+
 	c := identityControllerOver(t, answering(kubeconn.Identity{ServerUID: "uid-1"}, nil))
 	obj, err := c.clusterClient.Create(context.Background(), "cloud/prod", ClusterRuntimeSpec{Source: "cloud"})
 	require.NoError(t, err)
@@ -422,6 +458,8 @@ func TestReconcileLogsNothingForAnotherSource(t *testing.T) {
 // Every condition here describes process-scoped state, so a previous process's write
 // must read as Unknown until this one re-confirms it.
 func TestReconcileReportsLiveness(t *testing.T) {
+	t.Parallel()
+
 	c := identityControllerOver(t, answering(kubeconn.Identity{ServerUID: "uid-1"}, nil))
 	obj := createCluster(t, c.deps, "prod")
 
@@ -434,6 +472,8 @@ func TestReconcileReportsLiveness(t *testing.T) {
 // A cluster the user switched off is not probed, and says so rather than looking like
 // one that failed to connect.
 func TestReconcileReportsInactiveWhenDisabled(t *testing.T) {
+	t.Parallel()
+
 	svc := answering(kubeconn.Identity{ServerUID: "uid-1"}, nil)
 	c := identityControllerOver(t, svc)
 	obj := createCluster(t, c.deps, "prod")
@@ -451,6 +491,8 @@ func TestReconcileReportsInactiveWhenDisabled(t *testing.T) {
 // Releasing is what stops the probe, so a cluster switched off after it connected has to
 // give its claim back — a record that costs nothing to keep should cost no dial.
 func TestReconcileReleasesTheClaimWhenTheClusterIsDisabled(t *testing.T) {
+	t.Parallel()
+
 	svc := answering(kubeconn.Identity{ServerUID: "uid-1"}, nil)
 	c := identityControllerOver(t, svc)
 	obj := createCluster(t, c.deps, "prod")
@@ -466,6 +508,8 @@ func TestReconcileReleasesTheClaimWhenTheClusterIsDisabled(t *testing.T) {
 // A record whose source stopped naming credentials has none to hold a claim on, so the
 // claim goes back for the same reason a disabled one's does.
 func TestReconcileReleasesTheClaimWhenTheSourceStopsNamingIt(t *testing.T) {
+	t.Parallel()
+
 	svc := answering(kubeconn.Identity{ServerUID: "uid-1"}, nil)
 	c := identityControllerOver(t, svc)
 	obj := createCluster(t, c.deps, "prod")
@@ -482,6 +526,8 @@ func TestReconcileReleasesTheClaimWhenTheSourceStopsNamingIt(t *testing.T) {
 // nothing. Neither connected nor failed, and the signal the probe publishes is what
 // brings this record back.
 func TestReconcileReportsConnectingUntilAnswered(t *testing.T) {
+	t.Parallel()
+
 	svc := &fakeKubeconn{}
 	c := identityControllerOver(t, svc)
 	obj := createCluster(t, c.deps, "prod")
@@ -498,6 +544,8 @@ func TestReconcileReportsConnectingUntilAnswered(t *testing.T) {
 // A record from another source names no context to resolve, so a verdict about reaching
 // its server is one no pass here produced.
 func TestReconcileReportsNoConditionForAnotherSource(t *testing.T) {
+	t.Parallel()
+
 	svc := answering(kubeconn.Identity{ServerUID: "uid-1"}, nil)
 	c := identityControllerOver(t, svc)
 	obj, err := c.clusterClient.Create(context.Background(), "cloud/prod", ClusterRuntimeSpec{Source: "cloud"})
@@ -514,6 +562,8 @@ func TestReconcileReportsNoConditionForAnotherSource(t *testing.T) {
 // A condition the store refuses is this pass's failure, not the cluster's: settling
 // would report a verdict nothing recorded.
 func TestReconcileReportsAFailedConditionWrite(t *testing.T) {
+	t.Parallel()
+
 	boom := errors.New("boom")
 	c := identityControllerOver(t, answering(kubeconn.Identity{ServerUID: "uid-1"}, nil))
 	obj := createCluster(t, c.deps, "prod")
@@ -526,6 +576,8 @@ func TestReconcileReportsAFailedConditionWrite(t *testing.T) {
 // A verdict the timeline refuses is this pass's failure too: settling would leave the
 // timeline without the transition the conditions just reported.
 func TestReconcileReportsAFailedVerdictWrite(t *testing.T) {
+	t.Parallel()
+
 	boom := errors.New("boom")
 	c := identityControllerOver(t, answering(kubeconn.Identity{ServerUID: "uid-1"}, nil))
 	obj := createCluster(t, c.deps, "prod")
@@ -538,6 +590,8 @@ func TestReconcileReportsAFailedVerdictWrite(t *testing.T) {
 // The identity comes from the probe, not from the record: this is the write that turns
 // a tracked context into one with a mirror.
 func TestReconcileWritesTheProbedUID(t *testing.T) {
+	t.Parallel()
+
 	c := identityControllerOver(t, answering(kubeconn.Identity{ServerUID: "uid-1"}, nil))
 	obj := createCluster(t, c.deps, "prod")
 
@@ -552,6 +606,8 @@ func TestReconcileWritesTheProbedUID(t *testing.T) {
 // One probe answers three questions, and dropping two would throw away requests it
 // already paid for. The version and the principal have their own status homes.
 func TestReconcileWritesTheWholeIdentity(t *testing.T) {
+	t.Parallel()
+
 	c := identityControllerOver(t, answering(kubeconn.Identity{
 		ServerUID: "uid-1", ServerVersion: "v1.29.3", Username: "admin@example",
 	}, nil))
@@ -570,6 +626,8 @@ func TestReconcileWritesTheWholeIdentity(t *testing.T) {
 // The endpoint is what tells two contexts naming one server apart from two servers, so a
 // pass that reached one records where it went.
 func TestReconcileWritesTheEndpointAndGroups(t *testing.T) {
+	t.Parallel()
+
 	c := identityControllerOver(t, knowing(kubeconn.State{
 		Connection: answeredWith("https://prod.example:6443"),
 		ServerUID:  answeredWith("uid-1"),
@@ -593,6 +651,8 @@ func TestReconcileWritesTheEndpointAndGroups(t *testing.T) {
 // Nothing has been probed, so there is nothing to report about the server — a status
 // carrying invented blanks would be indistinguishable from one that read them.
 func TestReconcileWritesNoServerFactsWhileNothingIsProbed(t *testing.T) {
+	t.Parallel()
+
 	c := identityControllerOver(t, &fakeKubeconn{})
 	obj := createCluster(t, c.deps, "prod")
 
@@ -609,6 +669,8 @@ func TestReconcileWritesNoServerFactsWhileNothingIsProbed(t *testing.T) {
 // connected as and not what it connected to. Each fact stands on its own: reporting
 // none of them would hide a cluster that is up.
 func TestReconcileWritesThePartOfTheIdentityAProbeReached(t *testing.T) {
+	t.Parallel()
+
 	c := identityControllerOver(t, knowing(kubeconn.State{
 		Connection:    answeredWith("https://prod.example:6443"),
 		Readiness:     answeredWith(kubeconn.ComponentStatus{}),
@@ -633,6 +695,8 @@ func TestReconcileWritesThePartOfTheIdentityAProbeReached(t *testing.T) {
 // Reaching a server needs no authorization and naming it does, so the two verdicts move
 // apart — and this is the one that explains a connected cluster that never gets a cache.
 func TestReconcileReportsUnidentifiedWhenTheUIDIsRefused(t *testing.T) {
+	t.Parallel()
+
 	c := identityControllerOver(t, knowing(kubeconn.State{
 		Connection: answeredWith("https://prod.example:6443"),
 		Readiness:  answeredWith(kubeconn.ComponentStatus{}),
@@ -653,6 +717,8 @@ func TestReconcileReportsUnidentifiedWhenTheUIDIsRefused(t *testing.T) {
 // Identity is not a fact about a server nothing reached, so a failed probe leaves it
 // unassessed rather than claiming the cluster is unidentifiable.
 func TestReconcileLeavesIdentityUnassessedWhenTheProbeFailed(t *testing.T) {
+	t.Parallel()
+
 	c := identityControllerOver(t, answering(kubeconn.Identity{}, errors.New("connection refused")))
 	obj := createCluster(t, c.deps, "prod")
 
@@ -667,6 +733,8 @@ func TestReconcileLeavesIdentityUnassessedWhenTheProbeFailed(t *testing.T) {
 // would: a status write moves no generation, so no owed pass lists this record again,
 // and the cache that would be its dependent is the thing that does not exist yet.
 func TestReconcileCreatesTheCacheInTheSamePassThatLearnsTheUID(t *testing.T) {
+	t.Parallel()
+
 	c := identityControllerOver(t, answering(kubeconn.Identity{ServerUID: "uid-1"}, nil))
 	obj := createCluster(t, c.deps, "prod")
 
@@ -680,6 +748,8 @@ func TestReconcileCreatesTheCacheInTheSamePassThatLearnsTheUID(t *testing.T) {
 // An unprobed record reports nothing, which must not be read as "no identity": clearing
 // the UID would deactivate a live cache because a probe had not answered yet.
 func TestReconcileKeepsTheLastKnownUIDWhileNothingIsProbed(t *testing.T) {
+	t.Parallel()
+
 	c := controllerOver(t)
 	obj := probedCluster(t, c.deps, "uid-1")
 
@@ -694,6 +764,8 @@ func TestReconcileKeepsTheLastKnownUIDWhileNothingIsProbed(t *testing.T) {
 // A cluster owns a mirror slot per identity it has been probed at, so the pass that
 // knows the identity is the one that creates it.
 func TestReconcileCreatesACacheForTheProbedIdentity(t *testing.T) {
+	t.Parallel()
+
 	c := controllerOver(t)
 	obj := probedCluster(t, c.deps, "uid-1")
 
@@ -715,6 +787,8 @@ func TestReconcileCreatesACacheForTheProbedIdentity(t *testing.T) {
 // Every pass ensures the cache, and the source wakes every record on every
 // kubeconfig snapshot — so the second pass is the common case, not the edge.
 func TestReconcileCreatesTheCacheOnlyOnce(t *testing.T) {
+	t.Parallel()
+
 	c := controllerOver(t)
 	obj := probedCluster(t, c.deps, "uid-1")
 
@@ -729,6 +803,8 @@ func TestReconcileCreatesTheCacheOnlyOnce(t *testing.T) {
 // would name it after the empty UID — a cache CacheIsActive matches against nothing,
 // so it could never sync and never be superseded either.
 func TestReconcileCreatesNoCacheBeforeTheFirstProbe(t *testing.T) {
+	t.Parallel()
+
 	c := controllerOver(t)
 
 	reconcileCluster(t, c, &stubControllerClient{}, probedCluster(t, c.deps, ""))
@@ -740,6 +816,8 @@ func TestReconcileCreatesNoCacheBeforeTheFirstProbe(t *testing.T) {
 // be reused with it, so the pass adds a second cache and leaves the first in place to
 // drain — which is why Cluster.caches is a list.
 func TestReconcileAddsACacheForAMigratedIdentity(t *testing.T) {
+	t.Parallel()
+
 	c := controllerOver(t)
 	obj := probedCluster(t, c.deps, "uid-1")
 
@@ -777,6 +855,8 @@ func (c stubCacheClient) GetOrCreate(context.Context, string, ClusterCacheSpec, 
 // different consumers, and holding it back would leave a departed context marked
 // present for as long as an unrelated create keeps failing.
 func TestReconcileReportsAFailedCacheCreate(t *testing.T) {
+	t.Parallel()
+
 	boom := errors.New("boom")
 	c := controllerOver(t)
 	c.cacheClient = stubCacheClient{err: boom}
@@ -794,6 +874,8 @@ func TestReconcileReportsAFailedCacheCreate(t *testing.T) {
 // the kubeconfig's first read. Observing the pre-read config would report a present
 // context absent and wake the kind's watches for a flap.
 func TestReconcileDefersUntilTheKubeconfigIsRead(t *testing.T) {
+	t.Parallel()
+
 	// Unstarted, which is the only way to hold a service that has not read yet.
 	c := &clusterController{deps: deps{kubeconfigSvc: kubeconfig.New(t.TempDir()+"/config", nil)}}
 
@@ -806,6 +888,8 @@ func TestReconcileDefersUntilTheKubeconfigIsRead(t *testing.T) {
 }
 
 func TestReconcileWritesTheObservation(t *testing.T) {
+	t.Parallel()
+
 	client := &stubControllerClient{}
 
 	res := controllerOver(t).Reconcile(context.Background(), client, kubeconfigObj("prod", nil))
@@ -819,6 +903,8 @@ func TestReconcileWritesTheObservation(t *testing.T) {
 // The observation is written into the status already there, not over it: everything
 // else on the blob belongs to a probe this reconcile did not run.
 func TestReconcileKeepsTheRestOfTheStatus(t *testing.T) {
+	t.Parallel()
+
 	uid := "uid-1"
 	obj := kubeconfigObj("prod", &ClusterStatus{Server: ClusterServer{UID: &uid}})
 
@@ -832,6 +918,8 @@ func TestReconcileKeepsTheRestOfTheStatus(t *testing.T) {
 
 // A failed status write is the reconcile's failure, so beehive retries it.
 func TestReconcileReportsAFailedStatusWrite(t *testing.T) {
+	t.Parallel()
+
 	boom := errors.New("boom")
 
 	res := controllerOver(t).Reconcile(context.Background(), &stubControllerClient{updateErr: boom}, kubeconfigObj("prod", nil))
@@ -847,6 +935,8 @@ func TestReconcileReportsAFailedStatusWrite(t *testing.T) {
 // it handed out and reaches the store only for a difference, so an unchanged
 // observation writes nothing without this pass deciding it.
 func TestReconcileSettlesWhenNothingMoved(t *testing.T) {
+	t.Parallel()
+
 	// The seed config holds no contexts, so this is what the reconcile will observe.
 	obj := kubeconfigObj("prod", &ClusterStatus{Source: ClusterStatusSource{
 		Kubeconfig: &ClusterStatusSourceKubeconfig{
@@ -867,6 +957,8 @@ func TestReconcileSettlesWhenNothingMoved(t *testing.T) {
 // A record from another source has no observation of its own, and two of those are as
 // unchanged as any other repeat.
 func TestReconcileSettlesForAnotherSource(t *testing.T) {
+	t.Parallel()
+
 	// beehive's generations start at 1; 0 is not a generation any object is handed.
 	obj := &beehive.Object[ClusterRuntimeSpec, ClusterStatus]{ID: 1, Generation: 1, Status: &ClusterStatus{}}
 
@@ -881,6 +973,8 @@ func TestReconcileSettlesForAnotherSource(t *testing.T) {
 // A record on its way out has nothing to observe, and writing status to it would be a
 // write beehive has to carry through a collect that is already under way.
 func TestReconcileSkipsADeletingRecord(t *testing.T) {
+	t.Parallel()
+
 	obj := kubeconfigObj("prod", nil)
 	now := time.Now()
 	obj.DeletionRequestedAt = &now
@@ -897,6 +991,8 @@ func TestReconcileSkipsADeletingRecord(t *testing.T) {
 // conditions. Conditions come off the object rows, not the status blob, which is
 // where beehive keeps them.
 func TestToCluster(t *testing.T) {
+	t.Parallel()
+
 	uid := "uid-1"
 	row := ClusterRow{
 		ID: "7", Source: SourceKubeconfig, SourceKey: new("prod"), Name: new("Prod"),
@@ -929,6 +1025,8 @@ func TestToCluster(t *testing.T) {
 // A row the mirror has not given an object yet — or whose object it has already
 // removed — has zero status and no conditions.
 func TestToClusterWithNoObject(t *testing.T) {
+	t.Parallel()
+
 	c := toCluster(ClusterRow{ID: "7", Source: SourceKubeconfig, SourceKey: new("prod")}, nil)
 
 	assert.Equal(t, ClusterStatus{}, c.Status)
@@ -939,6 +1037,8 @@ func TestToClusterWithNoObject(t *testing.T) {
 // The mark is surfaced as-is, off the row: a consumer that renders a record on its
 // way out has no other way to know.
 func TestToClusterCarriesTheDeletionMark(t *testing.T) {
+	t.Parallel()
+
 	at := t0.Add(time.Minute)
 
 	c := toCluster(ClusterRow{ID: "7", Source: SourceKubeconfig, DeleteRequestedAt: &at}, nil)
@@ -959,6 +1059,8 @@ func serviceOver(t *testing.T, d deps) *service {
 }
 
 func TestClustersGet(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 
@@ -973,6 +1075,8 @@ func TestClustersGet(t *testing.T) {
 // An unknown id is not an error: the caller holds an id from a watch frame, and a
 // record collected in between is an ordinary race rather than a bad request.
 func TestClustersGetUnknownIsNotAnError(t *testing.T) {
+	t.Parallel()
+
 	got, err := serviceOver(t, newTestDeps(t)).Clusters().Get(context.Background(), ClusterID("404"))
 
 	require.NoError(t, err)
@@ -982,6 +1086,8 @@ func TestClustersGetUnknownIsNotAnError(t *testing.T) {
 // A record on its way out is served like any other, wearing its mark: only the
 // consumer knows whether to render it or hide it.
 func TestClustersGetCarriesADeletingRecord(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	_, err := markCluster(context.Background(), d.store.Stmts(), clusterIDOf(obj), t0)
@@ -997,6 +1103,8 @@ func TestClustersGetCarriesADeletingRecord(t *testing.T) {
 // A row the mirror has not reached yet is served with zero status: the record
 // exists the moment the importer inserts it, and the probe's facts follow.
 func TestClustersGetServesARowWithNoRuntimeObject(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	row := importCluster(t, d, "prod")
 
@@ -1010,6 +1118,8 @@ func TestClustersGetServesARowWithNoRuntimeObject(t *testing.T) {
 }
 
 func TestClustersList(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	createCluster(t, d, "prod")
 	createCluster(t, d, "staging")
@@ -1024,6 +1134,8 @@ func TestClustersList(t *testing.T) {
 
 // The collection a reader sees matches what Get would answer for each id.
 func TestClustersListCarriesADeletingRecord(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	createCluster(t, d, "prod")
 	deleting := createCluster(t, d, "staging")
@@ -1059,6 +1171,8 @@ func deref(s *string) string {
 // The schema promises name order, and the table lists in id order — so a caller
 // paging or diffing the list would otherwise see it shuffle between reads.
 func TestClustersListIsSortedByName(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	for _, name := range []string{"staging", "alpha", "prod"} {
 		createCluster(t, d, name)
@@ -1070,6 +1184,8 @@ func TestClustersListIsSortedByName(t *testing.T) {
 // The order is over what a view renders, so renaming a cluster moves it — the
 // kube-context it happens to track is not what a reader is scanning.
 func TestClustersListSortsByDisplayNameWhenSet(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	svc := serviceOver(t, d)
 	for _, name := range []string{"alpha", "prod"} {
@@ -1084,6 +1200,8 @@ func TestClustersListSortsByDisplayNameWhenSet(t *testing.T) {
 }
 
 func TestClustersListIsEmptyWithNoRecords(t *testing.T) {
+	t.Parallel()
+
 	got, err := serviceOver(t, newTestDeps(t)).Clusters().List(context.Background())
 
 	require.NoError(t, err)
@@ -1104,6 +1222,8 @@ func watchClusters(t *testing.T, d deps) *Stream[ClusterCollectionWatchFrame] {
 // The snapshot arrives as Added frames closed by exactly one Bookmark — the frame a
 // consumer renders its empty state on, and never before.
 func TestClustersWatchCollectionEmitsTheSnapshotThenABookmark(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	createCluster(t, d, "prod")
 	createCluster(t, d, "staging")
@@ -1128,6 +1248,8 @@ func TestClustersWatchCollectionEmitsTheSnapshotThenABookmark(t *testing.T) {
 // An empty collection is definitively empty rather than pending, so the bookmark
 // still lands: without it a populated table and an empty one look alike.
 func TestClustersWatchCollectionBookmarksAnEmptyCollection(t *testing.T) {
+	t.Parallel()
+
 	stream := watchClusters(t, newRunningDeps(t))
 
 	first := testutil.Recv(t, stream.Frames, "the bookmark")
@@ -1145,6 +1267,8 @@ func awaitBookmark(t *testing.T, stream *Stream[ClusterCollectionWatchFrame]) {
 }
 
 func TestClustersWatchCollectionReportsACreate(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	stream := watchClusters(t, d)
 	awaitBookmark(t, stream)
@@ -1159,6 +1283,8 @@ func TestClustersWatchCollectionReportsACreate(t *testing.T) {
 
 // A row edit moves the row and no object; the watch reports it off the DB signal.
 func TestClustersWatchCollectionReportsARowEdit(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	obj := createCluster(t, d, "prod")
 	stream := watchClusters(t, d)
@@ -1175,6 +1301,8 @@ func TestClustersWatchCollectionReportsARowEdit(t *testing.T) {
 
 // A probe moves the object and no row; the watch reports it off the runtime signal.
 func TestClustersWatchCollectionReportsAStatusWrite(t *testing.T) {
+	t.Parallel()
+
 	d, bh := newRunningDepsAndBeehive(t)
 	status := beehive.NewAdminClient[ClusterStatus](bh, ClusterGroupKind)
 	obj := createCluster(t, d, "prod")
@@ -1194,6 +1322,8 @@ func TestClustersWatchCollectionReportsAStatusWrite(t *testing.T) {
 // The mark is an ordinary row edit, so a watcher that has seen the row unmarked gets
 // it as Modified carrying the mark; the Deleted is the row's removal alone.
 func TestClustersWatchCollectionReportsTheMarkAsModified(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	obj := createCluster(t, d, "prod")
 	stream := watchClusters(t, d)
@@ -1210,6 +1340,8 @@ func TestClustersWatchCollectionReportsTheMarkAsModified(t *testing.T) {
 
 // A row already marked when the snapshot is taken is in it, as Added, like any other.
 func TestClustersWatchCollectionSnapshotCarriesADeletingRecord(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	obj := createCluster(t, d, "prod")
 	_, err := markCluster(context.Background(), d.store.Stmts(), clusterIDOf(obj), t0)
@@ -1228,6 +1360,8 @@ func TestClustersWatchCollectionSnapshotCarriesADeletingRecord(t *testing.T) {
 // removal landing before one reread surface as the Deleted alone: only the
 // departure is promised.
 func TestClustersWatchCollectionReportsTheRemoval(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	obj := createCluster(t, d, "prod")
 	stream := watchClusters(t, d)
@@ -1248,6 +1382,8 @@ func TestClustersWatchCollectionReportsTheRemoval(t *testing.T) {
 // Cancellation is an ordinary teardown, so Frames closes with nothing to report: a
 // consumer reads Err on close, and a reason there is rendered as a dead watch.
 func TestClustersWatchCollectionCancellationIsQuiet(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -1273,6 +1409,8 @@ func watchCluster(t *testing.T, d deps, id ClusterID) *Stream[ClusterCollectionW
 }
 
 func TestClustersWatchCollectionByIDEmitsTheRecordThenABookmark(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	obj := createCluster(t, d, "prod")
 
@@ -1289,12 +1427,16 @@ func TestClustersWatchCollectionByIDEmitsTheRecordThenABookmark(t *testing.T) {
 // An id naming nothing is bookmark-only rather than an error: the record may not
 // exist yet, and the same subscription reports it arriving.
 func TestClustersWatchCollectionByIDBookmarksAnUnknownID(t *testing.T) {
+	t.Parallel()
+
 	stream := watchCluster(t, newRunningDeps(t), ClusterID("404"))
 
 	assert.Equal(t, CollectionWatchFrameBookmark, testutil.Recv(t, stream.Frames, "the bookmark").Type)
 }
 
 func TestClustersWatchCollectionByIDReportsChangesToItsRecord(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	obj := createCluster(t, d, "prod")
 	other := createCluster(t, d, "staging")
@@ -1335,6 +1477,8 @@ func scheduledAt(at time.Time) kubeconn.Observation[string] {
 // The countdown is the connection's own. The other four run on their own clocks, and a
 // countdown to whichever was due next would not be the one a retry acts on.
 func TestClustersWatchScheduleStateReportsTheConnectionProbe(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	dialAt := probedAt.Add(30 * time.Second)
@@ -1353,6 +1497,8 @@ func TestClustersWatchScheduleStateReportsTheConnectionProbe(t *testing.T) {
 
 // A down connection's countdown comes with how many attempts in a row have failed.
 func TestClustersWatchScheduleStateCountsTheFailedAttempts(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	failing := scheduledAt(probedAt.Add(30 * time.Second))
@@ -1367,6 +1513,8 @@ func TestClustersWatchScheduleStateCountsTheFailedAttempts(t *testing.T) {
 // Every probe but the connection suspends while it is down, so a disconnected cluster's
 // countdown is its retry — the case the state watch exists for.
 func TestClustersWatchScheduleStateIgnoresTheOtherProbes(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	d.kubeconnSvc = knowing(kubeconn.State{ServerUID: scheduledAt(probedAt.Add(10 * time.Second))})
@@ -1382,6 +1530,8 @@ func TestClustersWatchScheduleStateIgnoresTheOtherProbes(t *testing.T) {
 }
 
 func TestClustersWatchScheduleStateFollowsThePool(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	d.kubeconnSvc = knowing(kubeconn.State{Connection: scheduledAt(probedAt.Add(30 * time.Second))})
@@ -1400,6 +1550,8 @@ func TestClustersWatchScheduleStateFollowsThePool(t *testing.T) {
 // Probing is asserted from the run, never inferred from a countdown that has run out — and the
 // time the run in flight was scheduled for is the current reconcile, not the next one.
 func TestClustersWatchScheduleStateReportsARunInFlight(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	d.kubeconnSvc = knowing(kubeconn.State{
@@ -1419,6 +1571,8 @@ func TestClustersWatchScheduleStateReportsARunInFlight(t *testing.T) {
 // not landed has made none — reporting its zero state would say "nothing is scheduled"
 // about a cluster that is about to be dialed.
 func TestClustersWatchScheduleStateSaysNothingBeforeTheFirstPass(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	pool := d.kubeconnSvc.(*fakeKubeconn)
@@ -1435,6 +1589,8 @@ func TestClustersWatchScheduleStateSaysNothingBeforeTheFirstPass(t *testing.T) {
 // Once something has been measured, "nothing is scheduled" is news: a suspended
 // connection is what a context the kubeconfig stopped naming looks like.
 func TestClustersWatchScheduleStateReportsASuspendedConnection(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	d.kubeconnSvc = knowing(kubeconn.State{Connection: scheduledAt(probedAt)})
@@ -1448,6 +1604,8 @@ func TestClustersWatchScheduleStateReportsASuspendedConnection(t *testing.T) {
 }
 
 func TestClustersWatchScheduleStateReleasesItsClaimWhenTheStreamEnds(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	pool := d.kubeconnSvc.(*fakeKubeconn)
@@ -1460,6 +1618,8 @@ func TestClustersWatchScheduleStateReleasesItsClaimWhenTheStreamEnds(t *testing.
 }
 
 func TestClustersSetEnabled(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 
@@ -1472,6 +1632,8 @@ func TestClustersSetEnabled(t *testing.T) {
 }
 
 func TestClustersSetSyncEnabled(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 
@@ -1485,6 +1647,8 @@ func TestClustersSetSyncEnabled(t *testing.T) {
 
 // Each setter writes its one column, so two landing at once keep each other's.
 func TestClustersSettersDoNotLoseConcurrentUpdates(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	clusters := serviceOver(t, d).Clusters()
@@ -1512,6 +1676,8 @@ func TestClustersSettersDoNotLoseConcurrentUpdates(t *testing.T) {
 // asked for a change that did not happen. It reports the boundary's own sentinel —
 // graph matches that one, and beehive is not supposed to be visible through here.
 func TestClustersSetEnabledReportsAnUnknownID(t *testing.T) {
+	t.Parallel()
+
 	_, err := serviceOver(t, newTestDeps(t)).Clusters().SetEnabled(context.Background(), ClusterID("404"), false)
 
 	assert.ErrorIs(t, err, ErrNotFound)
@@ -1520,6 +1686,8 @@ func TestClustersSetEnabledReportsAnUnknownID(t *testing.T) {
 // The third toggle is stored and served like the other two, and bumps updated_at as
 // a user edit does.
 func TestClustersSetMonitoringEnabled(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 
@@ -1532,6 +1700,8 @@ func TestClustersSetMonitoringEnabled(t *testing.T) {
 
 // SetDefault returns the record as the default, and wakes the watchers.
 func TestClustersSetDefault(t *testing.T) {
+	t.Parallel()
+
 	d, _ := newClusterStatusDeps(t)
 	d.kubeconfigSvc = fakeKubeconfigService{cfg: cfgWith("prod"), loaded: true}
 	obj := createCluster(t, d, "prod")
@@ -1549,6 +1719,8 @@ func TestClustersSetDefault(t *testing.T) {
 // Only a cluster the kubeconfig declares can become the default: an archived one or
 // one from another source is refused, and nothing changes.
 func TestClustersSetDefaultRefusesAClusterTheKubeconfigDoesNotDeclare(t *testing.T) {
+	t.Parallel()
+
 	d, _ := newClusterStatusDeps(t)
 	d.kubeconfigSvc = fakeKubeconfigService{cfg: cfgWith("staging"), loaded: true}
 	svc := serviceOver(t, d)
@@ -1567,6 +1739,8 @@ func TestClustersSetDefaultRefusesAClusterTheKubeconfigDoesNotDeclare(t *testing
 
 // An archived default can still be cleared.
 func TestClustersSetDefaultClearsAnArchivedDefault(t *testing.T) {
+	t.Parallel()
+
 	d, _ := newClusterStatusDeps(t)
 	d.kubeconfigSvc = fakeKubeconfigService{cfg: cfgWith("prod"), loaded: true}
 	obj := createCluster(t, d, "prod")
@@ -1582,6 +1756,8 @@ func TestClustersSetDefaultClearsAnArchivedDefault(t *testing.T) {
 
 // A disabled cluster cannot become the default, and nothing changes.
 func TestClustersSetDefaultRefusesADisabledCluster(t *testing.T) {
+	t.Parallel()
+
 	d, _ := newClusterStatusDeps(t)
 	d.kubeconfigSvc = fakeKubeconfigService{cfg: cfgWith("prod"), loaded: true}
 	svc := serviceOver(t, d)
@@ -1597,6 +1773,8 @@ func TestClustersSetDefaultRefusesADisabledCluster(t *testing.T) {
 // A store that will not answer is reported, whichever read fails: the row's or the
 // runtime object's.
 func TestClustersSetDefaultReportsAReadThatFailed(t *testing.T) {
+	t.Parallel()
+
 	t.Run("row", func(t *testing.T) {
 		d := newTestDeps(t)
 		obj := createCluster(t, d, "prod")
@@ -1620,6 +1798,8 @@ func TestClustersSetDefaultReportsAReadThatFailed(t *testing.T) {
 
 // An unknown id is the boundary's not-found sentinel, as for every toggle.
 func TestClustersSetDefaultReportsAnUnknownID(t *testing.T) {
+	t.Parallel()
+
 	_, err := serviceOver(t, newTestDeps(t)).Clusters().SetDefault(context.Background(), ClusterID("404"), true)
 
 	assert.ErrorIs(t, err, ErrNotFound)
@@ -1627,6 +1807,8 @@ func TestClustersSetDefaultReportsAnUnknownID(t *testing.T) {
 
 // A setter wakes the watchers, so a toggle reaches every window.
 func TestClustersSettersNotifyTheWatchers(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	sub := d.db.ListenForChanges(appdb.KeyClusters)
@@ -1641,6 +1823,8 @@ func TestClustersSettersNotifyTheWatchers(t *testing.T) {
 // Delete marks the row and wakes the loops behind it; the row stays, marked, until
 // they are done, and the runtime object is theirs to tear down.
 func TestClustersDelete(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	clusters := serviceOver(t, d).Clusters()
@@ -1663,6 +1847,8 @@ func TestClustersDelete(t *testing.T) {
 // two are the same outcome to a caller that only deletes, and opposite ones to a
 // caller whose own cascade runs on the answer.
 func TestClustersDeleteReportsAReadThatFailed(t *testing.T) {
+	t.Parallel()
+
 	d, closeStore := newTestDepsWithABreakableStore(t)
 	obj := createCluster(t, d, "prod")
 	clusters := serviceOver(t, d).Clusters()
@@ -1675,6 +1861,8 @@ func TestClustersDeleteReportsAReadThatFailed(t *testing.T) {
 // same rule: deleting a record its source still declares would re-import it under a
 // fresh id, so the mutation would report success and then undo itself.
 func TestClustersDeleteRejectsARecordItsSourceDeclares(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	d.kubeconfigSvc = fakeKubeconfigService{cfg: cfgWith("prod"), loaded: true}
 	svc := serviceOver(t, d)
@@ -1692,6 +1880,8 @@ func TestClustersDeleteRejectsARecordItsSourceDeclares(t *testing.T) {
 // The case the affordance exists for: the context left the file, so nothing will
 // re-import the record and the local state is the user's to forget.
 func TestClustersDeleteAcceptsAnOrphanedRecord(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	svc := serviceOver(t, d)
 	obj := createCluster(t, d, "prod")
@@ -1706,6 +1896,8 @@ func TestClustersDeleteAcceptsAnOrphanedRecord(t *testing.T) {
 
 // A record from no source is nobody's to declare, so nothing re-creates it.
 func TestClustersDeleteAcceptsARecordFromAnotherSource(t *testing.T) {
+	t.Parallel()
+
 	d, _ := newClusterStatusDeps(t)
 	svc := serviceOver(t, d)
 	_, err := d.db.Write.Exec(`INSERT INTO clusters (id, source, created_at, updated_at) VALUES ('cloud-1', 'cloud', 0, 0)`)
@@ -1723,6 +1915,8 @@ func TestClustersDeleteAcceptsARecordFromAnotherSource(t *testing.T) {
 // kubeconfig still declares the context, and the webview renders such a record as
 // orphaned — so its Remove button is live for exactly this window.
 func TestClustersDeleteRejectsADeclaredRecordBeforeItsFirstObservation(t *testing.T) {
+	t.Parallel()
+
 	d, _ := newClusterStatusDeps(t)
 	d.kubeconfigSvc = fakeKubeconfigService{cfg: cfgWith("prod"), loaded: true}
 	svc := serviceOver(t, d)
@@ -1739,6 +1933,8 @@ func TestClustersDeleteRejectsADeclaredRecordBeforeItsFirstObservation(t *testin
 // The same record with the context gone from the file: no observation either, but
 // nothing will re-import it, so the delete is the caller's to make.
 func TestClustersDeleteAcceptsAnUndeclaredRecordBeforeItsFirstObservation(t *testing.T) {
+	t.Parallel()
+
 	d, _ := newClusterStatusDeps(t)
 	d.kubeconfigSvc = fakeKubeconfigService{cfg: cfgWith("staging"), loaded: true}
 	svc := serviceOver(t, d)
@@ -1750,6 +1946,8 @@ func TestClustersDeleteAcceptsAnUndeclaredRecordBeforeItsFirstObservation(t *tes
 // The file outranks the record's own observation, which is only a cached view of it: a
 // context put back before the record re-observed must not be deletable.
 func TestClustersDeleteRejectsAReturnedContextAheadOfTheObservation(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	obj := createCluster(t, d, "prod")
 	observePresence(t, status, obj, false)
@@ -1764,6 +1962,8 @@ func TestClustersDeleteRejectsAReturnedContextAheadOfTheObservation(t *testing.T
 // Nothing to read at all — no observation, and the file not yet read. Refusing is
 // recoverable; allowing costs the record's id and the user's toggles.
 func TestClustersDeleteRejectsWhenNothingCanConfirmTheContextIsGone(t *testing.T) {
+	t.Parallel()
+
 	d, _ := newClusterStatusDeps(t)
 	d.kubeconfigSvc = fakeKubeconfigService{}
 	svc := serviceOver(t, d)
@@ -1775,6 +1975,8 @@ func TestClustersDeleteRejectsWhenNothingCanConfirmTheContextIsGone(t *testing.T
 
 // The stored observation is what answers while the file is unread.
 func TestClustersDeleteFallsBackToTheObservationWhileUnread(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	obj := createCluster(t, d, "prod")
 	observePresence(t, status, obj, false)
@@ -1787,6 +1989,8 @@ func TestClustersDeleteFallsBackToTheObservationWhileUnread(t *testing.T) {
 // asked for — and it is answered ahead of the source refusal, so a repeat of a delete
 // that went through is not refused by a context that has since returned.
 func TestClustersDeleteIsIdempotent(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	clusters := serviceOver(t, d).Clusters()
@@ -1817,6 +2021,8 @@ func importContexts(t *testing.T, d deps, cfg *api.Config) error {
 }
 
 func TestImportCreatesOneRowPerContext(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	sub := d.db.ListenForChanges(appdb.KeyClusters)
 	defer sub.Close()
@@ -1834,6 +2040,8 @@ func TestImportCreatesOneRowPerContext(t *testing.T) {
 // A second pass over the same file changes nothing and wakes nobody; a context that
 // returns finds its row, toggles and all.
 func TestImportIsIdempotentAndKeepsTheRow(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	require.NoError(t, importContexts(t, d, cfgWith("prod")))
 	first := rowsByContext(t, d)["prod"]
@@ -1859,6 +2067,8 @@ func TestImportIsIdempotentAndKeepsTheRow(t *testing.T) {
 
 // A marked row keeps its claim, so the context is not re-created mid-teardown.
 func TestImportSkipsAMarkedRow(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	require.NoError(t, importContexts(t, d, cfgWith("prod")))
 	row := rowsByContext(t, d)["prod"]
@@ -1875,6 +2085,8 @@ func TestImportSkipsAMarkedRow(t *testing.T) {
 
 // A store that will not write fails the pass, which beehive's backoff retries.
 func TestImportReportsAFailedWrite(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	require.NoError(t, d.db.Close())
 
@@ -1885,6 +2097,8 @@ func TestImportReportsAFailedWrite(t *testing.T) {
 // about a file change reaches this record on its own. The edge onto the anchor is the
 // whole wake path: without it a departed context stays marked present.
 func TestReconcileDependsOnItsSource(t *testing.T) {
+	t.Parallel()
+
 	c := controllerOver(t)
 	obj := createCluster(t, c.deps, "prod")
 	src, err := c.sourceClient.GetByName(context.Background(), ClusterSourceNameKubeconfig)
@@ -1899,6 +2113,8 @@ func TestReconcileDependsOnItsSource(t *testing.T) {
 // A record from another source has no kubeconfig anchor to wake it, and claiming one
 // would put it on a pass that could never say anything about it.
 func TestReconcileDeclaresNoSourceEdgeForAnotherSource(t *testing.T) {
+	t.Parallel()
+
 	c := controllerOver(t)
 	obj, err := c.clusterClient.Create(context.Background(), "cloud/prod", ClusterRuntimeSpec{Source: "cloud"})
 	require.NoError(t, err)
@@ -1912,6 +2128,8 @@ func TestReconcileDeclaresNoSourceEdgeForAnotherSource(t *testing.T) {
 // A failed edge must fail the pass. Carrying on would write the observation once and
 // then never be woken to write it again.
 func TestReconcileReportsAFailedSourceEdge(t *testing.T) {
+	t.Parallel()
+
 	c := controllerOver(t)
 	obj := createCluster(t, c.deps, "prod")
 
@@ -1926,6 +2144,8 @@ func TestReconcileReportsAFailedSourceEdge(t *testing.T) {
 // created the anchors. Failing there would drop every stored record into backoff on
 // every boot and skip the observation with it, so the window is waited out instead.
 func TestReconcileWaitsForAMissingSourceAnchor(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	d.sourceClient = &stubSourceClient{getErr: beehive.ErrNotFound}
@@ -1941,6 +2161,8 @@ func TestReconcileWaitsForAMissingSourceAnchor(t *testing.T) {
 // Any other store failure is a real one: the record would otherwise write an
 // observation it can never be woken to refresh.
 func TestReconcileReportsAFailedSourceLookup(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	boom := errors.New("boom")
@@ -1968,6 +2190,8 @@ func observePresence(t *testing.T, status *beehive.AdminClient[ClusterStatus], o
 // came from, else its id — which is what a source with no natural name leaves, and
 // ordering by nothing would reshuffle the list between reads.
 func TestClusterSortKeyFallsBackToTheRowsID(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, "row-id", clusterSortKey(ClusterRow{ID: "row-id", Source: "cloud"}))
 	assert.Equal(t, "prod", clusterSortKey(ClusterRow{ID: "row-id", SourceKey: new("prod")}))
 	assert.Equal(t, "Prod", clusterSortKey(ClusterRow{ID: "row-id", SourceKey: new("prod"), Name: new("Prod")}))
@@ -1976,6 +2200,8 @@ func TestClusterSortKeyFallsBackToTheRowsID(t *testing.T) {
 // A marked row is closed to edits: a switch landing on one already going is reported
 // as not found rather than silently doing nothing.
 func TestSettingAClusterSwitchReportsARecordAlreadyGoing(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
@@ -1990,6 +2216,8 @@ func TestSettingAClusterSwitchReportsARecordAlreadyGoing(t *testing.T) {
 // renders a dead watch rather than a list that stopped moving. Driven through
 // Watch(id), which filters the list watch and forwards its ending.
 func TestClustersWatchCollectionByIDReportsAStorageFault(t *testing.T) {
+	t.Parallel()
+
 	d, closeStore := newTestDepsWithABreakableStore(t)
 	obj := createCluster(t, d, "prod")
 	stream := watchCluster(t, d, clusterIDOf(obj))
@@ -2005,6 +2233,8 @@ func TestClustersWatchCollectionByIDReportsAStorageFault(t *testing.T) {
 // A setter's write lands and then the runtime read fails: the fault is reported, not
 // a record with a status nothing read.
 func TestClustersSettersReportARuntimeReadThatFailed(t *testing.T) {
+	t.Parallel()
+
 	d, closeStore := newTestDepsWithABreakableStore(t)
 	obj := createCluster(t, d, "prod")
 	closeStore()
@@ -2018,6 +2248,8 @@ func TestClustersSettersReportARuntimeReadThatFailed(t *testing.T) {
 // the stream with the reason; one closed under the stream ends it cleanly — the
 // subscription ends with the file, which is a teardown, not a fault.
 func TestClustersWatchCollectionEndings(t *testing.T) {
+	t.Parallel()
+
 	t.Run("database closed before the first read", func(t *testing.T) {
 		d := newRunningDeps(t)
 		require.NoError(t, d.db.Close())
@@ -2058,6 +2290,8 @@ func TestClustersWatchCollectionEndings(t *testing.T) {
 // read first, so the read behind the snapshot has finished and the cancel lands on a
 // send.
 func TestClustersWatchCollectionStopsForAConsumerThatIsGone(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	for _, name := range []string{"a", "b", "c", "d"} {
 		createCluster(t, d, name)
@@ -2074,6 +2308,8 @@ func TestClustersWatchCollectionStopsForAConsumerThatIsGone(t *testing.T) {
 }
 
 func TestKubeContextIsTheKubeconfigsContext(t *testing.T) {
+	t.Parallel()
+
 	c := &Cluster{Spec: ClusterSpec{Source: ClusterSpecSource{Kubeconfig: &ClusterSpecSourceKubeconfig{Context: "prod-admin"}}}}
 	assert.Equal(t, "prod-admin", c.KubeContext())
 	assert.Empty(t, (&Cluster{}).KubeContext(), "a record of another source")
@@ -2093,6 +2329,8 @@ func readActive(t *testing.T, d deps, id ClusterID) ([]ActiveCluster, error) {
 }
 
 func TestReadActiveHandsTheRecordAndItsActiveCache(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	obj := storedCluster(t, d, status, true, "uid-2")
 	createCache(t, d.cacheClient, obj, "uid-1")
@@ -2109,6 +2347,8 @@ func TestReadActiveHandsTheRecordAndItsActiveCache(t *testing.T) {
 }
 
 func TestReadActiveOfANeverIdentifiedClusterHasNoCache(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 
@@ -2121,6 +2361,8 @@ func TestReadActiveOfANeverIdentifiedClusterHasNoCache(t *testing.T) {
 }
 
 func TestReadActiveOfAnIdentityWithNoCacheYetHasNoCache(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	obj := storedCluster(t, d, status, true, "uid-1")
 
@@ -2132,6 +2374,8 @@ func TestReadActiveOfAnIdentityWithNoCacheYetHasNoCache(t *testing.T) {
 }
 
 func TestReadActiveSkipsACacheOfAnotherIdentity(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	obj := storedCluster(t, d, status, true, "uid-2")
 	createCache(t, d.cacheClient, obj, "uid-1")
@@ -2144,6 +2388,8 @@ func TestReadActiveSkipsACacheOfAnotherIdentity(t *testing.T) {
 }
 
 func TestReadActiveReturnsTheReadsError(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	boom := errors.New("boom")
@@ -2170,6 +2416,8 @@ func moveIdentity(t *testing.T, status *beehive.AdminClient[ClusterStatus], obj 
 }
 
 func TestReadActiveRunsTheReadAgainWhenTheIdentityMoves(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	obj := storedCluster(t, d, status, true, "uid-1")
 	createCache(t, d.cacheClient, obj, "uid-1")
@@ -2185,6 +2433,8 @@ func TestReadActiveRunsTheReadAgainWhenTheIdentityMoves(t *testing.T) {
 }
 
 func TestReadActiveIsIdentityMovedWhenItMovesTwice(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	obj := storedCluster(t, d, status, true, "uid-1")
 	var handed []ActiveCluster
@@ -2196,6 +2446,8 @@ func TestReadActiveIsIdentityMovedWhenItMovesTwice(t *testing.T) {
 }
 
 func TestReadActiveOfAGoneClusterIsNotFound(t *testing.T) {
+	t.Parallel()
+
 	t.Run("on the first read", func(t *testing.T) {
 		d := newTestDeps(t)
 
@@ -2218,6 +2470,8 @@ func TestReadActiveOfAGoneClusterIsNotFound(t *testing.T) {
 }
 
 func TestReadActiveReturnsAFailedRecordRead(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	require.NoError(t, d.db.Close())
@@ -2232,6 +2486,8 @@ func TestReadActiveReturnsAFailedRecordRead(t *testing.T) {
 // write renames three rows, so one reread diffs three frames: the test reads the first,
 // the stream's buffer takes the second, and the third waits on a consumer that left.
 func TestClustersWatchCollectionStopsMidDiffForAConsumerThatIsGone(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	for _, name := range []string{"a", "b", "c"} {
 		createCluster(t, d, name)
@@ -2256,6 +2512,8 @@ func TestClustersWatchCollectionStopsMidDiffForAConsumerThatIsGone(t *testing.T)
 // state watch ends there rather than parking on the send. Nothing reads until the claim is
 // released, which the state watch does only once the send has given up.
 func TestClustersWatchScheduleStateStopsForAConsumerThatIsGone(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	d.kubeconnSvc = knowing(kubeconn.State{Connection: scheduledAt(probedAt)})
@@ -2272,6 +2530,8 @@ func TestClustersWatchScheduleStateStopsForAConsumerThatIsGone(t *testing.T) {
 
 // A pool that shuts its feed down ends the state watch, which has nothing left to report.
 func TestClustersWatchScheduleStateEndsWithThePoolsFeed(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	pool := d.kubeconnSvc.(*fakeKubeconn)
@@ -2285,6 +2545,8 @@ func TestClustersWatchScheduleStateEndsWithThePoolsFeed(t *testing.T) {
 
 // A mark that will not write is reported, never answered as a delete that went through.
 func TestClustersDeleteReportsAMarkThatFailed(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	_, err := d.db.Write.Exec(`CREATE TRIGGER refuse_mark BEFORE UPDATE ON clusters BEGIN SELECT RAISE(ABORT, 'refused'); END`)
@@ -2309,6 +2571,8 @@ func (c failingOwnedCaches) ListOwnedObjects(context.Context, beehive.ObjectID, 
 // A reading of an identified cluster whose caches will not list fails rather than
 // handing the read a cluster with no cache.
 func TestReadActiveReturnsAFailedCacheList(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	obj := storedCluster(t, d, status, true, "uid-1")
 	createCache(t, d.cacheClient, obj, "uid-1")
@@ -2324,6 +2588,8 @@ func TestReadActiveReturnsAFailedCacheList(t *testing.T) {
 // The runtime store is the second half of the record, and a reading over one that will
 // not answer fails too.
 func TestReadActiveReturnsAFailedRuntimeRead(t *testing.T) {
+	t.Parallel()
+
 	d, closeStore := newTestDepsWithABreakableStore(t)
 	obj := createCluster(t, d, "prod")
 	closeStore()

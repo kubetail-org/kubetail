@@ -90,6 +90,8 @@ const noTick = time.Hour
 // not the one before it joined. One joiner only: a second joining after the loop has begun
 // the first's read is owed a read of its own.
 func TestSharedStateWatchReadsForAJoinerToAnIdleLoop(t *testing.T) {
+	t.Parallel()
+
 	s := newScriptedStateWatch()
 	g := newSharedStateWatch(s.read)
 
@@ -111,6 +113,8 @@ func TestSharedStateWatchReadsForAJoinerToAnIdleLoop(t *testing.T) {
 // A join during an open read is served by the read after it, not the open one, which may
 // have listed before the join; every joiner shares that read.
 func TestSharedStateWatchReadsAfreshForAJoinerDuringARead(t *testing.T) {
+	t.Parallel()
+
 	s := newScriptedStateWatch()
 	g := newSharedStateWatch(s.read)
 
@@ -136,6 +140,8 @@ func TestSharedStateWatchReadsAfreshForAJoinerDuringARead(t *testing.T) {
 
 // Every tick's reading reaches every subscriber.
 func TestSharedStateWatchSendsEachReadingToEverySubscriber(t *testing.T) {
+	t.Parallel()
+
 	s := newScriptedStateWatch()
 	g := newSharedStateWatch(s.read)
 
@@ -160,6 +166,8 @@ func TestSharedStateWatchSendsEachReadingToEverySubscriber(t *testing.T) {
 // The loop runs while anyone holds it: the last subscriber leaving cancels its read, and
 // the next subscriber starts a new loop.
 func TestSharedStateWatchStopsWithItsLastSubscriber(t *testing.T) {
+	t.Parallel()
+
 	s := newScriptedStateWatch()
 	g := newSharedStateWatch(s.read)
 
@@ -181,6 +189,8 @@ func TestSharedStateWatchStopsWithItsLastSubscriber(t *testing.T) {
 
 // A failed read ends the run for everyone in it, and a later subscriber starts a fresh one.
 func TestSharedStateWatchEndsItsRunOnAFailedRead(t *testing.T) {
+	t.Parallel()
+
 	s := newScriptedStateWatch()
 	g := newSharedStateWatch(s.read)
 	boom := errors.New("store down")
@@ -200,6 +210,8 @@ func TestSharedStateWatchEndsItsRunOnAFailedRead(t *testing.T) {
 // A subscriber that joins during the read that fails gets the failure too, not a bare
 // close: the error is the run's last word, whenever the subscriber joined.
 func TestSharedStateWatchFailsAJoinerDuringTheRead(t *testing.T) {
+	t.Parallel()
+
 	s := newScriptedStateWatch()
 	g := newSharedStateWatch(s.read)
 	boom := errors.New("store down")
@@ -220,6 +232,8 @@ func TestSharedStateWatchFailsAJoinerDuringTheRead(t *testing.T) {
 
 // Next reports the subscriber's own ctx ending, and leaves the loop running for the rest.
 func TestSharedStateWatchNextEndsWithItsContext(t *testing.T) {
+	t.Parallel()
+
 	s := newScriptedStateWatch()
 	g := newSharedStateWatch(s.read)
 
@@ -236,6 +250,8 @@ func TestSharedStateWatchNextEndsWithItsContext(t *testing.T) {
 
 // A second Close is a no-op: it must not take another subscriber's seat.
 func TestSharedStateWatchCloseIsIdempotent(t *testing.T) {
+	t.Parallel()
+
 	s := newScriptedStateWatch()
 	g := newSharedStateWatch(s.read)
 

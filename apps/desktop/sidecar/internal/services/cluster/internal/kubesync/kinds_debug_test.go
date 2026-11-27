@@ -65,6 +65,8 @@ func newQuietService(t *testing.T, cluster *fakeCluster, spec string, opts ...fu
 }
 
 func TestAQuietWatchReadsWatchingThenResuming(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.listsOverHTTP(podKind)
 	svc, _ := newQuietService(t, cluster, "watch pods=quiet",
@@ -79,6 +81,8 @@ func TestAQuietWatchReadsWatchingThenResuming(t *testing.T) {
 // Each stalled open bookmarks and goes silent, so the kind reads Stale until the window's reopen
 // lands and bookmarks again.
 func TestAStalledWatchReadsStaleThenWatchingOnItsReopen(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.listsOverHTTP(podKind)
 	svc, _ := newQuietService(t, cluster, "watch pods=stalled", func(p *pacing) {
@@ -100,6 +104,8 @@ func TestAStalledWatchReadsStaleThenWatchingOnItsReopen(t *testing.T) {
 
 // Every kind's first open answers at once, so none holds the one start slot the other needs.
 func TestEveryQuietKindReachesWatchingAtOnce(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.listsOverHTTP(podKind, secretKind)
 	svc, _ := newQuietService(t, cluster, "watch *=quiet", func(p *pacing) { p.kindStartConcurrency = 1 })
@@ -113,6 +119,8 @@ func TestEveryQuietKindReachesWatchingAtOnce(t *testing.T) {
 
 // One kind on two caches over two connections plays two sequences.
 func TestAQuietKindOnTwoConnectionsReachesWatchingOnBoth(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.listsOverHTTP(podKind)
 	svc, pool := newQuietService(t, cluster, "watch pods=quiet", func(p *pacing) { p.kindStartConcurrency = 1 })
@@ -129,6 +137,8 @@ func TestAQuietKindOnTwoConnectionsReachesWatchingOnBoth(t *testing.T) {
 
 // A worker forgotten while its reopen hangs ends that sequence, so the next one starts silent.
 func TestAQuietKindForgottenWhileItsReopenHangsWatchesAgainWhenTracked(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.listsOverHTTP(podKind)
 	svc, _ := newQuietService(t, cluster, "watch pods=quiet",

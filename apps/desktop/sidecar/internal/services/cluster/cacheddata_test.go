@@ -80,6 +80,8 @@ func (f *dataFixture) stopWorkers() {
 // already-open file would show an empty nav over a full cache — on a pause, and on every
 // restart until the first worker arms.
 func TestCachedDataReadsACacheWhoseWorkersStopped(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 	require.NoError(t, f.store.SyncKinds(ctx, []kubestore.KindRow{
@@ -126,6 +128,8 @@ func dataEvent(uid, rv string, count int64) *unstructured.Unstructured {
 // A pair that does not resolve is definitively empty rather than an error or a wait: the
 // cache is gone, or was never this cluster's, and no row will ever arrive for it.
 func TestCachedDataGatesAnUnknownPair(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 
@@ -142,6 +146,8 @@ func TestCachedDataGatesAnUnknownPair(t *testing.T) {
 
 // A cache owned by another cluster is the same answer: the gate is the pair, not the id.
 func TestCachedDataGatesACacheOfAnotherCluster(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	f := newDataFixture(t)
 
@@ -154,6 +160,8 @@ func TestCachedDataGatesACacheOfAnotherCluster(t *testing.T) {
 // is a storage failure, not an empty cache. Answering "no kinds" would report the cluster
 // as serving nothing and give a caller nothing to act on.
 func TestListKindsReportsAStoreThatWillNotOpen(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	f := newDataFixture(t)
 	boom := errors.New("permission denied")
@@ -166,6 +174,8 @@ func TestListKindsReportsAStoreThatWillNotOpen(t *testing.T) {
 
 // ListKinds is one read: what ClusterCache.kinds resolves.
 func TestListKindsReadsTheCatalog(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	f := newDataFixture(t)
 	require.NoError(t, f.store.SyncKinds(ctx, []kubestore.KindRow{
@@ -184,6 +194,8 @@ func TestListKindsReadsTheCatalog(t *testing.T) {
 // An advertised kind shows before its worker has synced anything — Count 0, not absent,
 // which is what the nav promises.
 func TestWatchKindCollectionStreamsTheCatalogWithCounts(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 	require.NoError(t, f.store.SyncKinds(ctx, []kubestore.KindRow{
@@ -211,6 +223,8 @@ func TestWatchKindCollectionStreamsTheCatalogWithCounts(t *testing.T) {
 // Under a namespace a namespaced kind counts its objects there alone, and every frame
 // names the namespace, so a client can drop one from a watch of another.
 func TestWatchKindCollectionCountsInANamespace(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 	require.NoError(t, f.store.SyncKinds(ctx, []kubestore.KindRow{
@@ -242,6 +256,8 @@ func TestWatchKindCollectionCountsInANamespace(t *testing.T) {
 
 // ListKinds counts in a namespace as the watch does.
 func TestListKindsCountsInANamespace(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 	require.NoError(t, f.store.SyncKinds(ctx, []kubestore.KindRow{
@@ -264,6 +280,8 @@ func TestListKindsCountsInANamespace(t *testing.T) {
 
 // An unknown pair's empty answer names the namespace too.
 func TestWatchKindCollectionNamesTheNamespaceOnAnEmptyAnswer(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 
 	stream, err := f.data().WatchKindCollection(t.Context(), f.clusterID, 9999, "staging")
@@ -275,6 +293,8 @@ func TestWatchKindCollectionNamesTheNamespaceOnAnEmptyAnswer(t *testing.T) {
 // The store carries a CRD's printer columns as JSON, and this projection is where they become
 // the typed value the wire serves.
 func TestWatchKindCollectionDecodesPrinterColumns(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 	require.NoError(t, f.store.SyncKinds(ctx, []kubestore.KindRow{{
@@ -297,6 +317,8 @@ func TestWatchKindCollectionDecodesPrinterColumns(t *testing.T) {
 // dropping the kind out of the nav. The sidecar is the only writer, so it should never happen —
 // the branch is there so "never happens" has an answer.
 func TestAMalformedPrinterColumnBlobYieldsNoColumns(t *testing.T) {
+	t.Parallel()
+
 	got := toCachedDataKind(kubestore.KindRow{
 		APIVersion: "example.com/v1", Kind: "Widget", Resource: "widgets", PrinterColumns: "{not json",
 	})
@@ -309,6 +331,8 @@ func TestAMalformedPrinterColumnBlobYieldsNoColumns(t *testing.T) {
 // sitting on the dashboard. Decoding anywhere before the diff would leave the columns out of the
 // compared value, and the table would only pick them up on the next reconnect.
 func TestWatchKindCollectionReportsAColumnsOnlyChange(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 	row := kubestore.KindRow{
@@ -334,6 +358,8 @@ func TestWatchKindCollectionReportsAColumnsOnlyChange(t *testing.T) {
 // The objects watch carries the kind as provenance beside the cache, since one client
 // switching resources within a cache has to reject the previous subscription's stragglers.
 func TestWatchObjectCollectionCarriesItsKindAsProvenance(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 	require.NoError(t, f.store.SyncKinds(ctx, []kubestore.KindRow{
@@ -359,6 +385,8 @@ func TestWatchObjectCollectionCarriesItsKindAsProvenance(t *testing.T) {
 // body is dead weight: the client deletes by uid and never looks at the item. Nothing
 // else would catch a hydrate that fired on every frame type.
 func TestWatchObjectCollectionSendsADeletedFrameWithoutABody(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 	podKind := kubestore.Kind{APIVersion: "v1", Kind: "Pod", Resource: "pods"}
@@ -384,6 +412,8 @@ func TestWatchObjectCollectionSendsADeletedFrameWithoutABody(t *testing.T) {
 // A watch narrowed to namespaces sends only their objects, with no body, and a
 // change elsewhere sends nothing.
 func TestWatchObjectCollectionByNamespacesSendsOnlyItsNamespaces(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 	podKind := kubestore.Kind{APIVersion: "v1", Kind: "Pod", Resource: "pods"}
@@ -421,6 +451,8 @@ func TestWatchObjectCollectionByNamespacesSendsOnlyItsNamespaces(t *testing.T) {
 // carries on — the next resync's Deleted frame is the real answer, and failing the stream
 // would be reporting a race as a breakage.
 func TestHydrateObjectServesNoBodyForARowThatIsGone(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	f := newDataFixture(t)
 
@@ -434,6 +466,8 @@ func TestHydrateObjectServesNoBodyForARowThatIsGone(t *testing.T) {
 
 // The events watch is its own bus, so an event storm does not drive the object watches.
 func TestWatchEventCollectionStreamsTheNewestWindow(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 	require.NoError(t, f.store.ApplyChange(ctx, kubestore.Kind{
@@ -457,6 +491,8 @@ func TestWatchEventCollectionStreamsTheNewestWindow(t *testing.T) {
 // A stored stamp of zero is absence, not the epoch: the field resolvers map a zero time to
 // null, and 1970 would sort to the bottom of every window instead.
 func TestMillisToTimeKeepsZeroAsAbsence(t *testing.T) {
+	t.Parallel()
+
 	assert.True(t, millisToTime(0).IsZero())
 	assert.Equal(t, int64(1500), millisToTime(1500).UnixMilli())
 }
@@ -464,6 +500,8 @@ func TestMillisToTimeKeepsZeroAsAbsence(t *testing.T) {
 // The two watches gate on the same pair the reads do, and a pair that can never resolve
 // gets a bookmark over an empty collection rather than a stream that waits forever.
 func TestTheObjectAndEventWatchesGateOnThePairToo(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 
@@ -484,6 +522,8 @@ func TestTheObjectAndEventWatchesGateOnThePairToo(t *testing.T) {
 // A cache with no file has never synced anything, which is empty rather than a fault: the
 // read never creates one, so there is nothing to report.
 func TestListKindsAnswersACacheWithNoFileAsEmpty(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 	kubestoreFake(f.d).noFile = true
 
@@ -496,6 +536,8 @@ func TestListKindsAnswersACacheWithNoFileAsEmpty(t *testing.T) {
 // A cache whose file goes between the claim and the read is a fault to report — the rows
 // were there a moment ago, and answering empty would blank a populated table.
 func TestListKindsReportsACatalogItCannotRead(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 	store := kubestoreFake(f.d)
 	store.afterOpen = func(cacheID int64) { require.NoError(t, store.mgr.Remove(cacheID)) }
@@ -510,6 +552,8 @@ func TestListKindsReportsACatalogItCannotRead(t *testing.T) {
 // watch reading both in one burst must end holding the rows. Final state, not frame count —
 // the two land in one burst here and in two on a kind large enough to outrun the debounce.
 func TestWatchObjectCollectionKeepsRowsThatWereClearedAndRelisted(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 	podKind := kubestore.Kind{APIVersion: "v1", Kind: "Pod", Resource: "pods"}
@@ -544,6 +588,8 @@ func TestWatchObjectCollectionKeepsRowsThatWereClearedAndRelisted(t *testing.T) 
 // OLD Kind, so a cursor read under the new one sees neither — the watch would hold the old
 // rows for as long as it stayed connected.
 func TestWatchObjectCollectionDropsRowsWhenTheKindBehindThePluralIsRenamed(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 	was := kubestore.Kind{APIVersion: "v1", Kind: "Widget", Resource: "widgets"}
@@ -572,6 +618,8 @@ func TestWatchObjectCollectionDropsRowsWhenTheKindBehindThePluralIsRenamed(t *te
 // The events watch reads what moved past its cursor like the objects watch does, so a
 // re-fired event reaches the client as a Modified rather than waiting for a reconnect.
 func TestWatchEventCollectionSendsWhatMovedAfterTheSnapshot(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newDataFixture(t)
 	eventsKind := kubestore.Kind{APIVersion: "v1", Kind: "Event", Resource: "events"}
@@ -593,6 +641,8 @@ func TestWatchEventCollectionSendsWhatMovedAfterTheSnapshot(t *testing.T) {
 // ListObjects is the snapshot WatchObjectCollection would open with, bodies never loaded: a
 // reader that wants names alone does not pay for a body per row.
 func TestListObjectsReadsTheIdentityRowsWithoutBodies(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	f := newDataFixture(t)
 	require.NoError(t, f.store.SyncKinds(ctx, []kubestore.KindRow{
@@ -618,6 +668,8 @@ func TestListObjectsReadsTheIdentityRowsWithoutBodies(t *testing.T) {
 // than answered empty: a reader that wants a count must not read zero off a cache
 // that is not there.
 func TestListObjectsAnswersNothingForACacheOfAnotherCluster(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	f := newDataFixture(t)
 	other := createCluster(t, f.d, "other")
@@ -630,6 +682,8 @@ func TestListObjectsAnswersNothingForACacheOfAnotherCluster(t *testing.T) {
 }
 
 func TestListObjectsAnswersAnEmptyCacheAsEmpty(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
@@ -643,6 +697,8 @@ func TestListObjectsAnswersAnEmptyCacheAsEmpty(t *testing.T) {
 }
 
 func TestListObjectsReportsAStoreThatWillNotOpen(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 	boom := errors.New("permission denied")
 	kubestoreFake(f.d).err = boom
@@ -653,6 +709,8 @@ func TestListObjectsReportsAStoreThatWillNotOpen(t *testing.T) {
 }
 
 func TestListObjectsReportsRowsItCannotRead(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 	store := kubestoreFake(f.d)
 	store.afterOpen = func(cacheID int64) { require.NoError(t, store.mgr.Remove(cacheID)) }
@@ -663,6 +721,8 @@ func TestListObjectsReportsRowsItCannotRead(t *testing.T) {
 }
 
 func TestListObjectsAnswersACacheWhoseFileIsGoneAsMissing(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 	kubestoreFake(f.d).noFile = true
 
@@ -675,6 +735,8 @@ func TestListObjectsAnswersACacheWhoseFileIsGoneAsMissing(t *testing.T) {
 
 // Query runs a statement over the cache's views, a paused cache's included.
 func TestQueryReadsTheCache(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	f := newDataFixture(t)
 	require.NoError(t, f.store.ApplyChange(ctx, kubestore.Kind{APIVersion: "v1", Kind: "Pod", Resource: "pods"},
@@ -690,6 +752,8 @@ func TestQueryReadsTheCache(t *testing.T) {
 
 // A reading's statements read the cache's views as Query does, their values bound.
 func TestReadOwnReadsTheCache(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	f := newDataFixture(t)
 	require.NoError(t, f.store.ApplyChange(ctx, kubestore.Kind{APIVersion: "v1", Kind: "Pod", Resource: "pods"},
@@ -711,6 +775,8 @@ func TestReadOwnReadsTheCache(t *testing.T) {
 // A reading's statement SQLite refuses is a *QueryError, and a reading of a cache of
 // another cluster is not ok.
 func TestReadOwnRefusesWhatQueryRefuses(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	f := newDataFixture(t)
 	f.stopWorkers()
@@ -732,6 +798,8 @@ func TestReadOwnRefusesWhatQueryRefuses(t *testing.T) {
 // ListedKinds is the store's listed kinds keyed as the health names them; a cache of
 // another cluster is not ok.
 func TestListedKindsReadsTheKindsWithACookie(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	f := newDataFixture(t)
 	require.NoError(t, f.store.SyncKinds(ctx, []kubestore.KindRow{
@@ -755,6 +823,8 @@ func TestListedKindsReadsTheKindsWithACookie(t *testing.T) {
 // A clear that ends the listed-kinds read is a cache gone, not a fault; any other
 // failure of it is reported.
 func TestListedKindsOfACacheAClearEndsIsNotOK(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 	store := kubestoreFake(f.d)
 	store.afterOpen = func(cacheID int64) { require.NoError(t, store.mgr.Remove(cacheID)) }
@@ -773,6 +843,8 @@ func TestListedKindsOfACacheAClearEndsIsNotOK(t *testing.T) {
 
 // A clear that ends a reading before it starts is a cache gone, not a fault.
 func TestAReadingAClearEndsIsNotOK(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 	store := kubestoreFake(f.d)
 	store.afterOpen = func(cacheID int64) { require.NoError(t, store.mgr.Remove(cacheID)) }
@@ -784,6 +856,8 @@ func TestAReadingAClearEndsIsNotOK(t *testing.T) {
 }
 
 func TestQueryOfACacheOfAnotherClusterIsNotOK(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 	other := createCluster(t, f.d, "other")
 
@@ -794,6 +868,8 @@ func TestQueryOfACacheOfAnotherClusterIsNotOK(t *testing.T) {
 }
 
 func TestQueryOfACacheWithNoFileIsNotOK(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 	kubestoreFake(f.d).noFile = true
 
@@ -805,6 +881,8 @@ func TestQueryOfACacheWithNoFileIsNotOK(t *testing.T) {
 
 // A clear that ends the query is a cache gone, not a fault.
 func TestAQueryAClearEndsIsNotOK(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 	store := kubestoreFake(f.d)
 	store.afterOpen = func(cacheID int64) { require.NoError(t, store.mgr.Remove(cacheID)) }
@@ -816,6 +894,8 @@ func TestAQueryAClearEndsIsNotOK(t *testing.T) {
 }
 
 func TestAStatementErrorIsAClusterQueryError(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 
 	_, _, err := f.data().Query(context.Background(), f.clusterID, f.cacheID, `SELECT nope FROM objects`, 10, 1<<20)
@@ -828,6 +908,8 @@ func TestAStatementErrorIsAClusterQueryError(t *testing.T) {
 
 // Any other failure of the query is reported, never read as a cache gone.
 func TestAQueryThatFailsIsReported(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	kubestoreFake(f.d).afterOpen = func(int64) { cancel() }
@@ -839,6 +921,8 @@ func TestAQueryThatFailsIsReported(t *testing.T) {
 }
 
 func TestQueryReportsAStoreThatWillNotOpen(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 	boom := errors.New("permission denied")
 	kubestoreFake(f.d).err = boom
@@ -851,6 +935,8 @@ func TestQueryReportsAStoreThatWillNotOpen(t *testing.T) {
 // ReadActive reads the service's own records: a cache that has synced nothing is
 // not trusted, and a cluster that is gone has no cache.
 func TestReadActiveReadsTheServicesCluster(t *testing.T) {
+	t.Parallel()
+
 	f := newDataFixture(t)
 	read := func(CacheReading, ActiveCluster) error { return nil }
 

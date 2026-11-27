@@ -92,6 +92,8 @@ func watchingService() *readingService {
 // ReadActiveCache hands a trusted cache's reading to read, whose statements run
 // within its bounds with their args.
 func TestReadActiveCacheRunsOverATrustedCache(t *testing.T) {
+	t.Parallel()
+
 	svc := watchingService()
 	var rows [][]any
 	err := ReadActiveCache(t.Context(), svc, "7", 10, 20, func(r CacheReading, active ActiveCluster) error {
@@ -113,6 +115,8 @@ func TestReadActiveCacheRunsOverATrustedCache(t *testing.T) {
 // identity that moved, and a cache gone under the read; ErrSyncing for a cache
 // whose rows are not trusted; and any other failure as it is.
 func TestReadActiveCacheRefusesWhatHasNoTrustedRows(t *testing.T) {
+	t.Parallel()
+
 	failed := errors.New("db closed")
 	for name, tc := range map[string]struct {
 		change func(*readingService)
@@ -142,12 +146,16 @@ func TestReadActiveCacheRefusesWhatHasNoTrustedRows(t *testing.T) {
 }
 
 func TestPlaceholdersIsOnePerValue(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, "?", Placeholders(1))
 	assert.Equal(t, "?, ?, ?", Placeholders(3))
 }
 
 // A cell is read as its type, and as the zero value when it is another.
 func TestCells(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, "x", CellText("x"))
 	assert.Empty(t, CellText(int64(1)))
 	assert.Equal(t, int64(3), CellInteger(int64(3)))

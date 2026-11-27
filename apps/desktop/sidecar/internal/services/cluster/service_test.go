@@ -47,6 +47,8 @@ func newTestService(t *testing.T) Service {
 // screen shows, naming the file and both versions. The supported version is
 // beehive's, so it is not pinned.
 func TestANewerBeehiveDBFailsTheServiceSayingSo(t *testing.T) {
+	t.Parallel()
+
 	paths := testPaths(t)
 	store, err := beehivesqlite.Open(paths.BeehiveDBFile)
 	require.NoError(t, err)
@@ -62,6 +64,8 @@ func TestANewerBeehiveDBFailsTheServiceSayingSo(t *testing.T) {
 // The runtime store and the mirror are where the service is handed them: the
 // mirror apart, since it is what Kubetail can lose.
 func TestTheMirrorIsInTheCacheDirectory(t *testing.T) {
+	t.Parallel()
+
 	data, cache := t.TempDir(), t.TempDir()
 	paths := Paths{BeehiveDBFile: filepath.Join(data, "beehive.db"), KubestoreDir: filepath.Join(cache, "kube")}
 	svc, err := New(openTestDB(t), paths, newTestKubeconfig(t), nil)
@@ -79,6 +83,8 @@ func TestTheMirrorIsInTheCacheDirectory(t *testing.T) {
 // The accessors are stateless views onto the one service, so each returns something
 // usable and none of them is the nil interface.
 func TestFamilyAccessors(t *testing.T) {
+	t.Parallel()
+
 	svc := newTestService(t)
 
 	assert.NotNil(t, svc.Clusters())
@@ -90,6 +96,8 @@ func TestFamilyAccessors(t *testing.T) {
 // The full lifecycle the composition root drives: Start, the stop func it returns,
 // then Close. Anything left running here would outlive the process's drain.
 func TestStartStopClose(t *testing.T) {
+	t.Parallel()
+
 	svc, err := New(openTestDB(t), testPaths(t), newTestKubeconfig(t), nil)
 	require.NoError(t, err)
 
@@ -104,6 +112,8 @@ func TestStartStopClose(t *testing.T) {
 // The log files arrive by SetCacheFiles, once the logs service exists; a pass that
 // reaches them before that fails rather than leaving a file behind.
 func TestSetCacheFilesHandsThePassesTheOwner(t *testing.T) {
+	t.Parallel()
+
 	svc, err := New(openTestDB(t), testPaths(t), newTestKubeconfig(t), nil)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, svc.Close()) }()
@@ -123,6 +133,8 @@ func TestSetCacheFilesHandsThePassesTheOwner(t *testing.T) {
 // A path that cannot hold the store is a startup failure, not a
 // service running against a database it never opened.
 func TestNewRejectsAnUnopenableStore(t *testing.T) {
+	t.Parallel()
+
 	paths := testPaths(t)
 	// A directory where the database file goes: sqlite cannot open it.
 	require.NoError(t, os.MkdirAll(paths.BeehiveDBFile, 0o700))
@@ -134,6 +146,8 @@ func TestNewRejectsAnUnopenableStore(t *testing.T) {
 // A spec the build cannot honour stops the start naming the variable, so the start screen
 // says which setting to fix.
 func TestNewRefusesAFaultSpecItCannotRead(t *testing.T) {
+	t.Parallel()
+
 	_, err := New(openTestDB(t), testPaths(t), newTestKubeconfig(t), nil, WithFaults("get pods=teapot"))
 
 	assert.ErrorContains(t, err, "KUBETAIL_FAULTS: ")
@@ -141,6 +155,8 @@ func TestNewRefusesAFaultSpecItCannotRead(t *testing.T) {
 
 // A database the statements cannot be prepared on is a startup failure.
 func TestNewRejectsADatabaseThatWillNotPrepare(t *testing.T) {
+	t.Parallel()
+
 	db := openTestDB(t)
 	require.NoError(t, db.Close())
 
@@ -151,6 +167,8 @@ func TestNewRejectsADatabaseThatWillNotPrepare(t *testing.T) {
 // beehive rejects a second controller for a kind, and that error has to reach New's
 // caller rather than leaving a kind silently unreconciled.
 func TestRegisterControllersRejectsADuplicateKind(t *testing.T) {
+	t.Parallel()
+
 	bh := newTestBeehive(t)
 
 	_, err := registerControllers(bh, deps{})
@@ -163,6 +181,8 @@ func TestRegisterControllersRejectsADuplicateKind(t *testing.T) {
 // Start is not re-entrant: beehive refuses a second start, and the failure must
 // surface rather than half-starting the controllers behind it.
 func TestStartRejectsASecondStart(t *testing.T) {
+	t.Parallel()
+
 	svc := newTestService(t)
 	stop, err := svc.Start(context.Background())
 	require.NoError(t, err)
@@ -194,6 +214,8 @@ func (failingPart) Close() error { return nil }
 // beehive starts before the controllers, so a controller that fails to start leaves
 // it running with no stop func to reach it. Start has to drain it on the way out.
 func TestStartDrainsBeehiveWhenAControllerFails(t *testing.T) {
+	t.Parallel()
+
 	boom := errors.New("boom")
 	svc := newTestService(t).(*service)
 	// Beehive first, then a part that fails: by name, since a position moves whenever
@@ -212,6 +234,8 @@ func TestStartDrainsBeehiveWhenAControllerFails(t *testing.T) {
 // The bootstrap is a Part, so a store that cannot hold the anchors fails the start
 // rather than leaving a service whose discovery pass has nothing to run against.
 func TestStartFailsWhenTheAnchorsCannotBeCreated(t *testing.T) {
+	t.Parallel()
+
 	part := clusterSourceBootstrap(deps{sourceClient: &stubSourceClient{createErr: errors.New("boom")}})
 
 	_, err := lifecycle.StartAll(context.Background(), []lifecycle.Part{part})
@@ -222,6 +246,8 @@ func TestStartFailsWhenTheAnchorsCannotBeCreated(t *testing.T) {
 
 // A claim names the record's context, which is what arms the probe behind it.
 func TestAcquireConnectionClaimsTheRecordsContext(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	pool := d.kubeconnSvc.(*fakeKubeconn)
@@ -236,6 +262,8 @@ func TestAcquireConnectionClaimsTheRecordsContext(t *testing.T) {
 // The claim is the caller's own: releasing it is the caller's business, and says nothing
 // about the one clusterController holds to keep this cluster probed.
 func TestAcquireConnectionHandsBackAReleasableClaim(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	pool := d.kubeconnSvc.(*fakeKubeconn)
@@ -248,6 +276,8 @@ func TestAcquireConnectionHandsBackAReleasableClaim(t *testing.T) {
 }
 
 func TestRetryConnectionReprobesTheRecordsContext(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	pool := d.kubeconnSvc.(*fakeKubeconn)
@@ -263,6 +293,8 @@ func TestRetryConnectionReprobesTheRecordsContext(t *testing.T) {
 // The call is the probe's whole round trip now, so a wait that ends without one — its ceiling, or
 // a caller that went away — is the caller's answer rather than something to swallow.
 func TestRetryConnectionReportsAProbeThatNeverAnswered(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	pool := d.kubeconnSvc.(*fakeKubeconn)
@@ -276,6 +308,8 @@ func TestRetryConnectionReportsAProbeThatNeverAnswered(t *testing.T) {
 // The gate is one rule, asserted over every method that goes through it: a caller must
 // not find one of them willing to act on a record the others refuse.
 func TestTheConnectionSurfaceRefusesTheSameRecords(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]struct {
 		record func(t *testing.T, d deps) ClusterID
 		want   error
@@ -337,6 +371,8 @@ func TestTheConnectionSurfaceRefusesTheSameRecords(t *testing.T) {
 // A cluster nothing can reach is still claimed and still retried: whether the server
 // answers is the probe's to report, not the record's to refuse.
 func TestTheConnectionSurfaceServesAnUnreachableCluster(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	d.kubeconnSvc = knowing(kubeconn.State{Connection: failed(errors.New("no route to host"))})
@@ -354,6 +390,8 @@ func TestTheConnectionSurfaceServesAnUnreachableCluster(t *testing.T) {
 // The sync seam is a lifecycle participant like every other, and its place in the order is the
 // contract: no pass can arm a cache that is stopping, and no worker outlives the store it writes.
 func TestKubesyncStopsBetweenBeehiveAndTheStore(t *testing.T) {
+	t.Parallel()
+
 	svc, err := New(openTestDB(t), testPaths(t), newTestKubeconfig(t), poke.New())
 	require.NoError(t, err)
 	// New opens the store even unstarted, and Windows will not unlink a file something
@@ -374,6 +412,8 @@ func TestKubesyncStopsBetweenBeehiveAndTheStore(t *testing.T) {
 // A watch that died under a sleeping machine reports nothing, so a resume is the only thing that
 // brings it back.
 func TestAResumePokeRestartsEverySync(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	pokeSvc := poke.New()
 	sync := newFakeKubesync()
@@ -391,6 +431,8 @@ func TestAResumePokeRestartsEverySync(t *testing.T) {
 // fleet with no clusters, and a view that took one for an unreadable app.db would show the
 // user an empty app instead of an error.
 func TestEveryEntryPointReportsAStorageFault(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d := newTestDepsOverAClosedStore(t)
 	// A row for the id the cluster reads name, so they reach the runtime store
@@ -448,6 +490,8 @@ func TestEveryEntryPointReportsAStorageFault(t *testing.T) {
 // on the stream rather than at the call. Reported and not swallowed — a fleet whose health
 // cannot be read is not a healthy one.
 func TestWatchHealthKeyedStateReportsAStorageFaultOnItsStream(t *testing.T) {
+	t.Parallel()
+
 	s := serviceOver(t, newTestDepsOverAClosedStore(t))
 
 	stream, err := s.Caches().WatchHealthKeyedState(context.Background())
@@ -461,6 +505,8 @@ func TestWatchHealthKeyedStateReportsAStorageFaultOnItsStream(t *testing.T) {
 // record collected in between is an ordinary race, and the per-cache reads answer it as
 // definitively empty rather than as a fault.
 func TestCacheBelongsToAnswersAnUnknownCacheAsNoMatch(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 
 	ok, err := serviceOver(t, d).cacheBelongsTo(context.Background(), ClusterID("1"), 404)
@@ -472,6 +518,8 @@ func TestCacheBelongsToAnswersAnUnknownCacheAsNoMatch(t *testing.T) {
 // The connection gate reads the row, so a database that will not answer is a fault,
 // never a record that is not there.
 func TestTheConnectionSurfaceReportsAStorageFault(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	require.NoError(t, d.db.Close())

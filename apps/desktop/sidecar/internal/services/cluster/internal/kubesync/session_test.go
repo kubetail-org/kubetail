@@ -27,6 +27,8 @@ import (
 )
 
 func TestASessionTakesItsClaimsInStartAndGivesThemBackInClose(t *testing.T) {
+	t.Parallel()
+
 	svc, pool := newTestService(t)
 
 	sess := newSession(svc, 1, testParams)
@@ -41,6 +43,8 @@ func TestASessionTakesItsClaimsInStartAndGivesThemBackInClose(t *testing.T) {
 }
 
 func TestStartPutsTheCacheOnTheDiscoveryEngineAndCloseTakesItOff(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 
 	sess := newSession(svc, 1, testParams)
@@ -57,6 +61,8 @@ func TestStartPutsTheCacheOnTheDiscoveryEngineAndCloseTakesItOff(t *testing.T) {
 }
 
 func TestACatalogSubscriptionEndingLeavesTheSessionRunning(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 	svc.TrackDiscovery(1, testParams)
 
@@ -72,6 +78,8 @@ func TestACatalogSubscriptionEndingLeavesTheSessionRunning(t *testing.T) {
 // that as waiting would wake the whole sweep on every connection state frame, and the failing
 // documents would be re-dispatched ahead of the ladder they should be climbing.
 func TestASweepWaitingOnItsOwnDocumentsIsNotParked(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.breakPath("/api")
 	cluster.breakPath("/apis")
@@ -93,6 +101,8 @@ func TestASweepWaitingOnItsOwnDocumentsIsNotParked(t *testing.T) {
 // suspends rather than waiting at the gate. Nothing syncs past it, and the session ends without
 // anything to join.
 func TestAKindSuspendedAtTheGateSyncsNothingAndEndsWithItsSession(t *testing.T) {
+	t.Parallel()
+
 	fake := newFakeKindSync()
 	svc, _ := newTestService(t, fake.option())
 	start(t, svc)
@@ -111,6 +121,8 @@ func TestAKindSuspendedAtTheGateSyncsNothingAndEndsWithItsSession(t *testing.T) 
 }
 
 func TestASweepRegistersAgainstItsSessionOnlyWhileOneIsArmed(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 
 	_, ok := svc.enterRun(1)
@@ -132,6 +144,8 @@ func TestASweepRegistersAgainstItsSessionOnlyWhileOneIsArmed(t *testing.T) {
 }
 
 func TestAConnectionAnsweringAsAnotherClusterWakesNothing(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 	svc, pool := newTestService(t)
@@ -146,6 +160,8 @@ func TestAConnectionAnsweringAsAnotherClusterWakesNothing(t *testing.T) {
 }
 
 func TestASweepIsParkedWhileAnythingUnderItIsSuspended(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 	svc, pool := newTestService(t)
@@ -164,6 +180,8 @@ func TestASweepIsParkedWhileAnythingUnderItIsSuspended(t *testing.T) {
 }
 
 func TestASettledSweepReportsAConnectionItLost(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 	svc, pool := newTestService(t)
@@ -180,6 +198,8 @@ func TestASettledSweepReportsAConnectionItLost(t *testing.T) {
 }
 
 func TestASettledSweepReportsAConnectionThatStartedAnsweringAsAnotherCluster(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 	svc, pool := newTestService(t)
@@ -194,6 +214,8 @@ func TestASettledSweepReportsAConnectionThatStartedAnsweringAsAnotherCluster(t *
 }
 
 func TestALostConnectionReportedOnceIsNotWokenAgain(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 	svc, pool := newTestService(t)
@@ -220,6 +242,8 @@ func TestALostConnectionReportedOnceIsNotWokenAgain(t *testing.T) {
 }
 
 func TestAKindParkedAtTheGateReportsWhyItWaits(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveKind(podKind, true)
 	cluster.hasObjects(podKind, "10")
@@ -245,6 +269,8 @@ func TestAKindParkedAtTheGateReportsWhyItWaits(t *testing.T) {
 }
 
 func TestACacheStandsBehindNoReasonUntilARunCommitsOne(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 
 	sess := newSession(svc, 1, testParams)
@@ -257,6 +283,8 @@ func TestACacheStandsBehindNoReasonUntilARunCommitsOne(t *testing.T) {
 // for a kind nobody tracks — the relist-behind-a-clear race ForgetKind is ordered before
 // ClearKind to rule out.
 func TestAKindRunIsAdmittedWithItsWholeKind(t *testing.T) {
+	t.Parallel()
+
 	svc, pool := newTestService(t)
 	pool.lease("prod").vouch(t, "uid-1")
 	svc.TrackDiscovery(1, testParams)
@@ -270,6 +298,8 @@ func TestAKindRunIsAdmittedWithItsWholeKind(t *testing.T) {
 }
 
 func TestAKindRunIsRefusedForACacheOrAKindThatIsGone(t *testing.T) {
+	t.Parallel()
+
 	svc, pool := newTestService(t)
 	pool.lease("prod").vouch(t, "uid-1")
 
@@ -284,6 +314,8 @@ func TestAKindRunIsRefusedForACacheOrAKindThatIsGone(t *testing.T) {
 // The three discovery probes are three registrations running concurrently under one subject, so
 // a mark they shared would let the one that passed the gate strand the one that was refused.
 func TestOneRunLeavingTheGateDoesNotClearAnother(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 	sess := newSession(svc, 1, testParams)
 
@@ -298,6 +330,8 @@ func TestOneRunLeavingTheGateDoesNotClearAnother(t *testing.T) {
 // while the run is still deciding sees nothing parked — which is the wake that goes missing. The
 // session's mark stands through that window.
 func TestARunIsWaitingBeforeItsSuspensionIsFiled(t *testing.T) {
+	t.Parallel()
+
 	fake := newHeldAtGateKindSync()
 	svc, pool := newTestService(t, fake.option())
 	start(t, svc)
@@ -324,6 +358,8 @@ func TestARunIsWaitingBeforeItsSuspensionIsFiled(t *testing.T) {
 // marked itself and not yet suspended is precisely what the snapshot cannot report, and a frame
 // read in that gap is the wake that goes missing.
 func TestAConnectionFrameWakesAMarkTheSnapshotCannotSee(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 	svc, pool := newTestService(t)
@@ -345,6 +381,8 @@ func TestAConnectionFrameWakesAMarkTheSnapshotCannotSee(t *testing.T) {
 // kind is parked under an older answer, and asking the sweep alone would leave that kind naming a
 // cause that is no longer true, with nothing left to correct it.
 func TestAParkedRunIsWokenWhenItsOwnReasonIsStale(t *testing.T) {
+	t.Parallel()
+
 	fake := newHeldAtGateKindSync()
 	fake.releaseGate() // the refusals are what this test counts, not the window between them
 	svc, pool := newTestService(t, fake.option())
@@ -366,6 +404,8 @@ func TestAParkedRunIsWokenWhenItsOwnReasonIsStale(t *testing.T) {
 // The whole point of the bridge, end to end and at both levels: a connection that went away and
 // came back leaves nothing behind it.
 func TestAConnectionThatCameBackStartsEveryWaitingKind(t *testing.T) {
+	t.Parallel()
+
 	deployKind := testKind("apps/v1", "Deployment", "deployments")
 	cluster := newFakeCluster(t)
 	for _, k := range []kubestore.Kind{podKind, deployKind} {
@@ -398,6 +438,8 @@ func TestAConnectionThatCameBackStartsEveryWaitingKind(t *testing.T) {
 // saying what the bridge already believed. The mark is what releases the cache anyway — the
 // success branch asks whether anything is waiting, never whether the answer moved.
 func TestACacheHeldBehindARefusalTheBridgeNeverSawIsReleased(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 
@@ -427,6 +469,8 @@ func TestACacheHeldBehindARefusalTheBridgeNeverSawIsReleased(t *testing.T) {
 // a park: the probe climbs its backoff ladder, and a mark left standing over it would have the
 // bridge re-dispatch it on every connection frame, ahead of that ladder.
 func TestASweepThatFailsAtTheGateIsNotWaiting(t *testing.T) {
+	t.Parallel()
+
 	svc, pool := newTestService(t)
 	pool.lease("prod").refuse(errors.New("the pool will not answer"))
 	start(t, svc)
@@ -442,6 +486,8 @@ func TestASweepThatFailsAtTheGateIsNotWaiting(t *testing.T) {
 }
 
 func TestAForgottenKindStopsWakingTheCache(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 	sess := newSession(svc, 1, testParams)
 

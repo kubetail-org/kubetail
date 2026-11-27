@@ -22,5 +22,7 @@ import (
 
 // Windows has no sandbox, so sandbox-init there is its own failure.
 func TestInitOnWindowsIsRefused(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, 125, InitMain([]string{"--socket", "s", "--port", "1", "--", "cmd"}))
 }

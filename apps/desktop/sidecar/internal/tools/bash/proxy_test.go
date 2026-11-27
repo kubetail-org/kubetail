@@ -50,6 +50,8 @@ func get(t *testing.T, d http.Handler, method, host, token string) (int, string)
 // Each host reaches its own handler; anything else is the cluster grant's
 // 401, whatever its host or method.
 func TestTheDoorRoutesByHost(t *testing.T) {
+	t.Parallel()
+
 	aws := mountFor(t, newFakePlatform(permissions.AWS, "127.0.0.1:6443"))
 	gcp := mountFor(t, newFakePlatform(permissions.GCP, "storage.gcp.kubetail.invalid"))
 	cluster := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { fmt.Fprint(w, "cluster") })
@@ -82,6 +84,8 @@ func TestTheDoorRoutesByHost(t *testing.T) {
 // door, before its proxy; the cluster's goes to its grant, which refuses it
 // itself.
 func TestTheDoorRefusesACloudPlatformsUpgrade(t *testing.T) {
+	t.Parallel()
+
 	aws := mountFor(t, newFakePlatform(permissions.AWS, "127.0.0.1:6443"))
 	cluster := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { fmt.Fprint(w, "cluster") })
 	d, err := newDoor(cluster, []CloudMount{aws})
@@ -104,6 +108,8 @@ func TestTheDoorRefusesACloudPlatformsUpgrade(t *testing.T) {
 
 // A run with no cluster still answers the cluster's host 401.
 func TestTheDoorWithNoClusterRefusesItsHost(t *testing.T) {
+	t.Parallel()
+
 	d, err := newDoor(nil, []CloudMount{mountFor(t, newFakePlatform(permissions.AWS, "127.0.0.1:6443"))})
 	require.NoError(t, err)
 	code, _ := get(t, d, http.MethodGet, "cluster.kubetail.invalid", "")
@@ -113,6 +119,8 @@ func TestTheDoorWithNoClusterRefusesItsHost(t *testing.T) {
 // The door is not trusted: one cloud platform's token on another's route is
 // that grant's refusal.
 func TestAWrongRouteIsUnauthorized(t *testing.T) {
+	t.Parallel()
+
 	aws := mountFor(t, newFakePlatform(permissions.AWS, "127.0.0.1:6443"))
 	gcp := mountFor(t, newFakePlatform(permissions.GCP, "storage.gcp.kubetail.invalid"))
 	d, err := newDoor(nil, []CloudMount{aws, gcp})
@@ -125,6 +133,8 @@ func TestAWrongRouteIsUnauthorized(t *testing.T) {
 // token: off, the request is refused 401; on again, it is served. The door
 // reads no switch.
 func TestSwitchingACloudPlatformOffClosesItsRoute(t *testing.T) {
+	t.Parallel()
+
 	sw := switchesOn(permissions.AWS)
 	aws := mountSwitched(t, newFakePlatform(permissions.AWS, "127.0.0.1:6443"), sw)
 	d, err := newDoor(nil, []CloudMount{aws})
@@ -145,6 +155,8 @@ func TestSwitchingACloudPlatformOffClosesItsRoute(t *testing.T) {
 }
 
 func TestTwoMountsCannotNameOneHost(t *testing.T) {
+	t.Parallel()
+
 	aws := mountFor(t, newFakePlatform(permissions.AWS, "127.0.0.1:6443"))
 	clash := mountFor(t, newFakePlatform(permissions.Azure, "127.0.0.1:6443"))
 	_, err := newDoor(nil, []CloudMount{aws, clash})
@@ -189,6 +201,8 @@ func sendOver(t *testing.T, addr string, roots *x509.CertPool, overTLS bool, hos
 // the plain cloud platform, a TLS one the TLS cloud platform, and the cluster's host over
 // TLS is the door's 401.
 func TestTheLoopbackAuthorityRoutesByTransport(t *testing.T) {
+	t.Parallel()
+
 	plain := mountFor(t, newFakePlatform(permissions.AWS, "127.0.0.1:6443"))
 	secure := newFakePlatform(permissions.Azure, "127.0.0.1:6443")
 	secure.tls = true

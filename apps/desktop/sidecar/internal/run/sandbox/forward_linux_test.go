@@ -32,6 +32,8 @@ import (
 // limit, stay within what the limit holds for them while it relays many
 // connections at once.
 func TestTheForwarderStaysUnderItsTasks(t *testing.T) {
+	t.Parallel()
+
 	port := freePort(t)
 	cmd := initCmd(forwarding(echoSocket(t), port, "cat")...)
 	in, err := cmd.StdinPipe()

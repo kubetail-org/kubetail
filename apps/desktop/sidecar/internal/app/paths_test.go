@@ -27,6 +27,8 @@ import (
 
 // Each path is where the tree on paths puts it.
 func TestEveryPathIsUnderItsKind(t *testing.T) {
+	t.Parallel()
+
 	data, cache, runtime := filepath.FromSlash("/d"), filepath.FromSlash("/c"), filepath.FromSlash("/r")
 	p := pathsOf(Config{Folders: Folders{Data: data, Cache: cache, Runtime: runtime}})
 
@@ -49,6 +51,8 @@ func TestEveryPathIsUnderItsKind(t *testing.T) {
 }
 
 func TestTheLogDirectoryIsKubetails(t *testing.T) {
+	t.Parallel()
+
 	data, cache, runtime := filepath.FromSlash("/d"), filepath.FromSlash("/c"), filepath.FromSlash("/r")
 	logs := filepath.FromSlash("/u/Library/Logs/Kubetail")
 	p := pathsOf(Config{Folders: Folders{Data: data, Cache: cache, Runtime: runtime, Layout: layout.Layout{Logs: logs}}})
@@ -65,6 +69,8 @@ func TestTheLogDirectoryIsKubetails(t *testing.T) {
 }
 
 func TestTheStateDirectoryIsKubetails(t *testing.T) {
+	t.Parallel()
+
 	data, cache, runtime := filepath.FromSlash("/d"), filepath.FromSlash("/c"), filepath.FromSlash("/r")
 	state := filepath.FromSlash("/u/.local/state/kubetail")
 	logs := filepath.Join(state, "logs")
@@ -77,6 +83,8 @@ func TestTheStateDirectoryIsKubetails(t *testing.T) {
 }
 
 func TestTheAppFolderIsKubetails(t *testing.T) {
+	t.Parallel()
+
 	app := filepath.FromSlash("/u/Library/Application Support/Kubetail")
 	data, state := filepath.Join(app, "data"), filepath.Join(app, "state")
 	cache, runtime := filepath.FromSlash("/c"), filepath.FromSlash("/r")
@@ -88,6 +96,8 @@ func TestTheAppFolderIsKubetails(t *testing.T) {
 // Windows keeps the config in a folder of its own on the roaming root, apart
 // from the app folder.
 func TestTheConfigsAppFolderIsKubetails(t *testing.T) {
+	t.Parallel()
+
 	app := filepath.FromSlash("/u/AppData/Local/Kubetail")
 	appOnConfigRoot := filepath.FromSlash("/u/AppData/Roaming/Kubetail")
 	data, config := filepath.Join(app, "data"), filepath.Join(appOnConfigRoot, "config")
@@ -102,6 +112,8 @@ func TestTheConfigsAppFolderIsKubetails(t *testing.T) {
 }
 
 func TestTheConfigDirectoryIsKubetails(t *testing.T) {
+	t.Parallel()
+
 	data, cache, runtime := filepath.FromSlash("/d"), filepath.FromSlash("/c"), filepath.FromSlash("/r")
 	config := filepath.FromSlash("/u/.config/Kubetail")
 	p := pathsOf(Config{Folders: Folders{Data: data, Cache: cache, Runtime: runtime, Layout: layout.Layout{Config: config}}})
@@ -120,6 +132,8 @@ func TestTheConfigDirectoryIsKubetails(t *testing.T) {
 // A debug build can move the data and cache directories off the layout; the
 // layout's own are still Kubetail's.
 func TestTheLayoutsDataAndCacheAreKubetails(t *testing.T) {
+	t.Parallel()
+
 	data, cache, runtime := filepath.FromSlash("/d"), filepath.FromSlash("/c"), filepath.FromSlash("/r")
 	l := layout.Layout{Data: filepath.FromSlash("/l/data"), Cache: filepath.FromSlash("/l/cache")}
 	p := pathsOf(Config{Folders: Folders{Data: data, Cache: cache, Runtime: runtime, Layout: l}})
@@ -131,6 +145,8 @@ func TestTheLayoutsDataAndCacheAreKubetails(t *testing.T) {
 // grant zones compare folders as files, and a second name of a nested folder,
 // such as a bind mount's source, matches only the folder itself.
 func TestEveryResolvedFolderIsFenced(t *testing.T) {
+	t.Parallel()
+
 	for _, c := range []struct {
 		name     string
 		platform layout.Platform

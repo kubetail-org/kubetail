@@ -28,6 +28,7 @@ import (
 // Only a macOS GUI launch is handed an environment that lacks what the user's
 // shell builds, so nothing is set elsewhere.
 func TestSetShellEnvIsANoOpOffDarwin(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	t.Setenv("PATH", "/usr/bin:/bin")
 
 	setShellEnv(map[string]string{"PATH": "/opt/bin"})
@@ -38,6 +39,7 @@ func TestSetShellEnvIsANoOpOffDarwin(t *testing.T) {
 // On Linux with no sandbox nothing reads the launch's PATH, so the login shell
 // is not run.
 func TestLinuxSkipsTheResolutionWithNoSandbox(t *testing.T) {
+	// It swaps the package's resolveShell, so this test stays serial.
 	resolve := resolveShell
 	t.Cleanup(func() { resolveShell = resolve })
 	resolveShell = func(context.Context, loginshell.Start, []string) (loginshell.Result, *loginshell.Fault) {

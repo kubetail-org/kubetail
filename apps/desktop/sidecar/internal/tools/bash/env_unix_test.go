@@ -31,6 +31,8 @@ import (
 // passes, and nothing in it is a name no run may hold. The user's variables
 // follow LANG and TZ, and every name but those is one the user cannot set.
 func TestTheSandboxedEnvironmentIsFixed(t *testing.T) {
+	t.Parallel()
+
 	rd := &runDir{path: "/run/kubetail/runs/10-1", tmp: "/cache/tmp/10-2"}
 	cluster := &target{context: "prod", cacheDir: "/cache/kubectl/7/abc"}
 	environ := append(slices.Clone(processEnv), "TZ=Europe/Paris", "LC_MESSAGES=C", "LC_NUMERIC=de_DE.UTF-8")

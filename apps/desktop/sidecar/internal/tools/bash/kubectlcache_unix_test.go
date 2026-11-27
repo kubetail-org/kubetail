@@ -26,6 +26,8 @@ import (
 // A kubectl cache that cannot be opened fails the run that asks for it, never
 // the tool's construction: it is opened on each call.
 func TestAKubectlCacheThatCannotBeOpenedFailsTheCall(t *testing.T) {
+	t.Parallel()
+
 	if os.Getuid() == 0 {
 		t.Skip("root opens an unreadable directory")
 	}

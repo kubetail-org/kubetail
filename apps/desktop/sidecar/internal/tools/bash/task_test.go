@@ -48,6 +48,8 @@ func contents(t *testing.T, f *os.File) string {
 // A task writes stdout and stderr to its file as one stream, and its exit is
 // bash's own.
 func TestATaskWritesItsOutputAndReportsItsExit(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	out := taskOut(t)
 	tk, err := startTask(t.Context(), tl.spec("echo out; echo err >&2; exit 3", 1024), out)
@@ -59,6 +61,8 @@ func TestATaskWritesItsOutputAndReportsItsExit(t *testing.T) {
 // The file stops at the limit and the rest is drained and dropped, so a command
 // writing far past a pipe's buffer still runs to its end.
 func TestTheOutputFileStopsAtTheLimit(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	out := taskOut(t)
 	tk, err := startTask(t.Context(), tl.spec("yes | head -c 1000000; echo done >&2", 1000), out)
@@ -70,6 +74,8 @@ func TestTheOutputFileStopsAtTheLimit(t *testing.T) {
 // A write that fails keeps the pipe draining, so the command is not blocked on
 // a file it can no longer fill.
 func TestAFailedWriteStillDrains(t *testing.T) {
+	t.Parallel()
+
 	out := taskOut(t)
 	require.NoError(t, out.Close())
 	w := &taskWriter{w: out, limit: 100}
@@ -130,6 +136,8 @@ func background(line string) json.RawMessage {
 // A background call answers at once in the reference's words, with the task
 // still running behind it.
 func TestABackgroundCallAnswersAtOnce(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	tasks := newFakeTasks(t)
 	text, isError := tl.Run(t.Context(), tools.Runtime{Dir: testChatDir(t), Tasks: tasks}, background("sleep 60"))
@@ -145,6 +153,8 @@ func TestABackgroundCallAnswersAtOnce(t *testing.T) {
 // A start the chat refuses answers the model in words: each limit its own, and
 // anything else as a command that could not start.
 func TestARefusedStartIsAnswered(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	for err, want := range map[error]string{
 		tools.ErrChatTaskLimit:     "At most 4 background commands, agents and watches run at once in a chat. Wait for a notification, or stop one with TaskStop.",
@@ -161,6 +171,8 @@ func TestARefusedStartIsAnswered(t *testing.T) {
 // refuses is bad input, a missing directory starts nothing, and a shell that
 // will not start is a command that could not start.
 func TestABackgroundCallIsCheckedLikeAnyOther(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	tasks := newFakeTasks(t)
 	in := func(line, workdir string) json.RawMessage {
@@ -187,6 +199,8 @@ func TestABackgroundCallIsCheckedLikeAnyOther(t *testing.T) {
 // A cancel that lands while the call waits on the snapshot starts nothing: the
 // command would otherwise run after the turn ended, without the user's profile.
 func TestACancelDuringTheSnapshotWaitStartsNoTask(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	tl.ready = make(chan struct{}) // a snapshot still being taken
 	ctx, cancel := context.WithCancel(t.Context())

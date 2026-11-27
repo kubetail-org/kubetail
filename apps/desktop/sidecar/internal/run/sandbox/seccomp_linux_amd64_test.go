@@ -24,5 +24,7 @@ import (
 // An x32 call carries the build's architecture with the x32 bit in its
 // number, so it would pass every rule below under another number: refused.
 func TestTheFilterRefusesX32(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, errno(unix.ENOSYS), verdict(t, auditArch, x32Bit|unix.SYS_SOCKET, unix.AF_UNIX))
 }

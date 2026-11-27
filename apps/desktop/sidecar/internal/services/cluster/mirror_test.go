@@ -52,6 +52,8 @@ func runtimeObjectOf(t *testing.T, d deps, id ClusterID) *beehive.Object[Cluster
 // The first pass gives every unmarked row a runtime object named by its id and
 // carrying its runtime spec, and nothing else off the row.
 func TestMirrorCreatesTheObjectBehindARow(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	row := importCluster(t, d, "prod")
 	_, err := d.db.Write.Exec(`UPDATE clusters SET name = 'Prod', monitoring_enabled = 1 WHERE id = ?`, string(row.ID))
@@ -68,6 +70,8 @@ func TestMirrorCreatesTheObjectBehindARow(t *testing.T) {
 // A pass over an unchanged row writes nothing: the spec bytes match, so the object's
 // generation holds and no controller is woken.
 func TestMirrorLeavesAnUnchangedRowAlone(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	row := importCluster(t, d, "prod")
 	m, passed := startMirror(t, d)
@@ -84,6 +88,8 @@ func TestMirrorLeavesAnUnchangedRowAlone(t *testing.T) {
 // A toggle on the row reaches the spec on the next pass, which the setter's signal
 // wakes.
 func TestMirrorFollowsAToggleIntoTheSpec(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	row := importCluster(t, d, "prod")
 	_, passed := startMirror(t, d)
@@ -99,6 +105,8 @@ func TestMirrorFollowsAToggleIntoTheSpec(t *testing.T) {
 // A row inserted after the mirror started is picked up off the importer's signal:
 // the subscription is taken before the first pass, so nothing lands between them.
 func TestMirrorWakesOnAnInsertedRow(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	_, passed := startMirror(t, d)
 	testutil.Recv(t, passed, "the first pass")
@@ -114,6 +122,8 @@ func TestMirrorWakesOnAnInsertedRow(t *testing.T) {
 // a crash between the two — and is torn down. The running controllers can finish the
 // teardown before the read, so an object already gone passes too.
 func TestMirrorDeletesAnOrphanObject(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	_, _, err := d.clusterClient.CreateOrUpdate(context.Background(), "no-such-row", kubeconfigRuntimeSpec("prod"))
 	require.NoError(t, err)
@@ -128,6 +138,8 @@ func TestMirrorDeletesAnOrphanObject(t *testing.T) {
 
 // The mirror never touches updated_at: a reconcile is not a user edit.
 func TestMirrorLeavesUpdatedAtAlone(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	row := importCluster(t, d, "prod")
 	_, passed := startMirror(t, d)
@@ -150,6 +162,8 @@ func awaitPass(t *testing.T, passed <-chan struct{}, check func() bool) {
 // A marked row's object is asked to go, and the row goes once the object has: with
 // the cache finalizer, an absent object proves every cache file is gone.
 func TestMirrorTearsDownAMarkedRow(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningStandInDeps(t)
 	row := importCluster(t, d, "prod")
 	_, passed := startMirror(t, d)
@@ -169,6 +183,8 @@ func TestMirrorTearsDownAMarkedRow(t *testing.T) {
 // marked without a notify and the mirror is never started: the removal is the only
 // thing that can ping.
 func TestMirrorRemovalWakesTheWatchers(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningStandInDeps(t)
 	row := importCluster(t, d, "prod")
 	_, err := markCluster(context.Background(), d.store.Stmts(), row.ID, t0)
@@ -189,6 +205,8 @@ func TestMirrorRemovalWakesTheWatchers(t *testing.T) {
 // A chat still filed under the row holds it, object or no object; the chat sweeper's
 // signal is what brings the mirror back once the last one goes.
 func TestMirrorHoldsARowWithChats(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningStandInDeps(t)
 	row := importCluster(t, d, "prod")
 	_, err := d.db.Write.Exec(`INSERT INTO chats (id, cluster_id, mode, created_at, updated_at) VALUES ('c', ?, 'chat', 0, 0)`, string(row.ID))
@@ -216,6 +234,8 @@ func TestMirrorHoldsARowWithChats(t *testing.T) {
 // A row already marked when the mirror starts — a crash mid-teardown — resumes: the
 // object is asked to go, or, already gone, the row is removed.
 func TestMirrorResumesATeardownAtStartup(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningStandInDeps(t)
 	row := importCluster(t, d, "prod")
 	_, err := markCluster(context.Background(), d.store.Stmts(), row.ID, t0)
@@ -233,6 +253,8 @@ func TestMirrorResumesATeardownAtStartup(t *testing.T) {
 // A marked row never gets its object back: a pass that finds one marked skips the
 // create, so the teardown is not undone by the mirror's own resync.
 func TestMirrorNeverRecreatesAMarkedRowsObject(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningStandInDeps(t)
 	row := importCluster(t, d, "prod")
 	_, err := d.db.Write.Exec(`INSERT INTO chats (id, cluster_id, mode, created_at, updated_at) VALUES ('c', ?, 'chat', 0, 0)`, string(row.ID))
@@ -251,6 +273,8 @@ func TestMirrorNeverRecreatesAMarkedRowsObject(t *testing.T) {
 // A pass that cannot read its rows is logged and retried on the next signal; the
 // loop keeps running.
 func TestMirrorSurvivesAFailedPass(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	m, passed := startMirror(t, d)
 	testutil.Recv(t, passed, "the first pass")
@@ -264,6 +288,8 @@ func TestMirrorSurvivesAFailedPass(t *testing.T) {
 // A runtime object already on its way out under an unmarked row is a teardown under
 // way — the row cannot be unmarked — and is not recreated over.
 func TestMirrorLeavesADeletingObjectAlone(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningStandInDeps(t)
 	row := importCluster(t, d, "prod")
 	_, _, err := d.clusterClient.CreateOrUpdate(context.Background(), string(row.ID), runtimeSpecOf(row), beehive.WithFinalizers("hold"))
@@ -281,6 +307,8 @@ func TestMirrorLeavesADeletingObjectAlone(t *testing.T) {
 // The runtime watch is the mirror's second subscription, so a store that cannot open
 // one fails Start.
 func TestMirrorStartReportsAStoreThatWillNotWatch(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDepsOverAClosedStore(t)
 
 	_, err := newClusterMirror(d, time.Hour, time.Hour, time.Hour).Start(context.Background())
@@ -290,6 +318,8 @@ func TestMirrorStartReportsAStoreThatWillNotWatch(t *testing.T) {
 
 // A runtime store that will not list fails the pass before any row is touched.
 func TestMirrorReportsARuntimeStoreThatWillNotList(t *testing.T) {
+	t.Parallel()
+
 	d, closeStore := newTestDepsWithABreakableStore(t)
 	importCluster(t, d, "prod")
 	closeStore()
@@ -300,6 +330,8 @@ func TestMirrorReportsARuntimeStoreThatWillNotList(t *testing.T) {
 // The resync is the backstop for a signal that went missing: a row inserted with no
 // notification is mirrored on the next tick.
 func TestMirrorResyncsOnItsInterval(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	m := newClusterMirror(d, time.Millisecond, time.Hour, time.Hour)
 	m.passed = make(chan struct{}, 64)
@@ -316,6 +348,8 @@ func TestMirrorResyncsOnItsInterval(t *testing.T) {
 // A row the runtime store refuses — here one with no id at all, the one name beehive
 // rejects — is logged and skipped, and the other rows still mirror.
 func TestMirrorSkipsARowTheRuntimeStoreRefuses(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	_, err := d.db.Write.Exec(`INSERT INTO clusters (id, source, source_key, created_at, updated_at) VALUES ('', 'kubeconfig', 'blank', 0, 0)`)
 	require.NoError(t, err)
@@ -333,6 +367,8 @@ func TestMirrorSkipsARowTheRuntimeStoreRefuses(t *testing.T) {
 // mirrors a row added with no notification. The row goes in before the refused
 // one leaves, so every pass that could miss it still fails and retries.
 func TestMirrorRetriesAPassThatFailed(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	_, err := d.db.Write.Exec(`INSERT INTO clusters (id, source, source_key, created_at, updated_at) VALUES ('', 'kubeconfig', 'blank', 0, 0)`)
 	require.NoError(t, err)
@@ -353,6 +389,8 @@ func TestMirrorRetriesAPassThatFailed(t *testing.T) {
 // A row's teardown reports the store that refused it: the runtime store for the
 // object's deletion, app.db for the row's.
 func TestMirrorReportsATeardownWriteThatFailed(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	marked := ClusterRow{ID: ClusterID(appdb.NewID()), DeleteRequestedAt: &t0}
 
@@ -415,6 +453,8 @@ func (s *scriptedWatches) WatchList(context.Context, ...beehive.WatchOption) (*b
 // retention — is reopened, with a pass for whatever was collected in the gap, and
 // the rows keep driving passes throughout.
 func TestMirrorReopensARuntimeWatchThatEnded(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	watches := scriptWatches(&d)
 	watches.answers <- nil
@@ -439,6 +479,8 @@ func TestMirrorReopensARuntimeWatchThatEnded(t *testing.T) {
 // A reopen that fails is retried on the rewatch delay; the rows keep driving passes
 // while the watch is down.
 func TestMirrorRetriesAReopenThatFailed(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	watches := scriptWatches(&d)
 	watches.answers <- nil
@@ -478,6 +520,8 @@ func (c reportingSourceController) Reconcile(context.Context, beehive.Controller
 // its old row was marked found the importer's insert a no-op, and gets its row from
 // the pass this wakes rather than from the source's resync.
 func TestMirrorWakesTheSourceWhenARowGoes(t *testing.T) {
+	t.Parallel()
+
 	bh := newTestBeehive(t)
 	registerCacheStandIn(t, bh)
 	require.NoError(t, beehive.Register(bh, ClusterGroupKind, settlingClusterController{}))
@@ -506,6 +550,8 @@ func TestMirrorWakesTheSourceWhenARowGoes(t *testing.T) {
 // A pass waiting to report itself does not hold up the stop: nothing reads passed here,
 // so the first pass's report is parked when the loop is told to end.
 func TestMirrorStopsWhileAPassWaitsToReport(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	m := newClusterMirror(d, time.Hour, time.Hour, time.Hour)
 	m.passed = make(chan struct{})
@@ -527,6 +573,8 @@ func (c refusingDeletes) DeleteByName(context.Context, string) error { return c.
 // An orphan object the runtime store will not delete fails the pass, which the retry
 // comes back for.
 func TestMirrorReportsAnOrphanItCannotDelete(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	_, _, err := d.clusterClient.CreateOrUpdate(context.Background(), "no-such-row", kubeconfigRuntimeSpec("prod"))
 	require.NoError(t, err)
@@ -539,6 +587,8 @@ func TestMirrorReportsAnOrphanItCannotDelete(t *testing.T) {
 
 // A removed row of a source no anchor imports has no source to wake.
 func TestMirrorWakesNoSourceForARowOfAnotherSource(t *testing.T) {
+	t.Parallel()
+
 	source := &stubSourceClient{}
 	m := newClusterMirror(deps{sourceClient: source}, time.Hour, time.Hour, time.Hour)
 

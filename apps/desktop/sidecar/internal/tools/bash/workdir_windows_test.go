@@ -29,6 +29,8 @@ import (
 // filepath.IsAbs calls relative but no directory can hold. Windows has no
 // sandbox yet, but the sandboxed column is ready for one.
 func TestWhereACallStartsOnWindows(t *testing.T) {
+	t.Parallel()
+
 	const home, ws = `C:\Users\ana`, `C:\Users\ana\AppData\Roaming\kubetail\chats\c1\workspace`
 	for _, c := range []struct{ workdir, sandboxed, outside string }{
 		{"", ws, ws},
@@ -72,6 +74,8 @@ func TestWhereACallStartsOnWindows(t *testing.T) {
 
 // checkWorkdir refuses what no home can make valid, and nothing else.
 func TestCheckWorkdir(t *testing.T) {
+	t.Parallel()
+
 	for _, workdir := range []string{"", "~", "~/src", `~\src`, "src", `C:\x`, "/c/x", `\\server\share`} {
 		assert.NoError(t, checkWorkdir(workdir), workdir)
 	}

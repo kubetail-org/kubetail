@@ -70,6 +70,8 @@ func watchDataRate(t *testing.T, samples ...kubeconn.DataRateSample) (<-chan Clu
 }
 
 func TestClustersSubscribeDataRateSampleFeedSendsTheWindowFirst(t *testing.T) {
+	t.Parallel()
+
 	ch, _, _ := watchDataRate(t, rateAt(1, 100), rateAt(2, 300))
 
 	assert.Equal(t, seriesOf(wireRate(1, 100), wireRate(2, 300)), testutil.Recv(t, ch, "the window"))
@@ -77,6 +79,8 @@ func TestClustersSubscribeDataRateSampleFeedSendsTheWindowFirst(t *testing.T) {
 
 // The first frame is what a collection watch's Bookmark is: after it, empty means empty.
 func TestClustersSubscribeDataRateSampleFeedSendsAnEmptyWindow(t *testing.T) {
+	t.Parallel()
+
 	ch, _, _ := watchDataRate(t)
 
 	first := testutil.Recv(t, ch, "the window")
@@ -85,6 +89,8 @@ func TestClustersSubscribeDataRateSampleFeedSendsAnEmptyWindow(t *testing.T) {
 }
 
 func TestClustersSubscribeDataRateSampleFeedSendsOnlyTheNewSamples(t *testing.T) {
+	t.Parallel()
+
 	ch, pool, _ := watchDataRate(t, rateAt(1, 100))
 	testutil.Recv(t, ch, "the window")
 
@@ -97,6 +103,8 @@ func TestClustersSubscribeDataRateSampleFeedSendsOnlyTheNewSamples(t *testing.T)
 // and the first read gives, sends nothing. The send is unbuffered, so an empty frame would
 // arrive ahead of the next sample.
 func TestClustersSubscribeDataRateSampleFeedSendsNothingWithoutANewSample(t *testing.T) {
+	t.Parallel()
+
 	ch, pool, _ := watchDataRate(t, rateAt(1, 100))
 	testutil.Recv(t, ch, "the window")
 	pool.rateReads.Await(t, "the window's read")
@@ -111,6 +119,8 @@ func TestClustersSubscribeDataRateSampleFeedSendsNothingWithoutANewSample(t *tes
 
 // The nudges coalesce while the reader is away; the ring still holds every sample it missed.
 func TestClustersSubscribeDataRateSampleFeedCatchesUpAReaderThatFellBehind(t *testing.T) {
+	t.Parallel()
+
 	ch, pool, _ := watchDataRate(t)
 	testutil.Recv(t, ch, "the window")
 
@@ -126,6 +136,8 @@ func TestClustersSubscribeDataRateSampleFeedCatchesUpAReaderThatFellBehind(t *te
 }
 
 func TestClustersSubscribeDataRateSampleFeedRefusesADisabledCluster(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	obj := createCluster(t, d, "prod")
 	_, err := serviceOver(t, d).Clusters().SetEnabled(context.Background(), clusterIDOf(obj), false)
@@ -137,6 +149,8 @@ func TestClustersSubscribeDataRateSampleFeedRefusesADisabledCluster(t *testing.T
 }
 
 func TestClustersSubscribeDataRateSampleFeedReleasesItsClaimWhenTheStreamEnds(t *testing.T) {
+	t.Parallel()
+
 	ch, pool, cancel := watchDataRate(t)
 	testutil.Recv(t, ch, "the window")
 
@@ -147,6 +161,8 @@ func TestClustersSubscribeDataRateSampleFeedReleasesItsClaimWhenTheStreamEnds(t 
 }
 
 func TestClustersSubscribeDataRateSampleFeedStopsForAConsumerThatIsGone(t *testing.T) {
+	t.Parallel()
+
 	ch, _, cancel := watchDataRate(t)
 
 	cancel() // the window waits on a reader that never comes
@@ -155,6 +171,8 @@ func TestClustersSubscribeDataRateSampleFeedStopsForAConsumerThatIsGone(t *testi
 }
 
 func TestClustersSubscribeDataRateSampleFeedStopsForAConsumerGoneMidStream(t *testing.T) {
+	t.Parallel()
+
 	ch, pool, cancel := watchDataRate(t)
 	testutil.Recv(t, ch, "the window")
 	pool.rateReads.Await(t, "the window's read")

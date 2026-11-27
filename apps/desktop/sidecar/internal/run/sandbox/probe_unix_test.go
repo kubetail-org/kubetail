@@ -31,6 +31,7 @@ import (
 // Never paths denied, with no Kubetail paths and no relay. It passes Check with
 // a toolchain folder inside ~/.docker, and with no home at all.
 func TestTheProbeKeepsTheCredentialsHidden(t *testing.T) {
+	// It changes the package's lists, so this test stays serial.
 	base := realpath.Resolved(t.TempDir())
 	home := filepath.Join(base, "home")
 	mkdirs(t, home, ".docker/bin")

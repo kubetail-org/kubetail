@@ -36,6 +36,8 @@ import (
 // plural, not the Kind: a CRD may reuse a built-in's plural under another group, so
 // the group-version has to be in the name too.
 func TestClusterCachedKindName(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, "cachedkind/3/apps/v1/deployments", ClusterCachedKindName(3, "apps/v1", "deployments"))
 	assert.NotEqual(t,
 		ClusterCachedKindName(3, "apps/v1", "deployments"),
@@ -67,6 +69,8 @@ var (
 // rather than Enabled: an Enabled bool would decode false for the whole fleet on the
 // upgrade that shipped it, and every kind would stop syncing at once.
 func TestACachedKindStoredBeforeThePauseFieldDecodesAsSyncing(t *testing.T) {
+	t.Parallel()
+
 	var spec ClusterCachedKindSpec
 
 	require.NoError(t, json.Unmarshal(
@@ -100,6 +104,8 @@ func watchKinds(t *testing.T, d deps) *Stream[ClusterCachedKindCollectionWatchFr
 }
 
 func TestCachedKindsWatchCollectionEmitsTheSnapshotThenABookmark(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -118,6 +124,8 @@ func TestCachedKindsWatchCollectionEmitsTheSnapshotThenABookmark(t *testing.T) {
 // A fleet with nothing discovered yet bookmarks an empty collection rather than holding
 // the snapshot back: the wait is the consumer's to render.
 func TestCachedKindsWatchCollectionBookmarksAnEmptyCollection(t *testing.T) {
+	t.Parallel()
+
 	stream := watchKinds(t, newRunningDeps(t))
 
 	assert.Equal(t, CollectionWatchFrameBookmark, testutil.Recv(t, stream.Frames, "the bookmark").Type)
@@ -128,6 +136,8 @@ func TestCachedKindsWatchCollectionBookmarksAnEmptyCollection(t *testing.T) {
 // beehive loads no edges for a collected row and a frame that failed over that would kill
 // the stream and strand the record in the client's map.
 func TestCachedKindsWatchCollectionReportsADeparture(t *testing.T) {
+	t.Parallel()
+
 	frames := pumpFrames(t, kindWatch, nil,
 		beehive.ObjectChange[ClusterCachedKindSpec, ClusterCachedKindStatus]{Type: beehive.Deleted, ID: 7, Object: nil},
 	)
@@ -146,6 +156,8 @@ func TestCachedKindsWatchCollectionReportsADeparture(t *testing.T) {
 // last op, so a prune collected before the tailer reads the mark arrives as the departure
 // alone. What every shape guarantees is the departure, which is what clears the id.
 func TestCachedKindsWatchCollectionReportsAPruneAsAModifyUntilItIsCollected(t *testing.T) {
+	t.Parallel()
+
 	// Sweeping far faster than production, because the departure is what ends the loop below
 	// and the default cadence outlasts the test's own failsafe.
 	d := newRunningDeps(t, beehive.WithGCInterval(10*time.Millisecond))
@@ -173,6 +185,8 @@ func TestCachedKindsWatchCollectionReportsAPruneAsAModifyUntilItIsCollected(t *t
 
 // One record's own stream, for a consumer holding an id from a frame.
 func TestCachedKindsWatchCollectionByIDStreamsOneRecord(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -192,6 +206,8 @@ func TestCachedKindsWatchCollectionByIDStreamsOneRecord(t *testing.T) {
 
 // Scoped to one cache: another cache's kinds must not reach this read.
 func TestCachedKindsListByCache(t *testing.T) {
+	t.Parallel()
+
 	d, one := twoCachesTwoResources(t)
 
 	got, err := serviceOver(t, d).CachedKinds().ListByCache(context.Background(), one)
@@ -206,6 +222,8 @@ func TestCachedKindsListByCache(t *testing.T) {
 // A cache nothing has discovered kinds for owns none, which reads empty rather than
 // failing — the same wait an unsynced cache shows everywhere else.
 func TestCachedKindsListByCacheWithNoKindsIsEmpty(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -217,6 +235,8 @@ func TestCachedKindsListByCacheWithNoKindsIsEmpty(t *testing.T) {
 }
 
 func TestCachedKindsWatchCollectionByCache(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	cluster := createCluster(t, d, "prod")
 	one := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -239,6 +259,8 @@ func TestCachedKindsWatchCollectionByCache(t *testing.T) {
 // definitively empty, not pending, and holding the bookmark back would render a populated
 // table as loading for as long as discovery takes.
 func TestCachedKindsWatchCollectionByCacheWithNoKindsBookmarksEmpty(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -255,6 +277,8 @@ func TestCachedKindsWatchCollectionByCacheWithNoKindsBookmarksEmpty(t *testing.T
 // kind it was handed: the cookie is the observable half — a kind whose position is gone
 // cold-syncs, and one whose survived does not.
 func TestClearKindRowsClearsOnlyThatKind(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	stores := newFakeKubestore(t)
 	store, _, err := stores.OpenExisting(1)
@@ -278,6 +302,8 @@ func TestClearKindRowsClearsOnlyThatKind(t *testing.T) {
 
 // A cache with no file has nothing to clear, and finding that out must not create one.
 func TestClearKindRowsSkipsACacheWithNoFile(t *testing.T) {
+	t.Parallel()
+
 	stores := newFakeKubestore(t)
 	stores.noFile = true
 
@@ -293,6 +319,8 @@ func TestClearKindRowsSkipsACacheWithNoFile(t *testing.T) {
 // discovered for it. That is a wait, not an empty collection: the bookmark closes a
 // snapshot of none, and the kinds are reported as they land.
 func TestCachedKindsWatchCollectionByCacheReportsKindsThatArriveLater(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -348,6 +376,8 @@ func oneCachedKind(t *testing.T) (deps, ClusterCacheID, *beehive.Object[ClusterC
 // The record is what arms its own kind: kubesync decides what EXISTS, and a record decides
 // what is MIRRORED.
 func TestKindPassArmsItsOwnSync(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID, kind := oneCachedKind(t)
 
 	reconcileKind(t, d, kind)
@@ -363,6 +393,8 @@ func TestKindPassArmsItsOwnSync(t *testing.T) {
 // **Pause is not deletion, and the distinction is the whole feature.** The worker is
 // joined, and the rows it already wrote stay readable.
 func TestKindPassStopsAPausedKindWithoutClearingItsRows(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID, kind := oneCachedKind(t)
 	reconcileKind(t, d, kind)
 
@@ -396,6 +428,8 @@ func pausedKind(t *testing.T, d deps, obj *beehive.Object[ClusterCachedKindSpec,
 // **Forget first, then clear.** Clearing ahead of the join would race a relist page landing
 // behind it, leaving rows for a kind nothing syncs any more.
 func TestKindPassForgetsTheSyncBeforeItClearsTheRows(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID, kind := oneCachedKind(t)
 	reconcileKind(t, d, kind)
 
@@ -422,6 +456,8 @@ func TestKindPassForgetsTheSyncBeforeItClearsTheRows(t *testing.T) {
 // A record whose cache is already gone skips both: the file went with the cache, and there
 // is nothing left to stop or to clear.
 func TestKindPassSkipsTheClearWhenTheCacheIsGone(t *testing.T) {
+	t.Parallel()
+
 	d, _, kind := oneCachedKind(t)
 	ctx := context.Background()
 	require.NoError(t, d.kindClient.Delete(ctx, kind.ID))
@@ -435,6 +471,8 @@ func TestKindPassSkipsTheClearWhenTheCacheIsGone(t *testing.T) {
 // A record whose cache record is gone still withdraws its registration. Nothing else is left
 // to: the cache's pass has been and gone, and the id survives only in the record's own name.
 func TestKindPassForgetsTheSyncWhenItsCacheRecordIsGone(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cacheID := ClusterCacheID(7)
 	syncFake(d).TrackKind(int64(cacheID), toKubestoreKind(deploymentsSpec))
@@ -454,6 +492,8 @@ func TestKindPassForgetsTheSyncWhenItsCacheRecordIsGone(t *testing.T) {
 // One kind's transitions land on its own timeline, which is what makes a cache's hundred
 // kinds legible: the parent's carries only what the cache itself records.
 func TestKindPassLogsItsOwnVerdict(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID, kind := oneCachedKind(t)
 	syncFake(d).setKindState(int64(cacheID), kubestore.Kind{
 		APIVersion: "apps/v1", Kind: "Deployment", Resource: "deployments",
@@ -471,6 +511,8 @@ func TestKindPassLogsItsOwnVerdict(t *testing.T) {
 // so the verdict has to be decided ahead of the read that would come back empty — and the
 // timeline is where a user looks to see the pause took.
 func TestKindPassLogsAPausedVerdictWithNoWorkerToAsk(t *testing.T) {
+	t.Parallel()
+
 	d, _, kind := oneCachedKind(t)
 
 	client := reconcileKind(t, d, pausedKind(t, d, kind))
@@ -484,6 +526,8 @@ func TestKindPassLogsAPausedVerdictWithNoWorkerToAsk(t *testing.T) {
 // A kind whose worker has answered nothing has no verdict to log — a cache that is paused,
 // or one whose sweep has not reached this kind yet.
 func TestKindPassLogsNothingBeforeItsWorkerAnswers(t *testing.T) {
+	t.Parallel()
+
 	d, _, kind := oneCachedKind(t)
 
 	client := reconcileKind(t, d, kind)
@@ -494,6 +538,8 @@ func TestKindPassLogsNothingBeforeItsWorkerAnswers(t *testing.T) {
 // The pass writes no condition: the verdict is the state watch's, and a stored one would serve a
 // dead process's answer until the passes caught up.
 func TestKindPassWritesNoCondition(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID, kind := oneCachedKind(t)
 	syncFake(d).setKindState(int64(cacheID), kubestore.Kind{
 		APIVersion: "apps/v1", Kind: "Deployment", Resource: "deployments",
@@ -510,6 +556,8 @@ func TestKindPassWritesNoCondition(t *testing.T) {
 // field is its opposite so the zero value can be the default. One negation, at the setter
 // and at the projection.
 func TestCachedKindsSetSyncEnabledFlipsThePauseBothWays(t *testing.T) {
+	t.Parallel()
+
 	d, _, kind := oneCachedKind(t)
 	ctx := context.Background()
 	api := serviceOver(t, d).CachedKinds()
@@ -529,6 +577,8 @@ func TestCachedKindsSetSyncEnabledFlipsThePauseBothWays(t *testing.T) {
 // The setter takes the whole spec, so an id naming nothing has to report it rather than
 // create a record with no catalog fields.
 func TestCachedKindsSetSyncEnabledReportsAnUnknownID(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 
 	_, err := serviceOver(t, d).CachedKinds().SetSyncEnabled(context.Background(), 404, false)
@@ -539,6 +589,8 @@ func TestCachedKindsSetSyncEnabledReportsAnUnknownID(t *testing.T) {
 // One kind's clear needs the same hold as the cache-wide one, scoped to the kind: a worker
 // that resumed from its cookie afterwards would apply deltas to rows nothing cold-listed.
 func TestCachedKindsClearRunsInsideTheSyncsHold(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID, kind := oneCachedKind(t)
 
 	var heldAtClear bool
@@ -557,6 +609,8 @@ func TestCachedKindsClearRunsInsideTheSyncsHold(t *testing.T) {
 // has to refuse anything that is not one — a name the parser guessed at would send a clear
 // at whatever cache that number named.
 func TestCacheIDInKindNameRefusesANameThatIsNotOne(t *testing.T) {
+	t.Parallel()
+
 	for _, name := range []string{
 		"cluster/1/v1/pods", // another kind's name entirely
 		"cachedkind/1",      // the prefix, but nothing after the id
@@ -570,6 +624,8 @@ func TestCacheIDInKindNameRefusesANameThatIsNotOne(t *testing.T) {
 
 // The name a record is created under is what the parser reads back.
 func TestCacheIDInKindNameReadsWhatTheNameCarries(t *testing.T) {
+	t.Parallel()
+
 	id, ok := cacheIDInKindName(ClusterCachedKindName(7, "apps/v1", "deployments"))
 
 	require.True(t, ok)
@@ -579,6 +635,8 @@ func TestCacheIDInKindNameReadsWhatTheNameCarries(t *testing.T) {
 // A record collected between a client reading its id off a watch frame and acting on it
 // is an ordinary race, not a bad request — the clear has nothing to do.
 func TestCachedKindsClearOfAnUnknownIdIsNotAnError(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 
 	got, err := serviceOver(t, d).CachedKinds().Clear(context.Background(), 404)
@@ -590,6 +648,8 @@ func TestCachedKindsClearOfAnUnknownIdIsNotAnError(t *testing.T) {
 // A kind whose cache has gone has no rows left to clear: the file went with the cache, and
 // opening one would create the very file the clear is trying to be rid of.
 func TestCachedKindsClearOfAKindWhoseCacheIsGoneJustReturnsIt(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
@@ -607,6 +667,8 @@ func TestCachedKindsClearOfAKindWhoseCacheIsGoneJustReturnsIt(t *testing.T) {
 // A clear that cannot reach the cache's file is reported: answering as though the rows
 // went would leave the user looking at a kind they just cleared, still full.
 func TestCachedKindsClearReportsAStoreItCannotReach(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -621,6 +683,8 @@ func TestCachedKindsClearReportsAStoreItCannotReach(t *testing.T) {
 // The switch is per record, so a record that is gone is the boundary's own not-found
 // rather than beehive's — the resolver above maps one and not the other.
 func TestCachedKindsSetSyncEnabledOnAnUnknownIdIsNotFound(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 
 	_, err := serviceOver(t, d).CachedKinds().SetSyncEnabled(context.Background(), 404, false)
@@ -632,6 +696,8 @@ func TestCachedKindsSetSyncEnabledOnAnUnknownIdIsNotFound(t *testing.T) {
 // beehive does not come back to would leave the kind's timeline permanently short of the
 // transition, with nothing to say why.
 func TestKindPassFailsWhenItsVerdictWillNotLand(t *testing.T) {
+	t.Parallel()
+
 	for _, paused := range []bool{false, true} {
 		t.Run("paused="+strconv.FormatBool(paused), func(t *testing.T) {
 			d, cacheID, kind := oneCachedKind(t)
@@ -650,6 +716,8 @@ func TestKindPassFailsWhenItsVerdictWillNotLand(t *testing.T) {
 // A dying kind's rows go with it, and a store that will not give them up fails the pass —
 // settling would leave rows for a kind no record names, which nothing would ever collect.
 func TestKindTeardownFailsWhenTheRowsWillNotClear(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d, _, kind := oneCachedKind(t)
 	require.NoError(t, d.kindClient.Delete(ctx, kind.ID))
@@ -666,6 +734,8 @@ func TestKindTeardownFailsWhenTheRowsWillNotClear(t *testing.T) {
 // projecting one as owner-less would put a record on the wire with no join key, and the
 // client would render it under no cache at all.
 func TestProjectingAKindWhoseOwnerWasNotLoadedIsReported(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
@@ -689,6 +759,8 @@ func TestProjectingAKindWhoseOwnerWasNotLoadedIsReported(t *testing.T) {
 // is dropping — and a change that carries no object still yields a frame with the id,
 // which is what the drop is keyed by.
 func TestADepartedKindFrameCarriesTheSpecWhenTheChangeHasOne(t *testing.T) {
+	t.Parallel()
+
 	withObject := kindWatch.departed(beehive.ObjectChange[ClusterCachedKindSpec, ClusterCachedKindStatus]{
 		ID:     7,
 		Object: &beehive.Object[ClusterCachedKindSpec, ClusterCachedKindStatus]{Spec: deploymentsSpec},
@@ -703,6 +775,8 @@ func TestADepartedKindFrameCarriesTheSpecWhenTheChangeHasOne(t *testing.T) {
 // A kind with no cache above it has no rows anywhere: the record is served back
 // unchanged rather than the clear reaching for a file that was never named.
 func TestCachedKindsClearOfAKindWithNoOwnerJustReturnsIt(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d := newTestDeps(t)
 	obj, _, err := d.kindClient.CreateOrUpdate(ctx, "orphan-kind", deploymentsSpec)
@@ -718,6 +792,8 @@ func TestCachedKindsClearOfAKindWithNoOwnerJustReturnsIt(t *testing.T) {
 // The record can be collected between the read and the write, so a write that lands on
 // one already going is reported rather than silently doing nothing.
 func TestCachedKindsSetSyncEnabledReportsARecordAlreadyGoing(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
@@ -733,6 +809,8 @@ func TestCachedKindsSetSyncEnabledReportsARecordAlreadyGoing(t *testing.T) {
 // The record can also go between the write and the read back, which reports it missing
 // rather than answering with the record as it was before the switch.
 func TestCachedKindsSetSyncEnabledReportsARecordGoneBeforeTheReadBack(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
@@ -768,6 +846,8 @@ func (c *collectedAfterUpdate) Get(ctx context.Context, id beehive.ObjectID, loa
 // A pass that cannot read which cache it belongs to fails rather than settling: settling
 // would leave the kind unarmed, and beehive would not come back to it.
 func TestKindPassFailsWhenItsCacheCannotBeRead(t *testing.T) {
+	t.Parallel()
+
 	d, closeStore := newTestDepsWithABreakableStore(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")

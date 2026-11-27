@@ -22,5 +22,7 @@ import (
 
 // Windows has no sandbox, so no PATH is resolved for one.
 func TestShellPathResolverIsNil(t *testing.T) {
+	t.Parallel()
+
 	assert.Nil(t, shellPathResolver(nil, `C:\Users\x`, nil, `C:\Temp`))
 }

@@ -26,6 +26,8 @@ import (
 // The snapshot is only ever a new file: one already there is an error, never
 // appended to or replaced.
 func TestWriteSnapshotRefusesAnExistingFile(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "snapshot.sh"), []byte("old"), 0o600))
 	_, err := writeSnapshot(dir, "new")
@@ -38,6 +40,8 @@ func TestWriteSnapshotRefusesAnExistingFile(t *testing.T) {
 // The end marker is found in the new bytes alone, including one split across
 // two reads.
 func TestSnapshotDoneFindsTheMarkerInTheNewBytes(t *testing.T) {
+	t.Parallel()
+
 	out := []byte(snapshotStart + "f() { :; }\n" + snapshotEnd)
 	split := len(out) - len(snapshotEnd)/2
 	assert.False(t, snapshotDone(out[:split], 0))
@@ -48,6 +52,8 @@ func TestSnapshotDoneFindsTheMarkerInTheNewBytes(t *testing.T) {
 // The dump is what lies between the two markers, and nothing is a dump without
 // both.
 func TestSnapshotTextIsBetweenTheMarkers(t *testing.T) {
+	t.Parallel()
+
 	text, ok := snapshotText([]byte("banner" + snapshotStart + "f() { :; }\n" + snapshotEnd + "tail"))
 	assert.True(t, ok)
 	assert.Equal(t, "f() { :; }\n", text)

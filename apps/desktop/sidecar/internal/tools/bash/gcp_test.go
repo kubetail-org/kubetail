@@ -49,6 +49,8 @@ func mountGCP(t *testing.T, p CloudPlatform) CloudMount {
 }
 
 func TestGCPMountsARoutePerService(t *testing.T) {
+	t.Parallel()
+
 	p := NewGCP(gcpauth.New(helperAnswering("users-token", "proj-1")), nil)
 	assert.Equal(t, permissions.GCP, p.Target())
 	m := mountGCP(t, p)
@@ -62,6 +64,8 @@ func TestGCPMountsARoutePerService(t *testing.T) {
 }
 
 func TestTheSandboxedEnvironmentNamesGcloud(t *testing.T) {
+	t.Parallel()
+
 	m := mountGCP(t, NewGCP(gcpauth.New(helperAnswering("users-token", "proj-1")), nil))
 
 	assert.Equal(t, []string{
@@ -83,12 +87,16 @@ func TestTheSandboxedEnvironmentNamesGcloud(t *testing.T) {
 }
 
 func TestAFailedBorrowLeavesTheProjectOut(t *testing.T) {
+	t.Parallel()
+
 	src := gcpauth.New(func(context.Context, bool) ([]byte, error) { return nil, &exec.ExitError{} })
 	m := mountGCP(t, NewGCP(src, nil))
 	assert.NotContains(t, strings.Join(m.Env, "\n"), "CLOUDSDK_CORE_PROJECT")
 }
 
 func TestASlowHelperDoesNotDelayTheRun(t *testing.T) {
+	t.Parallel()
+
 	release := make(chan struct{})
 	t.Cleanup(func() { close(release) })
 	src := gcpauth.New(func(context.Context, bool) ([]byte, error) {
@@ -104,6 +112,8 @@ func TestASlowHelperDoesNotDelayTheRun(t *testing.T) {
 }
 
 func TestTheSourceSpeaksTheProxysSentinels(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		run  func(context.Context, bool) ([]byte, error)
 		want error

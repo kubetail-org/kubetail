@@ -33,6 +33,8 @@ import (
 )
 
 func TestASweepWritesWhatTheClusterServesToTheCatalog(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true), listable("Namespace", "namespaces", false))
 	cluster.serve("apps/v1", listable("Deployment", "deployments", true))
@@ -52,6 +54,8 @@ func TestASweepWritesWhatTheClusterServesToTheCatalog(t *testing.T) {
 }
 
 func TestASweepKeepsOnlyWhatAKindSyncCanMirror(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1",
 		listable("Pod", "pods", true),
@@ -87,6 +91,8 @@ func TestASweepKeepsOnlyWhatAKindSyncCanMirror(t *testing.T) {
 }
 
 func TestAGroupThatWillNotAnswerIsPartialAndPrunesNothing(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 	cluster.group("metrics.k8s.io", "metrics.k8s.io/v1beta1")
@@ -110,6 +116,8 @@ func TestAGroupThatWillNotAnswerIsPartialAndPrunesNothing(t *testing.T) {
 }
 
 func TestAnUnchangedCatalogIsWrittenOnceAndAnnouncedOnce(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 
@@ -134,6 +142,8 @@ func TestAnUnchangedCatalogIsWrittenOnceAndAnnouncedOnce(t *testing.T) {
 }
 
 func TestACatalogThatMovedIsAnnouncedWithItsReasonUnmoved(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 
@@ -162,6 +172,8 @@ func TestACatalogThatMovedIsAnnouncedWithItsReasonUnmoved(t *testing.T) {
 }
 
 func TestASweepWithNoConnectionSuspendsAndIsWokenByTheBridge(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 
@@ -180,6 +192,8 @@ func TestASweepWithNoConnectionSuspendsAndIsWokenByTheBridge(t *testing.T) {
 }
 
 func TestASweepRefusesAConnectionAnsweringAsAnotherCluster(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 
@@ -195,6 +209,8 @@ func TestASweepRefusesAConnectionAnsweringAsAnotherCluster(t *testing.T) {
 // The fingerprint is what lets a sweep skip the write, so a CRD whose only edit is its printer
 // columns must not compare equal to the answer before it.
 func TestFingerprintCoversPrinterColumns(t *testing.T) {
+	t.Parallel()
+
 	row := kubestore.KindRow{APIVersion: "example.com/v1", Kind: "Widget", Resource: "widgets", Scope: kubestore.ScopeNamespaced, IsCRD: true}
 	withColumns := row
 	withColumns.PrinterColumns = `[{"name":"Replicas","type":"integer","jsonPath":".spec.replicas","priority":0}]`
@@ -205,6 +221,8 @@ func TestFingerprintCoversPrinterColumns(t *testing.T) {
 }
 
 func TestIsCRDComesFromTheCRDList(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 	cluster.group("example.com", "example.com/v1")
@@ -230,6 +248,8 @@ func TestIsCRDComesFromTheCRDList(t *testing.T) {
 // differ — where IsCRD deliberately matches without one. A sweep mirrors the group's preferred
 // version, so the columns that land are that version's and not the definition's other one.
 func TestPrinterColumnsComeFromTheServedVersion(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 	cluster.group("example.com", "example.com/v2")
@@ -259,6 +279,8 @@ func TestPrinterColumnsComeFromTheServedVersion(t *testing.T) {
 
 // A CRD declaring no columns leaves the field empty rather than writing an empty array.
 func TestACRDWithNoPrinterColumnsCarriesNone(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 	cluster.group("example.com", "example.com/v1")
@@ -279,6 +301,8 @@ func TestACRDWithNoPrinterColumnsCarriesNone(t *testing.T) {
 }
 
 func TestARefusedCRDListLeavesEveryKindBuiltIn(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 	cluster.group("example.com", "example.com/v1")
@@ -302,6 +326,8 @@ func TestARefusedCRDListLeavesEveryKindBuiltIn(t *testing.T) {
 }
 
 func TestACRDWriteWakesTheSweep(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 
@@ -321,6 +347,8 @@ func TestACRDWriteWakesTheSweep(t *testing.T) {
 }
 
 func TestACRDBringingANewGroupWithItIsDiscovered(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 
@@ -345,6 +373,8 @@ func TestACRDBringingANewGroupWithItIsDiscovered(t *testing.T) {
 }
 
 func TestAGroupListThatFailsLeavesTheCatalogStanding(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 	cluster.serve("apps/v1", listable("Deployment", "deployments", true))
@@ -367,6 +397,8 @@ func TestAGroupListThatFailsLeavesTheCatalogStanding(t *testing.T) {
 }
 
 func TestForgetDiscoveryCancelsAndJoinsASweepInFlight(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 
@@ -407,6 +439,8 @@ func TestForgetDiscoveryCancelsAndJoinsASweepInFlight(t *testing.T) {
 }
 
 func TestForgettingACacheStopsItsSweep(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 
@@ -424,6 +458,8 @@ func TestForgettingACacheStopsItsSweep(t *testing.T) {
 }
 
 func TestASweepSkipsASubjectThatIsNotAnArmedCache(t *testing.T) {
+	t.Parallel()
+
 	svc, _ := newTestService(t)
 	ran := false
 	body := func(context.Context, *session, *kubeconn.Connection, *supervisor.JobPass[uint64]) supervisor.Result {
@@ -441,6 +477,8 @@ func TestASweepSkipsASubjectThatIsNotAnArmedCache(t *testing.T) {
 }
 
 func TestAPoolThatWillNotAnswerFailsTheSweep(t *testing.T) {
+	t.Parallel()
+
 	svc, pool := newTestService(t)
 	start(t, svc)
 	pool.lease("prod").refuse(errors.New("the pool is broken"))
@@ -451,6 +489,8 @@ func TestAPoolThatWillNotAnswerFailsTheSweep(t *testing.T) {
 }
 
 func TestAGroupNamingNoPreferredVersionFallsBackToItsFirst(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1")
 	cluster.serve("apps/v1", listable("Deployment", "deployments", true))
@@ -468,6 +508,8 @@ func TestAGroupNamingNoPreferredVersionFallsBackToItsFirst(t *testing.T) {
 }
 
 func TestADocumentThatIsNotJSONFailsTheSweep(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serveRaw("/api", "not a document")
 
@@ -480,6 +522,8 @@ func TestADocumentThatIsNotJSONFailsTheSweep(t *testing.T) {
 }
 
 func TestACacheRemovedUnderASweepFailsItRatherThanWritingThrough(t *testing.T) {
+	t.Parallel()
+
 	cluster := newFakeCluster(t)
 	cluster.serve("v1", listable("Pod", "pods", true))
 	svc, pool := newTestService(t)
@@ -498,6 +542,8 @@ func TestACacheRemovedUnderASweepFailsItRatherThanWritingThrough(t *testing.T) {
 }
 
 func TestACatalogWriteThatFailsIsNotReportedAsWritten(t *testing.T) {
+	t.Parallel()
+
 	rows := []kubestore.KindRow{{APIVersion: "v1", Kind: "Pod", Resource: "pods"}}
 
 	wrote, err := commitCatalog(t.Context(), refusingCatalog{read: errors.New("read")}, rows, true, 1)
@@ -522,6 +568,8 @@ func (c refusingCatalog) SyncKinds(context.Context, []kubestore.KindRow, bool, u
 }
 
 func TestAConnectionWithAnUnusableBaseURLIsReported(t *testing.T) {
+	t.Parallel()
+
 	conn := &kubeconn.Connection{BaseURL: &url.URL{Scheme: "http", Host: "not a host"}}
 
 	err := getJSON(t.Context(), conn, "/api", &metav1.APIVersions{})
@@ -531,6 +579,8 @@ func TestAConnectionWithAnUnusableBaseURLIsReported(t *testing.T) {
 // A column a client cannot render, with no name or no path, is dropped, and a version left
 // with none carries none rather than an empty array.
 func TestEncodeColumnsKeepsOnlyWhatAClientRenders(t *testing.T) {
+	t.Parallel()
+
 	phase := map[string]any{"name": "Phase", "type": "string", "jsonPath": ".status.phase"}
 	for name, tc := range map[string]struct {
 		columns any

@@ -64,6 +64,8 @@ import (
 // Read, Memory, Write, Edit and WebFetch work on every machine, so a machine with no shell is
 // offered them, and TaskStop, since agents and watches start tasks there too.
 func TestTheFileToolsAreOfferedWithoutAShell(t *testing.T) {
+	t.Parallel()
+
 	box, err := chatTools(toolDeps{fenced: []string{t.TempDir()}, umask: 0o022})
 	require.NoError(t, err)
 
@@ -78,6 +80,8 @@ func TestTheFileToolsAreOfferedWithoutAShell(t *testing.T) {
 
 // The file tools fence Kubetail's directories, so a box with none to fence is refused.
 func TestChatToolsRefusesAnEmptyFence(t *testing.T) {
+	t.Parallel()
+
 	_, err := chatTools(toolDeps{umask: 0o022})
 	require.ErrorContains(t, err, "a fence needs a directory")
 }
@@ -85,6 +89,8 @@ func TestChatToolsRefusesAnEmptyFence(t *testing.T) {
 // A machine with no shell still knows what every stored call did, a TaskStop
 // included.
 func TestAStoredCallsKindIsKnownWithoutAShell(t *testing.T) {
+	t.Parallel()
+
 	box, err := chatTools(toolDeps{fenced: []string{t.TempDir()}, umask: 0o022})
 	require.NoError(t, err)
 
@@ -108,6 +114,8 @@ func definitionNames(defs []llm.ToolDefinition) []string {
 // its target's Stream accepts: a contract the box cannot offer, or a call name
 // spelled twice, shows up here rather than on a user's turn.
 func TestEveryCatalogTargetTakesItsBox(t *testing.T) {
+	t.Parallel()
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
@@ -183,6 +191,8 @@ func offerNames(box tools.Box) []string {
 // Every target is offered exactly its list: each listed name is a tool the app
 // builds, and each listed vendor tool rides that target's wire.
 func TestEachTargetIsOfferedItsList(t *testing.T) {
+	t.Parallel()
+
 	box := everyTool(t)
 	lists := everyCatalog(t)
 
@@ -195,6 +205,8 @@ func TestEachTargetIsOfferedItsList(t *testing.T) {
 // No list names two tools of one kind, and every list covers each kind our
 // tools cover.
 func TestEachListIsOneToolOfEachKind(t *testing.T) {
+	t.Parallel()
+
 	box := everyTool(t)
 	lists := everyCatalog(t)
 	defs, _ := box.Offer()
@@ -221,6 +233,8 @@ func TestEachListIsOneToolOfEachKind(t *testing.T) {
 // Every tool the app builds is on a list, so a new tool left off every list
 // fails here rather than never being offered.
 func TestEveryToolIsOnAList(t *testing.T) {
+	t.Parallel()
+
 	lists := everyCatalog(t)
 	listed := map[string]bool{}
 	for _, target := range everyToolTarget(lists) {
@@ -237,6 +251,8 @@ func TestEveryToolIsOnAList(t *testing.T) {
 // Every tool of ours answers a contract of the form `<name>/v<n>`, its name
 // lower-cased; NewBox holds them unique.
 func TestEveryToolOfOursHasAContractOfItsForm(t *testing.T) {
+	t.Parallel()
+
 	box := everyTool(t)
 	defs, _ := box.Offer()
 
@@ -422,6 +438,8 @@ func startApp(t *testing.T, a *App) {
 // one place the resolver's chat service is set, and an unwired one panics rather
 // than refusing. The id is well-formed, so the refusal is the lookup's.
 func TestAppServesTheChatSurface(t *testing.T) {
+	t.Parallel()
+
 	a, err := New(t.Context(), withDirs(t, Config{}))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, a.Close()) })
@@ -437,6 +455,8 @@ func TestAppServesTheChatSurface(t *testing.T) {
 // under, and deleted once it has left the file. The mark tears the runtime and the
 // chats down behind it, and the row goes last.
 func TestAppTearsDownADeletedCluster(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	path := filepath.Join(dir, "kubeconfig")
 	writeKubeconfig(t, path, "context-A", "context-B")
@@ -534,6 +554,8 @@ func TestAppTearsDownADeletedCluster(t *testing.T) {
 // pause — and the guards in cluster are the only thing that would stand between the
 // reordering and that.
 func TestAppStartsKubeconfigBeforeTheClusterService(t *testing.T) {
+	t.Parallel()
+
 	a, err := New(t.Context(), withDirs(t, Config{}))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, a.Close()) })
@@ -544,6 +566,8 @@ func TestAppStartsKubeconfigBeforeTheClusterService(t *testing.T) {
 // The logs service owns the log files and is built over the cluster service, so it
 // closes first; the cache pass still removes a cache's file through it after that.
 func TestAppAddsTheLogsServiceAfterTheClusterService(t *testing.T) {
+	t.Parallel()
+
 	a, err := New(t.Context(), withDirs(t, Config{}))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, a.Close()) })
@@ -554,6 +578,8 @@ func TestAppAddsTheLogsServiceAfterTheClusterService(t *testing.T) {
 // The Kubetail Cloud connector holds app.db's statements and a revocation's goroutine,
 // so it is a part that closes before app.db does.
 func TestAppClosesTheKubetailCloudConnectorBeforeAppDB(t *testing.T) {
+	t.Parallel()
+
 	a, err := New(t.Context(), withDirs(t, Config{}))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, a.Close()) })
@@ -564,6 +590,8 @@ func TestAppClosesTheKubetailCloudConnectorBeforeAppDB(t *testing.T) {
 // The chat service is a part like the others: built by New, started and stopped
 // with the app.
 func TestAppStartsAndStopsWithTheChatService(t *testing.T) {
+	t.Parallel()
+
 	a, err := New(t.Context(), withDirs(t, Config{}))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, a.Close()) })
@@ -578,6 +606,8 @@ func TestAppStartsAndStopsWithTheChatService(t *testing.T) {
 // The memory service starts before the chat service and so stops after it: a
 // turn reads the index and saves through it until the chat service has stopped.
 func TestTheMemoryServiceOutlivesTheChatService(t *testing.T) {
+	t.Parallel()
+
 	a, err := New(t.Context(), withDirs(t, Config{}))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, a.Close()) })
@@ -588,6 +618,8 @@ func TestTheMemoryServiceOutlivesTheChatService(t *testing.T) {
 // The UIDs memory stamps are the cluster service's last probe; a cluster it
 // does not know, or has never probed, has none.
 func TestServerUIDLookupReadsTheClusterService(t *testing.T) {
+	t.Parallel()
+
 	uid := "uid-1"
 	uids := serverUIDLookup{clusters: fakeClusters{"probed": {Status: cluster.ClusterStatus{Server: cluster.ClusterServer{UID: &uid}}}, "unprobed": {}}}
 
@@ -615,6 +647,8 @@ func partIndex(t *testing.T, a *App, name string) int {
 // instead of panicking. This is also the canary that the composed App is a
 // working http.Handler with the GraphQL surface wired through composition.
 func TestAppAuthStateDegradesSignedOut(t *testing.T) {
+	t.Parallel()
+
 	a, _ := newTestApp(t)
 	ts := httptest.NewServer(a)
 	defer ts.Close()
@@ -630,6 +664,8 @@ func TestAppAuthStateDegradesSignedOut(t *testing.T) {
 // Shutdown waits on the gRPC stream itself, so a stream left dangling would run
 // it into its deadline.
 func TestAppShutdownEndsBothTransports(t *testing.T) {
+	t.Parallel()
+
 	a, _ := newTestApp(t)
 	ts := serveApp(t, a)
 	ts.Config.RegisterOnShutdown(a.CancelStreams)
@@ -672,6 +708,8 @@ func TestAppShutdownEndsBothTransports(t *testing.T) {
 // A data dir that is not a directory fails at the first subsystem that needs
 // one: New reports it rather than returning a half-built App.
 func TestAppRejectsAnUnusableDataDir(t *testing.T) {
+	t.Parallel()
+
 	notADir := filepath.Join(t.TempDir(), "file")
 	require.NoError(t, os.WriteFile(notADir, []byte("x"), 0o600))
 
@@ -690,6 +728,8 @@ func requireUnlocked(t *testing.T, dataDir string) {
 // A second app on a data directory is refused, naming the directory, until the
 // first closes. The lock is the first part, so it closes after app.db.
 func TestASecondAppOnTheDataDirectoryIsRefused(t *testing.T) {
+	t.Parallel()
+
 	cfg := withDirs(t, Config{})
 	first, err := New(t.Context(), cfg)
 	require.NoError(t, err)
@@ -707,6 +747,8 @@ func TestASecondAppOnTheDataDirectoryIsRefused(t *testing.T) {
 
 // A lock file that cannot be opened stops the build before app.db opens.
 func TestALockFileThatCannotBeOpenedFailsNew(t *testing.T) {
+	t.Parallel()
+
 	cfg := withDirs(t, Config{})
 	require.NoError(t, os.Mkdir(filepath.Join(cfg.Folders.Data, "sidecar.lock"), 0o700))
 
@@ -719,6 +761,8 @@ func TestALockFileThatCannotBeOpenedFailsNew(t *testing.T) {
 // order releases it after every service. SQLite deletes the -wal beside a database
 // when its last connection closes, so the sibling's absence shows the file was released.
 func TestAppOwnsTheDatabase(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	a, err := New(t.Context(), withDirs(t, Config{Folders: Folders{Data: dir}}))
 	require.NoError(t, err)
@@ -733,6 +777,8 @@ func TestAppOwnsTheDatabase(t *testing.T) {
 // A subfolder that cannot be made fails the build before any service opens a
 // file, and releases the lock.
 func TestASubfolderThatCannotBeMadeFailsBeforeAnyService(t *testing.T) {
+	t.Parallel()
+
 	cfg := withDirs(t, Config{})
 	require.NoError(t, os.WriteFile(filepath.Join(cfg.Folders.Data, "chats"), nil, 0o600))
 
@@ -745,6 +791,8 @@ func TestASubfolderThatCannotBeMadeFailsBeforeAnyService(t *testing.T) {
 // A constructor failing after the open closes the file. A service's statements fail
 // to prepare on a database whose migration is recorded but whose tables are gone.
 func TestAppClosesTheDatabaseWhenAConstructorFails(t *testing.T) {
+	t.Parallel()
+
 	for table, service := range map[string]string{"clusters": "cluster", "approvals": "chat", "memories": "memory", "env_vars": "variables"} {
 		t.Run(service, func(t *testing.T) {
 			dir := t.TempDir()
@@ -765,6 +813,8 @@ func TestAppClosesTheDatabaseWhenAConstructorFails(t *testing.T) {
 // A KUBETAIL_FAULTS spec the build cannot honour stops the start naming the variable,
 // which run prints as FATAL for the start screen.
 func TestAFaultSpecTheBuildCannotHonourFailsNew(t *testing.T) {
+	t.Parallel()
+
 	_, err := New(t.Context(), withDirs(t, Config{Faults: "get pods=teapot"}))
 
 	require.ErrorContains(t, err, "KUBETAIL_FAULTS: ")
@@ -773,6 +823,8 @@ func TestAFaultSpecTheBuildCannotHonourFailsNew(t *testing.T) {
 // The catalog is the config's: each provider at the base URL a debug build
 // moved it to, then the fake when asked for.
 func TestTheCatalogIsTheConfigs(t *testing.T) {
+	t.Parallel()
+
 	cfg := Config{
 		LLMBaseURLs: map[string]string{"anthropic": "http://127.0.0.1:1"},
 		AddFake:     true,
@@ -789,6 +841,8 @@ func TestTheCatalogIsTheConfigs(t *testing.T) {
 // The fake is a debug build's alone, and last: a release-shaped config lists only
 // the rows it was given.
 func TestTheFakeIsListedOnlyWhenAsked(t *testing.T) {
+	t.Parallel()
+
 	// The models are the catalogs flattened, so the providers are read off them in
 	// order, each named once however many models it lists.
 	providers := func(addFake bool) []string {
@@ -818,6 +872,8 @@ func TestTheFakeIsListedOnlyWhenAsked(t *testing.T) {
 // Sandboxed Bash is offered where a shell was found and the probe found a
 // sandbox; the reason is the probe's, or that there is no shell.
 func TestTheSandboxStateIsTheShellAndTheProbe(t *testing.T) {
+	t.Parallel()
+
 	found := sandbox.State{Available: true, Reason: "bwrap at /usr/bin/bwrap"}
 	missing := sandbox.State{Reason: "bwrap was not found"}
 
@@ -828,6 +884,8 @@ func TestTheSandboxStateIsTheShellAndTheProbe(t *testing.T) {
 
 // A sandbox with no shell confines no command, so it offers no network either.
 func TestNoShellOffersNoNetwork(t *testing.T) {
+	t.Parallel()
+
 	found := sandbox.State{Available: true, Reason: "bwrap at /usr/bin/bwrap", NetworkAvailable: true}
 
 	assert.Equal(t, found, sandboxStateOf(true, found))
@@ -839,6 +897,7 @@ func TestNoShellOffersNoNetwork(t *testing.T) {
 // On a machine with no sandbox the service stores no shell PATH and keeps no
 // fault, and a write that fails at Start is a warning, not a startup error.
 func TestASecurityServiceWithNoSandboxSyncsNothing(t *testing.T) {
+	// CaptureLogs swaps the process's default logger, so this test stays serial.
 	store, err := settings.Open(appdbtest.Open(t))
 	require.NoError(t, err)
 	svc := newSettingsService(store, nil, nil, sandbox.State{}, bash.Paths{}, "timeout")
@@ -853,6 +912,7 @@ func TestASecurityServiceWithNoSandboxSyncsNothing(t *testing.T) {
 // read; a read that fails starts no probe, the curated executables' included,
 // and is a warning.
 func TestAProbeAfterAShellReadReadsTheRegisteredExecutables(t *testing.T) {
+	// CaptureLogs swaps the process's default logger, so this test stays serial.
 	k9s := []settings.Executable{{Name: "k9s", Invocation: "k9s version"}}
 	var started [][]settings.Executable
 	start := func(registered []settings.Executable) { started = append(started, registered) }
@@ -872,6 +932,8 @@ func TestAProbeAfterAShellReadReadsTheRegisteredExecutables(t *testing.T) {
 // than adding the edge.
 // → docs/adr/2026-10-07-sidecar-folders-are-layers.md
 func TestInternalFoldersAreLayers(t *testing.T) {
+	t.Parallel()
+
 	const module = "github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/"
 	order := []string{"lib", "appdb", "llm", "run", "services", "tools", "agent", "app"}
 	rank := func(folder string) int {

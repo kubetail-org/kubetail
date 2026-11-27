@@ -27,6 +27,8 @@ import (
 // since the location makes the tree readable. The credentials outside every
 // location stay on the list as credentials.
 func TestTheCredentialsBesideAToolsProgramsAreListed(t *testing.T) {
+	t.Parallel()
+
 	assert.Contains(t, sharedLists.Never, "~/.local/share/uv/credentials")
 	assert.True(t, slices.ContainsFunc(sharedLists.Toolchain, func(l Location) bool {
 		return slices.ContainsFunc(l.Read, func(r string) bool { return realpath.Within("~/.local/share/uv/credentials", r) })
@@ -39,6 +41,8 @@ func TestTheCredentialsBesideAToolsProgramsAreListed(t *testing.T) {
 // Never holds the note's list: the tools' credentials, the shells' and
 // REPLs' histories, and the container sockets.
 func TestNeverHoldsTheNotesList(t *testing.T) {
+	t.Parallel()
+
 	for _, p := range []string{
 		"~/.helm", "~/.terraform.d", "~/.npmrc", "~/.pypirc", "~/.gem/credentials", "~/.config/git/credentials",
 		"~/.bash_history", "~/.zsh_history", "~/.python_history", "~/.node_repl_history", "~/.psql_history",
@@ -52,12 +56,16 @@ func TestNeverHoldsTheNotesList(t *testing.T) {
 
 // The folders that hold the user's files stay shut under a grant above them.
 func TestTheUsersFoldersAreClosed(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, []string{"~/Documents", "~/Desktop", "~/Downloads"}, sharedLists.Closed)
 }
 
 // Every location reads under the home, and only the asdf location sets
 // asdf's own variables.
 func TestTheToolchainIsUnderTheHome(t *testing.T) {
+	t.Parallel()
+
 	names := map[string]bool{}
 	for _, l := range sharedLists.Toolchain {
 		assert.False(t, names[l.Name], "%s is listed twice", l.Name)

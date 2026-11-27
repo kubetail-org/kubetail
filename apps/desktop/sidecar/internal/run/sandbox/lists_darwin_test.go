@@ -25,6 +25,8 @@ import (
 // System reads the system's folders, /private/etc whole, with its secret
 // files on Never under the path System reads them by.
 func TestDarwinListsReadTheSystemAndHideItsSecrets(t *testing.T) {
+	t.Parallel()
+
 	for _, p := range []string{"/usr", "/private/etc", "/opt", "/Applications", "/nix/store", "/nix/var/nix/profiles", "/run/current-system"} {
 		assert.Contains(t, platformLists.System, p)
 	}
@@ -40,12 +42,15 @@ func TestDarwinListsReadTheSystemAndHideItsSecrets(t *testing.T) {
 }
 
 func TestDarwinNoWriteHoldsLaunchAgents(t *testing.T) {
+	t.Parallel()
+
 	assert.Contains(t, NoWrite("/Users/me"), "/Users/me/Library/LaunchAgents")
 }
 
 // A HOME in another case than the disk's is still the user's own home: it is
 // not denied as another user's, so the probe's policy passes its check.
 func TestAHomeInAnotherCaseIsNotAnotherUsersHome(t *testing.T) {
+	// otherHomesIn changes the package's lists, so this test stays serial.
 	parent := canonicalOf(t, t.TempDir())[0]
 	d := mkdirs(t, parent, "Me", "other")
 	home := filepath.Join(parent, "me")

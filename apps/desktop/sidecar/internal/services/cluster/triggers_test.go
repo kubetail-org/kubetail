@@ -38,6 +38,8 @@ func startTrigger[T, W any](t *testing.T, tr *trigger[T, W]) {
 // The subscription is current-on-subscribe, so whatever the file already held names the
 // anchor at startup rather than waiting for the user to edit it.
 func TestKubeconfigTriggerWakesTheAnchorForTheStartupSnapshot(t *testing.T) {
+	t.Parallel()
+
 	tr := newKubeconfigTrigger(newFakeKubeconfigSource(cfgWith("prod")))
 	startTrigger(t, tr)
 
@@ -47,6 +49,8 @@ func TestKubeconfigTriggerWakesTheAnchorForTheStartupSnapshot(t *testing.T) {
 // Every change names the same record: which contexts moved is the anchor's pass to work
 // out, so the trigger translates rather than deciding.
 func TestKubeconfigTriggerWakesTheAnchorForEachSnapshot(t *testing.T) {
+	t.Parallel()
+
 	src := newFakeKubeconfigSource(cfgWith("prod"))
 	tr := newKubeconfigTrigger(src)
 	startTrigger(t, tr)
@@ -60,6 +64,8 @@ func TestKubeconfigTriggerWakesTheAnchorForEachSnapshot(t *testing.T) {
 // The watcher shutting down ends the loop, and closing the channel is what ends
 // beehive's read of it — it drains what was already sent and stops.
 func TestTriggerClosesItsChannelWhenTheSourceCloses(t *testing.T) {
+	t.Parallel()
+
 	src := newFakeKubeconfigSource(cfgWith("prod"))
 	tr := newKubeconfigTrigger(src)
 	startTrigger(t, tr)
@@ -73,6 +79,8 @@ func TestTriggerClosesItsChannelWhenTheSourceCloses(t *testing.T) {
 // The stop func must join the loop even mid-send, so service.Close never races one.
 // Nothing reads Wakes here, so the loop is parked on exactly that send.
 func TestTriggerStopJoinsTheLoop(t *testing.T) {
+	t.Parallel()
+
 	tr := newKubeconfigTrigger(newFakeKubeconfigSource(cfgWith("prod")))
 	stop, err := tr.Start(context.Background())
 	require.NoError(t, err)
@@ -84,6 +92,8 @@ func TestTriggerStopJoinsTheLoop(t *testing.T) {
 // trigger must release only its own subscription: the service's Close ends every
 // subscription the process holds.
 func TestTriggerStopLeavesTheKubeconfigServiceOpen(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	tr := newKubeconfigTrigger(d.kubeconfigSvc)
 
@@ -110,6 +120,8 @@ func (f stringFeed) Close()              { f.closed.Fire() }
 
 // A trigger forwards the name its mapper builds, over whatever feed it was given.
 func TestTriggerForwardsTheNameItsMapperBuilds(t *testing.T) {
+	t.Parallel()
+
 	ch := make(chan string, 1)
 	closed := testutil.NewSignal()
 
@@ -125,6 +137,8 @@ func TestTriggerForwardsTheNameItsMapperBuilds(t *testing.T) {
 
 // A value the mapper cannot address wakes nothing, and the next one still goes.
 func TestTriggerSkipsAValueThatNamesNoRecord(t *testing.T) {
+	t.Parallel()
+
 	ch := make(chan string, 2)
 	tr := newTrigger(
 		func() changeSource[string] { return stringFeed{ch: ch, closed: testutil.NewSignal()} },
@@ -139,6 +153,8 @@ func TestTriggerSkipsAValueThatNamesNoRecord(t *testing.T) {
 
 // Stopping ends a wake nobody is reading, so a stalled reader cannot hold the stop.
 func TestTriggerStopEndsAnUnreadWake(t *testing.T) {
+	t.Parallel()
+
 	ch := make(chan string)
 	tr := newTrigger(
 		func() changeSource[string] { return stringFeed{ch: ch, closed: testutil.NewSignal()} },
@@ -155,6 +171,8 @@ func TestTriggerStopEndsAnUnreadWake(t *testing.T) {
 
 // The loop owns the subscription, so stopping it is what releases the feed.
 func TestTriggerReleasesItsFeedOnExit(t *testing.T) {
+	t.Parallel()
+
 	closed := testutil.NewSignal()
 	tr := newTrigger(
 		func() changeSource[string] { return stringFeed{ch: make(chan string), closed: closed} },
@@ -182,6 +200,8 @@ func claimsOf(held map[string]string) func(string) (string, bool) {
 // The point of the whole seam: a probe landing brings back the record for the context it
 // answered for, so the pass reads what the probe found instead of waiting out the cadence.
 func TestKubeconnTriggerWakesTheContextsCluster(t *testing.T) {
+	t.Parallel()
+
 	svc := &fakeKubeconn{}
 	tr := newKubeconnTrigger(svc, claimsOf(map[string]string{"prod": "row-prod"}))
 	startTrigger(t, tr)
@@ -194,6 +214,8 @@ func TestKubeconnTriggerWakesTheContextsCluster(t *testing.T) {
 // The index is the controller's claims, so the record to wake is the one the probe
 // was armed for: a context no record is probed under wakes nothing.
 func TestKubeconnTriggerWakesNothingForAnUnclaimedContext(t *testing.T) {
+	t.Parallel()
+
 	c := controllerOver(t)
 	obj := createCluster(t, c.deps, "prod")
 	tr := newKubeconnTrigger(c.kubeconnSvc, c.leases.clusterFor)
@@ -210,6 +232,8 @@ func TestKubeconnTriggerWakesNothingForAnUnclaimedContext(t *testing.T) {
 // The bus holds a slot per context, so a fleet answering at once neither loses a context
 // behind a busier one nor collapses to whichever landed last.
 func TestKubeconnTriggerWakesEveryContextThatMoved(t *testing.T) {
+	t.Parallel()
+
 	svc := &fakeKubeconn{}
 	tr := newKubeconnTrigger(svc, claimsOf(map[string]string{"prod": "row-prod", "staging": "row-staging"}))
 	startTrigger(t, tr)
@@ -227,6 +251,8 @@ func TestKubeconnTriggerWakesEveryContextThatMoved(t *testing.T) {
 // A cache id addresses its own record, so the discovery feed's key is the whole wake and the
 // trigger requeues by id rather than resolving a name.
 func TestKubesyncDiscoveryTriggerWakesTheCacheThatMoved(t *testing.T) {
+	t.Parallel()
+
 	sync := newFakeKubesync()
 	tr := newKubesyncDiscoveryTrigger(sync)
 	startTrigger(t, tr)
@@ -239,6 +265,8 @@ func TestKubesyncDiscoveryTriggerWakesTheCacheThatMoved(t *testing.T) {
 // A kind's record is named after the cache and the GVR kubesync syncs, which is why this one
 // requeues by name: the record's id is the store's to assign, its name is derivable.
 func TestKubesyncKindTriggerNamesTheKindsRecord(t *testing.T) {
+	t.Parallel()
+
 	sync := newFakeKubesync()
 	tr := newKubesyncKindTrigger(sync)
 	startTrigger(t, tr)
@@ -255,6 +283,8 @@ func TestKubesyncKindTriggerNamesTheKindsRecord(t *testing.T) {
 // The size feed carries the cache whose file crossed its ceiling, and a cache id addresses
 // its own record — so the key is the whole wake, as it is for discovery.
 func TestKubestoreSizeLimitTriggerWakesTheCacheThatMoved(t *testing.T) {
+	t.Parallel()
+
 	store := newFakeKubestore(t)
 	tr := newKubestoreSizeLimitTrigger(store)
 	startTrigger(t, tr)

@@ -29,6 +29,8 @@ import (
 // A layout folder junctioned out of the profile fails the start; one
 // junctioned inside it starts, named by its target.
 func TestAJunctionOutOfTheProfileFailsTheStart(t *testing.T) {
+	t.Parallel()
+
 	for _, c := range []struct {
 		name    string
 		target  func(root string) string

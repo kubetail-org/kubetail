@@ -88,6 +88,8 @@ func send(t *testing.T, r *sandboxedRun, method, host, token string) (int, strin
 }
 
 func TestARunWithACloudPlatformAndNoClusterHasARelay(t *testing.T) {
+	t.Parallel()
+
 	p := newFakePlatform(permissions.AWS, "127.0.0.1:6443")
 	tl := cloudTool(t, switchesOn(permissions.AWS), p)
 	r := startRun(t, tl, chatRuntime(t, session.Chat, nil), false)
@@ -104,6 +106,8 @@ func TestARunWithACloudPlatformAndNoClusterHasARelay(t *testing.T) {
 }
 
 func TestARunWithNeitherHasNoRelay(t *testing.T) {
+	t.Parallel()
+
 	boxer := &fakeSandboxer{}
 	tl := cloudTool(t, switchesOn())
 	tl.sandboxer = boxer
@@ -116,6 +120,8 @@ func TestARunWithNeitherHasNoRelay(t *testing.T) {
 // A cloud platform whose switch is off at the run's start, a monitor's run and
 // the probe's get no grant at all.
 func TestACloudPlatformThatIsOffHasNoRoute(t *testing.T) {
+	t.Parallel()
+
 	p := newFakePlatform(permissions.AWS, "127.0.0.1:6443")
 	r := startRun(t, cloudTool(t, switchesOn(), p), chatRuntime(t, session.Chat, nil), false)
 	assert.Empty(t, p.mounts)
@@ -124,6 +130,8 @@ func TestACloudPlatformThatIsOffHasNoRoute(t *testing.T) {
 
 // A run whose switches cannot be read mounts no cloud platform.
 func TestARunThatCannotReadTheSwitchesHasNoPlatform(t *testing.T) {
+	t.Parallel()
+
 	sw := switchesOn(permissions.AWS)
 	sw.fail(errors.New("the database is locked"))
 	p := newFakePlatform(permissions.AWS, "127.0.0.1:6443")
@@ -135,6 +143,8 @@ func TestARunThatCannotReadTheSwitchesHasNoPlatform(t *testing.T) {
 // A run's grant reads the switch live: once it cannot be read, the route is
 // refused.
 func TestASwitchThatCannotBeReadMidRunIsOff(t *testing.T) {
+	t.Parallel()
+
 	sw := switchesOn(permissions.AWS)
 	p := newFakePlatform(permissions.AWS, "127.0.0.1:6443")
 	r := startRun(t, cloudTool(t, sw, p), chatRuntime(t, session.Chat, nil), false)
@@ -145,12 +155,16 @@ func TestASwitchThatCannotBeReadMidRunIsOff(t *testing.T) {
 }
 
 func TestAMonitorHasNoPlatform(t *testing.T) {
+	t.Parallel()
+
 	p := newFakePlatform(permissions.AWS, "127.0.0.1:6443")
 	startRun(t, cloudTool(t, switchesOn(permissions.AWS), p), chatRuntime(t, session.Monitor, nil), false)
 	assert.Empty(t, p.mounts)
 }
 
 func TestTheProbeHasNoPlatform(t *testing.T) {
+	t.Parallel()
+
 	p := newFakePlatform(permissions.AWS, "127.0.0.1:6443")
 	tl := cloudTool(t, switchesOn(permissions.AWS), p)
 	// The probe's runtime names no kind: no turn of the user's started it.
@@ -162,6 +176,8 @@ func TestTheProbeHasNoPlatform(t *testing.T) {
 // command's grant has no asker and refuses every change naming the cloud
 // platform.
 func TestABackgroundCommandsGrantHasNoAsker(t *testing.T) {
+	t.Parallel()
+
 	p := newFakePlatform(permissions.GCP, "storage.gcp.kubetail.invalid")
 	tl := cloudTool(t, switchesOn(permissions.GCP), p)
 	a := newAnsweringAsker()
@@ -181,6 +197,8 @@ func TestABackgroundCommandsGrantHasNoAsker(t *testing.T) {
 // A run started while a switch was off never gets its route, whatever the
 // switch does later.
 func TestARunStartedWhileOffNeverGetsARoute(t *testing.T) {
+	t.Parallel()
+
 	sw := switchesOn()
 	p := newFakePlatform(permissions.AWS, "127.0.0.1:6443")
 	other := newFakePlatform(permissions.GCP, "storage.gcp.kubetail.invalid")
@@ -195,6 +213,8 @@ func TestARunStartedWhileOffNeverGetsARoute(t *testing.T) {
 // A change asked before the switch turns off is still forwarded once
 // approved: it was already past the door.
 func TestARequestWaitingOnTheUserOutlivesTheSwitch(t *testing.T) {
+	t.Parallel()
+
 	sw := switchesOn(permissions.AWS)
 	p := newFakePlatform(permissions.AWS, "127.0.0.1:6443")
 	a := newAnsweringAsker()
@@ -223,6 +243,8 @@ func TestARequestWaitingOnTheUserOutlivesTheSwitch(t *testing.T) {
 // A mount that fails fails the run, ends every grant already mounted and
 // leaves nothing behind.
 func TestAFailedMountEndsTheEarlierOnes(t *testing.T) {
+	t.Parallel()
+
 	first := newFakePlatform(permissions.AWS, "127.0.0.1:6443")
 	failing := newFakePlatform(permissions.GCP, "storage.gcp.kubetail.invalid")
 	failing.err = errors.New("no login")
@@ -243,6 +265,8 @@ func TestAFailedMountEndsTheEarlierOnes(t *testing.T) {
 // A run whose cloud platforms' routes or variables clash fails as a failed
 // mount does.
 func TestAClashFailsTheRun(t *testing.T) {
+	t.Parallel()
+
 	for name, second := range map[string]*fakePlatform{
 		"a host": newFakePlatform(permissions.GCP, "127.0.0.1:6443"),
 		"a variable": func() *fakePlatform {
@@ -266,6 +290,8 @@ func TestAClashFailsTheRun(t *testing.T) {
 
 // A cloud platform's variables ride the run's environment.
 func TestACloudPlatformsVariablesRideTheRun(t *testing.T) {
+	t.Parallel()
+
 	p := newFakePlatform(permissions.AWS, "127.0.0.1:6443")
 	p.env = []string{"FAKE_ENDPOINT=http://127.0.0.1:6443"}
 	r := startRun(t, cloudTool(t, switchesOn(permissions.AWS), p), chatRuntime(t, session.Chat, nil), false)
@@ -275,6 +301,8 @@ func TestACloudPlatformsVariablesRideTheRun(t *testing.T) {
 // Once the run ends, every grant has ended, and a request waiting on the
 // user was cancelled before end returned.
 func TestTheRunEndsEveryGrant(t *testing.T) {
+	t.Parallel()
+
 	p := newFakePlatform(permissions.AWS, "127.0.0.1:6443")
 	a := newAnsweringAsker()
 	tl := cloudTool(t, switchesOn(permissions.AWS), p)
@@ -312,6 +340,8 @@ func tlsOverSocket(r *sandboxedRun, roots *x509.CertPool) *http.Client {
 // A run with a TLS route writes ca.pem where the mount was told it would be,
 // and the door answers TLS with the certificate it holds.
 func TestARunWithATLSRouteHasItsCertificate(t *testing.T) {
+	t.Parallel()
+
 	p := newFakePlatform(permissions.Azure, "127.0.0.1:6443")
 	p.tls = true
 	r := startRun(t, cloudTool(t, switchesOn(permissions.Azure), p), chatRuntime(t, session.Chat, nil), false)
@@ -334,6 +364,8 @@ func TestARunWithATLSRouteHasItsCertificate(t *testing.T) {
 
 // A run with no TLS route has no ca.pem, and its door closes a handshake.
 func TestARunWithNoTLSRouteHasNoCertificate(t *testing.T) {
+	t.Parallel()
+
 	p := newFakePlatform(permissions.AWS, "127.0.0.1:6443")
 	r := startRun(t, cloudTool(t, switchesOn(permissions.AWS), p), chatRuntime(t, session.Chat, nil), false)
 	testutil.Recv(t, p.mounts, "the mount")
@@ -347,6 +379,8 @@ func TestARunWithNoTLSRouteHasNoCertificate(t *testing.T) {
 
 // Through the real sandbox, curl trusting ca.pem alone reaches a TLS route.
 func TestACurlTrustsTheRunsCertificate(t *testing.T) {
+	t.Parallel()
+
 	tl := confiningTool(t)
 	withTool(t, tl, "curl")
 	p := newFakePlatform(permissions.Azure)
@@ -362,6 +396,8 @@ func TestACurlTrustsTheRunsCertificate(t *testing.T) {
 
 // A ca.pem that cannot be written fails the run, and ends the grant mounted.
 func TestABundleThatCannotBeWrittenFailsTheRun(t *testing.T) {
+	t.Parallel()
+
 	p := newFakePlatform(permissions.Azure, "127.0.0.1:6443")
 	p.tls = true
 	p.onMount = func(run CloudRun) { _ = os.WriteFile(run.CAFile, nil, 0o600) }
@@ -391,6 +427,8 @@ func recordingUpstream(t *testing.T, body string) (*httptest.Server, chan string
 // four cloud platforms on reads each cloud platform as the user, and its
 // client still reads the cluster. No variable is set twice.
 func TestEveryCloudPlatformAndTheClusterAnswerInOneRun(t *testing.T) {
+	t.Parallel()
+
 	api := newFakeAPI(t)
 	tl := proxyTool(t, &fakeLease{serverUID: "uid-1", conn: api.connection()})
 	tl.sandboxer = confining(t)

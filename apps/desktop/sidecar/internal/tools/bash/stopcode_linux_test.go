@@ -24,6 +24,8 @@ import (
 // A stopped run with the internet exits by pasta, so its header names how it
 // was stopped and no exit code; one without keeps the code.
 func TestAStoppedNetworkRunsHeaderHasNoExitCode(t *testing.T) {
+	t.Parallel()
+
 	timedOut := result{Output: "partial\n", Stop: stopTimeout}
 	cancelled := result{Output: "partial\n", Stop: stopCancel}
 
