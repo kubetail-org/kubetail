@@ -549,3 +549,40 @@ CREATE TABLE shell_path (
   id   INTEGER PRIMARY KEY CHECK (id = 1),
   path TEXT    NOT NULL
 ) STRICT;
+
+-- incidents: one failure of one subject on one cluster, found by the monitor
+-- (agent/monitor). server_uid is the kube-system UID of the server the cluster's
+-- context reached, so a context that comes to name another server starts that
+-- server's history. The subject is named by group, kind, namespace and name, never
+-- by UID, so a recreated workload keeps its incident. last_seen_at is the last time a
+-- reading saw the signal; once the incident recovers, it equals its newest
+-- occurrence's ended_at. occurrence_count is every occurrence the incident has had,
+-- including those trimmed from incident_occurrences.
+CREATE TABLE incidents (
+  id                TEXT    PRIMARY KEY,
+  cluster_id        TEXT    NOT NULL REFERENCES clusters(id) ON DELETE CASCADE,
+  server_uid        TEXT    NOT NULL,
+  subject_group     TEXT    NOT NULL,
+  subject_kind      TEXT    NOT NULL,
+  subject_namespace TEXT    NOT NULL,
+  subject_name      TEXT    NOT NULL,
+  signal            TEXT    NOT NULL,
+  first_seen_at     INTEGER NOT NULL,
+  last_seen_at      INTEGER NOT NULL,
+  occurrence_count  INTEGER NOT NULL CHECK (occurrence_count >= 1)
+) STRICT;
+
+CREATE INDEX incidents_subject ON incidents (cluster_id, server_uid, subject_group, subject_kind, subject_namespace, subject_name, signal);
+CREATE INDEX incidents_last_seen ON incidents (last_seen_at);
+
+-- incident_occurrences: each spell an incident's signal held. An incident is open
+-- while its newest occurrence has no ended_at; it has at most one open.
+CREATE TABLE incident_occurrences (
+  id          TEXT    PRIMARY KEY,
+  incident_id TEXT    NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+  started_at  INTEGER NOT NULL,
+  ended_at    INTEGER,
+  UNIQUE (incident_id, started_at)
+) STRICT, WITHOUT ROWID;
+
+CREATE UNIQUE INDEX incident_occurrences_one_open ON incident_occurrences (incident_id) WHERE ended_at IS NULL;

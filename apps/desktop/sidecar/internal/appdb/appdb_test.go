@@ -162,6 +162,8 @@ func requireTables(t *testing.T, db *sql.DB) {
 		"env_vars wr=0 strict=1",
 		"executables wr=0 strict=1",
 		"folder_grants wr=0 strict=1",
+		"incident_occurrences wr=1 strict=1",
+		"incidents wr=0 strict=1",
 		"llm_calls wr=0 strict=1",
 		"memories wr=0 strict=1",
 		"messages wr=0 strict=1",
@@ -197,6 +199,9 @@ func requireTables(t *testing.T, db *sql.DB) {
 		"CREATE UNIQUE INDEX env_vars_name ON env_vars (ifnull(cluster_id, ''), name)",
 		"CREATE INDEX folder_grants_chat_idx ON folder_grants (chat_id, created_at, id)",
 		"CREATE UNIQUE INDEX folder_grants_folder ON folder_grants (ifnull(chat_id, ''), folder)",
+		"CREATE UNIQUE INDEX incident_occurrences_one_open ON incident_occurrences (incident_id) WHERE ended_at IS NULL",
+		"CREATE INDEX incidents_last_seen ON incidents (last_seen_at)",
+		"CREATE INDEX incidents_subject ON incidents (cluster_id, server_uid, subject_group, subject_kind, subject_namespace, subject_name, signal)",
 		"CREATE UNIQUE INDEX llm_calls_run_idx ON llm_calls (run_id, seq)",
 		"CREATE UNIQUE INDEX memories_name ON memories (ifnull(cluster_id, ''), name)",
 		"CREATE INDEX messages_run_idx ON messages (run_id)",
@@ -389,6 +394,38 @@ func TestClustersTableDefaultsAndClaim(t *testing.T) {
 	require.Nil(t, deleteRequestedAt)
 }
 
+// An incident cascades from its cluster and its occurrences from it, and holds at
+// most one open occurrence.
+func TestIncidentsHangOffTheirClusterAndHoldOneOpenOccurrence(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "app.db"), 0)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	require.Equal(t, []string{"cluster_id -> clusters.id CASCADE"}, foreignKeys(t, db.Read.DB, "incidents"))
+	require.Equal(t, []string{"incident_id -> incidents.id CASCADE"}, foreignKeys(t, db.Read.DB, "incident_occurrences"))
+
+	for _, q := range []string{
+		`INSERT INTO clusters (id, source, created_at, updated_at) VALUES ('k', 'cloud', 0, 0)`,
+		`INSERT INTO incidents (id, cluster_id, server_uid, subject_group, subject_kind, subject_namespace, subject_name, signal,
+		   first_seen_at, last_seen_at, occurrence_count) VALUES ('i', 'k', 's', 'apps', 'Deployment', 'prod', 'web', 'CrashLoopBackOff', 1, 2, 1)`,
+		`INSERT INTO incident_occurrences (id, incident_id, started_at, ended_at) VALUES ('o1', 'i', 1, 2)`,
+		`INSERT INTO incident_occurrences (id, incident_id, started_at) VALUES ('o2', 'i', 3)`,
+	} {
+		_, err := db.Write.Exec(q)
+		require.NoError(t, err, q)
+	}
+	_, err = db.Write.Exec(`INSERT INTO incident_occurrences (id, incident_id, started_at) VALUES ('o3', 'i', 4)`)
+	require.ErrorContains(t, err, "UNIQUE", "a second open occurrence")
+	_, err = db.Write.Exec(`UPDATE incidents SET occurrence_count = 0 WHERE id = 'i'`)
+	require.ErrorContains(t, err, "CHECK")
+
+	_, err = db.Write.Exec(`DELETE FROM clusters WHERE id = 'k'`)
+	require.NoError(t, err)
+	var left int
+	require.NoError(t, db.Read.QueryRow(`SELECT (SELECT count(*) FROM incidents) + (SELECT count(*) FROM incident_occurrences)`).Scan(&left))
+	assert.Zero(t, left)
+}
+
 // A data dir that cannot hold app.db fails the open — both when the parent path
 // cannot be created and when the file itself cannot be an SQLite database.
 func TestOpenFailsOnAnUnusablePath(t *testing.T) {
@@ -423,7 +460,7 @@ func TestOpenRefusesANewerFile(t *testing.T) {
 // line in the PR that writes it. Once a desktop release carries a migration, every
 // installed app.db has run it, so its line never changes again.
 var shippedMigrations = map[string]string{
-	"0001_init.sql": "ae3f3cb49dac3e5125ce724a58c8caef5f7067616c6b584a880267b452af0917",
+	"0001_init.sql": "a7937dda6923f8550f6bc687cd0f1214ae5795ccc97b3dd236bfb28d7b08de76",
 }
 
 func TestAShippedMigrationIsNeverEdited(t *testing.T) {
