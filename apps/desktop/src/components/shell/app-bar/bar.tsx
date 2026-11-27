@@ -35,17 +35,16 @@ import { RightSidebarToggle } from './right-sidebar-toggle';
 import { SettingsButton } from './settings-button';
 
 // The narrowest the omnibox's column goes before the omnibox leaves the centre line: the
-// pill with an empty name and icon-only tabs. Its 152px are the pill's 8px of padding, the
-// chip's 48px (its 6px of padding, the status button, a 2px gap and the trigger's 12px of
-// padding), the 12px gap and the tab track's 84px. Under it the shorter end gives up its
-// spare space.
-const OMNIBOX_MIN_WIDTH = '9.5rem';
+// pill with an empty name. Its 138px are the pill's 8px of padding, the chip's 46px (its 6px
+// of padding, the status button, a 2px gap and the trigger's 10px of padding) and the tab
+// track's 84px; the room after the chip has closed by then. Under it the shorter end gives
+// up its spare space.
+const OMNIBOX_MIN_WIDTH = '8.625rem';
 
-// An end's column: at least its own content, and at least the other end's while that
-// leaves the omnibox `OMNIBOX_MIN_WIDTH`, so equal ends centre the omnibox when there is
-// room for it.
+// An end's column: its own content, or the other end's while that leaves the omnibox
+// `OMNIBOX_MIN_WIDTH`, so equal ends centre the omnibox when there is room for it.
 function endColumn(own: number, other: number) {
-  return `minmax(max(${own}px, min(${other}px, 100% - ${other}px - ${OMNIBOX_MIN_WIDTH})), 1fr)`;
+  return `max(${own}px, min(${other}px, 100% - ${other}px - ${OMNIBOX_MIN_WIDTH}))`;
 }
 
 export function AppBar() {
@@ -64,16 +63,16 @@ export function AppBar() {
     observer.observe(endRef.current!);
     return () => observer.disconnect();
   }, []);
-  const columns = `${endColumn(ends.start, ends.end)} minmax(0, 420px) ${endColumn(ends.end, ends.start)}`;
+  const columns = `${endColumn(ends.start, ends.end)} minmax(0, 1fr) ${endColumn(ends.end, ends.start)}`;
   return (
     // 56px tall; `window_manager.rs` mirrors the number to center the traffic lights
     // in it. No padding of its own: the close button has to reach the window's
     // corner, and the gutter supplies the macOS inset.
     //
-    // Three columns: the two ends share what the omnibox leaves equally, so the omnibox
-    // sits on the window's center line, and neither goes under the wider end's content,
-    // so the omnibox's column is what gives way in a narrow window, down to
-    // `OMNIBOX_MIN_WIDTH`; past that the omnibox moves off the line rather than shrink.
+    // Three columns: the two ends are as wide as the wider end's content, so the omnibox
+    // sits on the window's center line, and the omnibox's column takes the rest, so it is
+    // what grows and gives way with the window, down to `OMNIBOX_MIN_WIDTH`; past that the
+    // omnibox moves off the line rather than shrink.
     //
     // `deep` makes every pixel of the bar a drag handle, spacing and margins
     // included, rather than only the elements that carry the attribute. Tauri's

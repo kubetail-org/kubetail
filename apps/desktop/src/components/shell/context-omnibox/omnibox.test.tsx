@@ -120,8 +120,10 @@ describe('ContextOmnibox', () => {
   it('is a 38px white pill with a shadow', () => {
     render(<ContextOmnibox />);
     const box = screen.getByTestId('context-omnibox');
-    expect(box).toHaveClass('h-9.5', 'max-w-105', 'min-w-0', 'rounded-full', 'px-1', 'py-0.75', 'gap-3');
+    expect(box).toHaveClass('h-9.5', 'min-w-0', 'rounded-full', 'px-1', 'py-0.75');
     expect(box).toHaveClass('bg-white', 'dark:bg-input/30', 'shadow-pill');
+    // No cap of its own: a long name shows whole while the column has room for it.
+    expect(box.className).not.toMatch(/max-w-/);
   });
 
   // It fits its content, so the container that compacts it is the column around it.
@@ -135,7 +137,8 @@ describe('ContextOmnibox', () => {
 
   it('holds the cluster chip, then the Chat and Dashboard tabs', () => {
     render(<ContextOmnibox />);
-    const [chip, tabs] = Array.from(screen.getByTestId('context-omnibox').children);
+    const [group, tabs] = Array.from(screen.getByTestId('context-omnibox').children);
+    const chip = group.firstElementChild!;
     expect(chip).toBe(screen.getByTestId('cluster-chip'));
     expect(chip.contains(statusButton())).toBe(true);
     expect(chip.contains(trigger())).toBe(true);
@@ -152,7 +155,19 @@ describe('ContextOmnibox', () => {
     expect(name).toHaveClass('truncate', 'font-semibold', 'text-foreground');
     expect(name.parentElement).toHaveClass('text-[13px]');
     expect(name.parentElement).not.toHaveClass('justify-center');
-    expect(trigger()).toHaveClass('pl-1.5', 'pr-1.5');
+    expect(trigger()).toHaveClass('pl-1.5', 'pr-1');
+  });
+
+  // jsdom lays nothing out, so the classes stand in for the order things give way.
+  it('gives up the room after the name before truncating it', () => {
+    render(<ContextOmnibox />);
+    const group = screen.getByTestId('cluster-chip-group');
+    expect(group).toHaveClass('flex', 'min-w-0');
+    const [chip, room] = Array.from(group.children);
+    expect(chip).toHaveClass('shrink-0', 'max-w-full');
+    expect(room).toHaveClass('w-2');
+    expect(room).not.toHaveClass('shrink-0');
+    expect(room).toHaveAttribute('aria-hidden', 'true');
   });
 
   // The two controls in the chip hover apart, each its own round wash.
@@ -176,13 +191,13 @@ describe('ContextOmnibox', () => {
       'after:-right-0.5',
       'after:-inset-y-1.5',
     );
-    // The trigger's reaches the other half of that gap, half the 12px gap before the tabs and
-    // the pill's top and bottom.
-    expect(trigger()).toHaveClass('h-full', 'after:-left-px', 'after:-right-1.5', 'after:-inset-y-0.75');
-    // The track's reaches back over the other half of the gap, and to the pill's edge.
+    // The trigger's reaches the other half of that gap, the room after the chip and the
+    // pill's top and bottom.
+    expect(trigger()).toHaveClass('h-full', 'after:-left-px', 'after:-right-2', 'after:-inset-y-0.75');
+    // The track's reaches to the pill's edge.
     expect(screen.getByRole('navigation', { name: 'View' })).toHaveClass(
       'shrink-0',
-      'after:-left-1.5',
+      'after:left-0',
       'after:-right-1',
       'after:-inset-y-0.75',
     );
