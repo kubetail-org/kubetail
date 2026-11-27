@@ -348,7 +348,7 @@ A change in one place can break another component. Also run:
 | a `Dockerfile` or a toolchain version | `make lint-repo-toolchains lint-repo-digests` |
 | `.github/` or other YAML | `make lint-repo-yaml` |
 | `scripts/` | `make lint-repo-sh test-repo-changed` |
-| `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...`, and `make lint-desktop` for `designsync` or `securitymodel` |
+| `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...`, and `make lint-desktop-shared` for `designsync` or `securitymodel` |
 | Markdown | `make lint-repo-md` |
 | `config/`, `hack/` | CI runs no code job for these: name the checks you ran in the pull request |
 

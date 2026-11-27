@@ -24,6 +24,8 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/cli/cmd.version=
 	lint-cluster-agent vet-cluster-agent vet-cluster-agent-changed test-cluster-agent test-cluster-agent-changed cover-cluster-agent-changed \
 	lint-web vet-web vet-web-changed test-web test-web-changed cover-web-changed \
 	generate-desktop build-desktop lint-desktop vet-desktop vet-desktop-changed test-desktop test-desktop-changed cover-desktop-changed \
+	lint-desktop-sidecar lint-desktop-host lint-desktop-webview lint-desktop-shared \
+	vet-desktop-sidecar vet-desktop-host vet-desktop-webview test-desktop-sidecar test-desktop-host test-desktop-webview \
 	build-desktop-sidecar build-desktop-sidecar-dev build-desktop-bwrap build-desktop-pasta \
 	build-desktop-embedded-sources generate-desktop-prompts generate-desktop-icons \
 	test-desktop-livecache test-desktop-liveswitch status-desktop-design record-desktop-design \
@@ -244,40 +246,64 @@ generate-desktop-icons: ## Regenerate the desktop's src-tauri/icons/, public/fav
 	cd $(DESKTOP_DIR) && cp src-tauri/icons/icon.ico public/favicon.ico
 	cd $(DESKTOP_DIR) && mkdir -p src/assets/icons && cp src-icons/app-light.svg src-icons/app-dark.svg src/assets/icons/
 
+# Each full desktop check runs its parts, which share no output, so make -j
+# runs them in parallel. A part iterates on one component, or reproduces a CI
+# failure in it, without paying for the others.
+
+lint-desktop: lint-desktop-sidecar lint-desktop-host lint-desktop-webview lint-desktop-shared ## Lint the desktop app's sidecar, host and webview, and the checks that span them
+
+lint-desktop-sidecar: ## Check the desktop sidecar's Go formatting
+	test -z "$$(gofmt -l $(DESKTOP_DIR)/sidecar)"
+
+lint-desktop-host: ## Check the desktop host's Rust formatting
+	cd $(DESKTOP_DIR)/src-tauri && cargo fmt --check
+
 # lint:tailwind is a run apart from lint for its time (.oxlintrc.tailwind.json).
+lint-desktop-webview: ## Lint the desktop app's webview and its Tailwind classes
+	cd $(DESKTOP_DIR) && pnpm install && pnpm lint && pnpm lint:tailwind
+
 # designsync checks the design manifest against the code it names, and
 # securitymodel the security model against the tests and files it cites.
-lint-desktop: ## Lint the desktop app's webview, Tailwind classes, Go and Rust formatting, license headers, coverage markers, design manifest and security model
-	cd $(DESKTOP_DIR) && pnpm install && pnpm lint && pnpm lint:tailwind
-	test -z "$$(gofmt -l $(DESKTOP_DIR)/sidecar)"
-	cd $(DESKTOP_DIR)/src-tauri && cargo fmt --check
+lint-desktop-shared: ## Check the desktop app's license headers, coverage markers, design manifest and security model
 	sh scripts/check-license-headers.sh apps/desktop
 	sh scripts/check-coverage-markers.sh apps/desktop
 	cd tools && go run ./designsync check
 	cd tools && go run ./securitymodel check
+
+vet-desktop: vet-desktop-sidecar vet-desktop-host vet-desktop-webview ## Vet the desktop app's sidecar, host and webview for this platform
 
 # go vet, go fix and staticcheck check the sidecar for this platform, untagged
 # and under each tag scripts/go-builds.sh lists: the live checks sit behind
 # tags no other target builds, and vetting them keeps them compiling. CI vets
 # the other platforms, each of which recompiles every dependency.
 # check-sidecar-deps.sh keeps the typed Kubernetes clients out of the binary.
-vet-desktop: build-desktop-sidecar ## Type-check the desktop's webview, vet its sidecar for this platform and each tag, check its deps, run go fix and staticcheck, and run clippy on its host
-	cd $(DESKTOP_DIR) && pnpm install && pnpm exec tsc -b
+vet-desktop-sidecar: ## Vet the desktop sidecar for this platform and each tag, check its deps, and run go fix and staticcheck
 	cd $(DESKTOP_DIR)/sidecar && go vet ./... && go vet -tags debug ./... \
 		&& go vet -tags livecache ./internal/agent/catalog && go vet -tags liveswitch ./internal/agent/catalog
 	sh $(DESKTOP_DIR)/scripts/check-sidecar-deps.sh
 	GO_BUILDS=host sh scripts/check-go-fix.sh apps/desktop/sidecar
 	GO_BUILDS=host sh scripts/staticcheck.sh apps/desktop/sidecar
+
+vet-desktop-host: build-desktop-sidecar ## Run clippy on the desktop host, after building the sidecar
 	cd $(DESKTOP_DIR)/src-tauri && cargo clippy --all-targets -- -D warnings
+
+vet-desktop-webview: ## Type-check the desktop app's webview
+	cd $(DESKTOP_DIR) && pnpm install && pnpm exec tsc -b
+
+test-desktop: test-desktop-sidecar test-desktop-host test-desktop-webview ## Test the desktop app's sidecar with the race detector, its host and its webview
 
 # As CI tests the sidecar. checkptr, which -race turns on, is off for modernc's
 # SQLite alone, where it spends a quarter of agent/chat's CPU. The login
 # shell's tests read SSH_AUTH_SOCK. GORACE drops the race detector's one-second
 # sleep at each clean exit.
-test-desktop: build-desktop-sidecar ## Test the desktop app's sidecar with the race detector, its host and its webview
+test-desktop-sidecar: ## Test the desktop sidecar with the race detector
 	cd $(DESKTOP_DIR)/sidecar && GORACE=atexit_sleep_ms=0 SSH_AUTH_SOCK= \
 		go test -race -short -gcflags='modernc.org/...=-d=checkptr=0' ./...
+
+test-desktop-host: build-desktop-sidecar ## Test the desktop host, after building the sidecar
 	cd $(DESKTOP_DIR)/src-tauri && cargo test
+
+test-desktop-webview: ## Test the desktop app's webview
 	cd $(DESKTOP_DIR) && pnpm install && pnpm test --run
 
 vet-desktop-changed: ## Vet what the change reaches in apps/desktop/ for this platform: the local check before a push; CI runs the full check

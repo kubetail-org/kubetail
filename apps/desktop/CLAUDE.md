@@ -69,4 +69,4 @@ make lint-desktop vet-desktop-changed test-desktop-changed
 make cover-desktop-changed            # FULL=1 runs every Go test; the host's coverage needs cargo-llvm-cov
 ```
 
-`vet-desktop` and `test-desktop` build the sidecar first: `tauri-build` fails without the bundled binary.
+To iterate on one component, or reproduce a CI failure in it, run its part of a full check: `<verb>-desktop-sidecar`, `-host` or `-webview` for `lint`, `vet` and `test`, and `lint-desktop-shared` for the license headers, coverage markers, design manifest and security model. The host's `vet` and `test` build the sidecar first: `tauri-build` fails without the bundled binary.
