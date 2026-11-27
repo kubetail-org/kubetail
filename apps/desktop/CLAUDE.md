@@ -9,7 +9,7 @@ A Kubernetes desktop app in three parts: the React webview (`src/`), the Tauri/R
 - **`proto/`** — the host↔sidecar gRPC contract, compiled to Go (committed, by `make generate-desktop`) and Rust (by `src-tauri/build.rs`).
 - **`scripts/build-sidecar.go`** — `tauri dev`/`tauri build` call it with `go run` from `apps/desktop/`, never `make` or `sh`, because on Windows Tauri runs them through `cmd.exe`.
 
-The desktop's make targets are `<verb>-desktop` and `<verb>-desktop-<what>` in the root `Makefile`; `make help` lists them. A switch that changes a dev run gets a row in [`docs/development-switches.md`](docs/development-switches.md). `make clean-desktop-data` refuses while a dev sidecar runs.
+The desktop's make targets are `<verb>-desktop` and `<verb>-desktop-<what>` in the root `Makefile`; `make help` lists them. A switch that changes a dev run gets a row in [`docs/development-switches.md`](docs/development-switches.md). `make clean-desktop-data` refuses while a dev sidecar runs; `make uninstall-desktop` removes an installed release and all it keeps, and refuses while one runs.
 
 CI checks the desktop in `ci-desktop.yml` and `coverage-desktop.yml`, on the `desktop` set of `.github/ci-config/runners.json`, and releases it with `release-desktop.yml`.
 

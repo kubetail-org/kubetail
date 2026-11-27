@@ -45,6 +45,9 @@ pnpm tauri dev
 ```
 
 `make clean-desktop-data`, from the repo root, wipes the dev app's data.
+`make uninstall-desktop` removes an installed release and everything it keeps, keyring entries
+included, for testing a first run, an install or an upgrade. It lists what it deletes and asks
+first; `YES=1` skips the question.
 
 ## Checks
 

@@ -87,6 +87,12 @@ entries sit under different services. `localStorage` is per origin: a dev build 
 (`http://tauri.localhost` on Windows). On macOS the profile folder is shared, but its storage is
 not. `make clean-desktop-data` leaves the macOS profile and the `Kubetail-dev` keyring entries alone.
 
+`make uninstall-desktop` removes an installed release and every path below for a release, the
+Unix `<runtime>` and the macOS profile included, and every keyring entry under `Kubetail`. It
+leaves a dev build's folders and keyring entries alone, but on macOS the profile it deletes is the
+dev build's too. **A new persisted path is added to it too**: a path under a root's folder needs
+nothing, and one outside is added to `UninstallPaths` in `sidecar/scripts/internal/cleanup`.
+
 ### Every folder, by platform
 
 A release build's paths; a dev build's leaf ends in `-dev`. The sidecar owns the data, cache and
@@ -115,7 +121,7 @@ is the doc comment on `paths` in `sidecar/internal/app/paths.go`.
 | `~/Library/Caches/Kubetail/` | `<cache>` | `kube/`, `logs/` (the log cache), `kubectl/`, `tmp/` |
 | `~/Library/Logs/Kubetail/` | logs | `main.log`, `webview.log`, `sidecar.log` |
 | `$TMPDIR/kubetail-<uid>/` | `<runtime>` | the IPC socket, `shell/`, `runs/` |
-| WKWebView's own, under the bundle id `com.kubetail.desktop` | webview profile | `localStorage`; a dev build and a release share the folder, each origin its own storage, and `make clean-desktop-data` leaves it |
+| WKWebView's own, under the bundle id `com.kubetail.desktop` | webview profile | `localStorage`; a dev build and a release share the folder, each origin its own storage; `make clean-desktop-data` leaves it and `make uninstall-desktop` deletes it |
 
 **Windows.**
 
