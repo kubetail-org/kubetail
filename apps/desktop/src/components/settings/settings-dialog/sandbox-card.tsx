@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The Sandbox pane's status card: whether commands run in the sandbox, its
-// switch, and the way into the console; or, on a machine with none, why.
-// Turning the sandbox off is said in a dialog first; turning it on is not.
+// The Sandbox pane's status card: whether new chats start in the sandbox on
+// every cluster without a value of its own, its switch, and the way into the
+// console; or, on a machine with none, why. Turning it off is said in a
+// dialog first; turning it on is not.
 import { Button } from '@kubetail/ui/elements/button';
 import { Switch } from '@kubetail/ui/elements/switch';
 import { cn } from '@kubetail/ui/lib/utils';
@@ -28,7 +29,8 @@ import type { Sandbox } from '@/lib/sandbox';
 
 type SandboxCardProps = {
   sandbox: Sandbox;
-  on: boolean;
+  /** Whether new chats on every cluster start in the sandbox. Undefined until its watch answers. */
+  on: boolean | undefined;
   /** Without one the switch is drawn disabled. */
   onSwitch?: (on: boolean) => void;
   onTry: () => void;
@@ -63,15 +65,17 @@ export function SandboxCard({ sandbox, on, onSwitch, onTry }: SandboxCardProps) 
     );
   }
 
+  if (on === undefined) return null;
+
   const mechanism = isMacOS() ? "macOS's built-in sandbox (Seatbelt)" : 'bubblewrap (bwrap)';
   return (
     <div className="divide-y rounded-lg border">
       <Summary
         icon={Container}
-        title={on ? 'Sandbox is on' : 'Sandbox is off'}
+        title={on ? 'Sandbox is on for new chats' : 'Sandbox is off for new chats'}
         action={
           <Switch
-            aria-label="Sandbox"
+            aria-label="Sandbox for new chats"
             checked={on}
             disabled={!onSwitch}
             onCheckedChange={(next) => (next ? onSwitch?.(true) : setConfirming(true))}
@@ -80,23 +84,25 @@ export function SandboxCard({ sandbox, on, onSwitch, onTry }: SandboxCardProps) 
       >
         <p>
           {on
-            ? `Commands from a model go through ${mechanism}. They reach only the folders below and the internet when you allow it. Requests to your clusters and cloud platforms are proxied to prevent access to your authentication tokens.`
-            : 'Every command in every chat runs outside the sandbox, with your files, credentials and network, and asks before it runs.'}
+            ? `New chats run their commands in ${mechanism}. They reach only the folders below and the internet when you allow it. Requests to your clusters and cloud platforms are proxied to prevent access to your authentication tokens.`
+            : 'New chats run their commands as you, with your files, credentials and network, each asking first.'}{' '}
+          Chats that exist keep their own switch, and a cluster can have its own under New chats.
         </p>
       </Summary>
-      {on && (
-        <div className="flex items-center gap-3 px-4 py-3">
-          <p className="flex-1 text-xs text-muted-foreground">Run a command in the sandbox to see what it can reach.</p>
-          <Button variant="outline" size="sm" onClick={onTry}>
-            Try a command
-          </Button>
-        </div>
-      )}
+      <div className="flex items-center gap-3 px-4 py-3">
+        <p className="flex-1 text-xs text-muted-foreground">Run a command in the sandbox to see what it can reach.</p>
+        <Button variant="outline" size="sm" onClick={onTry}>
+          Try a command
+        </Button>
+      </div>
       <Dialog
         open={confirming}
         onOpenChange={setConfirming}
-        title="Turn off the sandbox?"
-        description="Every command in every chat will run outside the sandbox, with your files, credentials and network. Each one asks before it runs. A turn already running keeps the sandbox until it ends."
+        title="Start new chats outside the sandbox?"
+        description={
+          'Every command in a chat started from now on, on a cluster without its own setting, will run as you, with your files, your credentials and the network, after you approve it. ' +
+          'Chats that exist keep their own switch.'
+        }
       >
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => setConfirming(false)}>
@@ -109,7 +115,7 @@ export function SandboxCard({ sandbox, on, onSwitch, onTry }: SandboxCardProps) 
               onSwitch?.(false);
             }}
           >
-            Turn off
+            Start outside the sandbox
           </Button>
         </div>
       </Dialog>

@@ -3,6 +3,7 @@ title: Leaving the sandbox is the user's switch for a chat, never the model's fl
 date: 2026-09-30
 scope: cross-cutting
 status: Accepted
+amended_by: [A new chat starts with its default, and a message can leave the sandbox for its turn](2026-11-27-a-new-chat-starts-with-its-default-and-a-message-can-leave-the-sandbox-for-its-turn.md)
 ---
 
 # Leaving the sandbox is the user's switch for a chat, never the model's flag

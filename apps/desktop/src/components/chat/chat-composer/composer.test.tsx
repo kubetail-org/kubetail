@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Profiler, useSyncExternalStore } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -44,6 +44,14 @@ vi.mock('@/lib/graphql/use-folded-subscription', async (importOriginal) => ({
   useFoldedSubscription: () => ({ data: undefined, connected: true }),
 }));
 vi.mock('@/lib/connectors', () => ({ CHATGPT_ID: 'chatgpt', useOpenChatGPTUsage: () => openUsage }));
+// The cluster a held send is retried under, named when the window has moved on.
+vi.mock('@/lib/clusters', async (importOriginal) => {
+  const { clusterRecord } = await import('@/test-utils');
+  return {
+    ...(await importOriginal<typeof import('@/lib/clusters')>()),
+    useClusters: () => ({ clusters: [{ ...clusterRecord({ context: 'prod' }), id: '1' }], connected: true }),
+  };
+});
 vi.mock('@/lib/models', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/models')>()),
   // The catalog's watch, as the stub's last frame: none until it holds models.
@@ -259,10 +267,11 @@ describe('ChatComposer', () => {
     expect(sandboxButton()).toHaveTextContent('Outside the sandbox');
     view.rerender({ sandboxAvailable: true, sandboxDisabled: false });
     expect(sandboxButton()).toHaveTextContent('Sandbox');
-    // A chat that has not started runs in the sandbox.
+    // A chat that has not started names the default it starts with, once known.
+    view.rerender({ chatID: null, sandboxAvailable: true, sandboxDisabled: true });
+    expect(sandboxButton()).toHaveTextContent('Outside the sandbox');
     view.rerender({ chatID: null, sandboxAvailable: true, sandboxDisabled: undefined });
-    expect(sandboxButton()).toHaveTextContent('Sandbox');
-    expect(sandboxButton()).toBeEnabled();
+    expect(sandboxButton()).toBeDisabled();
 
     view.rerender({ sandboxAvailable: false, sandboxDisabled: false });
     expect(sandboxButton()).toBeNull();
@@ -312,6 +321,19 @@ describe('ChatComposer', () => {
     expect(networkButton()).toBeNull();
     view.rerender({ chatID: null, sandboxAvailable: true, networkAvailable: true, networkEnabled: true });
     expect(networkButton()).toBeNull();
+  });
+
+  // A turn outside the sandbox has the machine's network, so the chat's switch
+  // says nothing about it.
+  it("hides the network switch while the message's toggle runs the turn outside", async () => {
+    const user = userEvent.setup();
+    renderComposer({ sandboxAvailable: true, sandboxDisabled: false, networkAvailable: true, networkEnabled: true });
+    expect(networkButton()).toHaveTextContent('Network on');
+
+    await user.click(sandboxButton()!);
+    await user.click(await screen.findByRole('button', { name: 'Run this message outside the sandbox' }));
+    await user.click(screen.getByRole('button', { name: 'Run outside for this message' }));
+    await waitFor(() => expect(networkButton()).toBeNull());
   });
 
   it('hands a press of the network switch to the pane', async () => {
@@ -615,11 +637,129 @@ describe('ChatComposer', () => {
     expect(button('Send')).toBeDisabled();
   });
 
-  it('starts a chat sandboxed', async () => {
-    renderComposer({ chatID: null, sandboxDisabled: undefined });
+  // A create names the default it shows, which the sidecar checks against the
+  // one it copies.
+  it('starts a chat with the default it shows, once it knows it', async () => {
+    const view = renderComposer({ chatID: null, sandboxDisabled: undefined });
+    type('hello');
+    expect(button('Send')).toBeDisabled();
+
+    view.rerender({ chatID: null, sandboxDisabled: true });
+    await click('Send');
+    expect(sendMock.mock.calls[0][0]).toMatchObject({ sandboxDisabled: true, networkEnabled: false });
+  });
+
+  it('says when the default changed under a create', async () => {
+    sendMock.mockResolvedValue(refused('KUBETAIL_CHAT_SANDBOX_CHANGED'));
+    renderComposer({ chatID: null, sandboxAvailable: true });
     type('hello');
     await click('Send');
-    expect(sendMock.mock.calls[0][0]).toMatchObject({ sandboxDisabled: false });
+    expect(
+      screen.getByText('The sandbox default for new chats changed. Check it, then send again.'),
+    ).toBeInTheDocument();
+  });
+
+  // The message's toggle rides the next send alone, set from the popup behind
+  // its dialog.
+  it("sends the message's toggle, then clears it", async () => {
+    const user = userEvent.setup();
+    renderComposer({ sandboxAvailable: true, sandboxDisabled: false });
+    await user.click(sandboxButton()!);
+    await user.click(await screen.findByRole('button', { name: 'Run this message outside the sandbox' }));
+    await user.click(screen.getByRole('button', { name: 'Run outside for this message' }));
+    await user.keyboard('{Escape}');
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: /sandbox|this message/i })[0]).toHaveTextContent(
+        'Outside for this message',
+      ),
+    );
+
+    type('hello');
+    await click('Send');
+    expect(sendMock.mock.calls[0][0]).toMatchObject({ sandboxDisabledThisTurn: true, networkThisTurn: false });
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /sandbox/i })[0]).toHaveTextContent('Sandbox'));
+  });
+
+  // The popup hides the toggle while the chat runs outside, so a switch back
+  // inside must not bring it back armed.
+  it("clears the message's toggle when the chat's switch is pressed", async () => {
+    const user = userEvent.setup();
+    const onSwitchSandbox = vi.fn();
+    const view = renderComposer({ sandboxAvailable: true, sandboxDisabled: false, onSwitchSandbox });
+    await user.click(sandboxButton()!);
+    await user.click(await screen.findByRole('button', { name: 'Run this message outside the sandbox' }));
+    await user.click(screen.getByRole('button', { name: 'Run outside for this message' }));
+    await user.click(await screen.findByRole('button', { name: 'Sandboxed' }));
+    await user.click(screen.getByRole('button', { name: 'Run outside the sandbox' }));
+    expect(onSwitchSandbox).toHaveBeenCalledWith(true);
+
+    view.rerender({ sandboxAvailable: true, sandboxDisabled: true, onSwitchSandbox });
+    view.rerender({ sandboxAvailable: true, sandboxDisabled: false, onSwitchSandbox });
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /sandbox/i })[0]).toHaveTextContent('Sandbox'));
+    type('hello');
+    await click('Send');
+    expect(sendMock.mock.calls[0][0]).toMatchObject({ sandboxDisabledThisTurn: false });
+  });
+
+  // Retry resends the held send as it left, so its toggle is shown and fixed.
+  it("holds the message's toggle with a held send", async () => {
+    const user = userEvent.setup();
+    sendMock.mockResolvedValue(dropped());
+    renderComposer({ sandboxAvailable: true, sandboxDisabled: false });
+    await user.click(sandboxButton()!);
+    await user.click(await screen.findByRole('button', { name: 'Run this message outside the sandbox' }));
+    await user.click(screen.getByRole('button', { name: 'Run outside for this message' }));
+    await user.keyboard('{Escape}');
+    type('hello');
+    await click('Send');
+    expect(button('Retry')).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole('button', { name: /this message/i })[0]);
+    expect(await screen.findByRole('button', { name: 'Keep this message in the sandbox' })).toBeDisabled();
+  });
+
+  // Retry resends the held send under the cluster and default it left with,
+  // so that is what the composer draws, whatever the window shows by now.
+  it("draws a held send's sandbox as it left", async () => {
+    sendMock.mockResolvedValue(dropped());
+    const view = renderComposer({ chatID: null, sandboxAvailable: true, sandboxDisabled: true });
+    type('hello');
+    await click('Send');
+    expect(button('Retry')).toBeInTheDocument();
+
+    view.rerender({ chatID: null, sandboxAvailable: true, sandboxDisabled: false });
+    expect(sandboxButton()).toHaveTextContent('Outside the sandbox');
+  });
+
+  // The window can move to another cluster under a held create, which Retry
+  // still sends to the one it left from.
+  it('names the cluster a held send is retried on when the window has moved on', async () => {
+    sendMock.mockResolvedValue(dropped());
+    const view = renderComposer({ chatID: null });
+    type('hello');
+    await click('Send');
+    expect(button('Retry')).toBeInTheDocument();
+
+    view.rerender({ chatID: null, clusterID: '2' });
+    expect(button('Retry on prod')).toBeInTheDocument();
+  });
+
+  it('names no cluster a held send is retried on once its record is gone', async () => {
+    sendMock.mockResolvedValue(dropped());
+    const view = renderComposer({ chatID: null, clusterID: 'gone' });
+    type('hello');
+    await click('Send');
+
+    view.rerender({ chatID: null, clusterID: '2' });
+    expect(button('Retry on its cluster')).toBeInTheDocument();
+  });
+
+  // The default says outside only on a machine with a sandbox, so it is drawn
+  // before the sidecar has said whether there is one.
+  it('draws an outside default before the sandbox is known', () => {
+    renderComposer({ chatID: null, sandboxAvailable: undefined, sandboxDisabled: true });
+    expect(sandboxButton()).toHaveTextContent('Outside the sandbox');
   });
 
   it('says when the switch changed under a send, and keeps the draft', async () => {

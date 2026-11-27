@@ -223,7 +223,7 @@ must reproduce. A row's **Residual** is what its protection leaves open.
 | [Cloud platforms and GitHub](security-model/cloud-platforms.md) | 42 | 0 | 0 | 30 | 0 | 0 |
 | [Cluster data and the caches](security-model/cluster-data.md) | 5 | 2 | 0 | 4 | 3 | 0 |
 | [The cluster proxy and permissions](security-model/cluster-proxy.md) | 52 | 0 | 0 | 2 | 0 | 0 |
-| [Commands and the approval request](security-model/commands.md) | 44 | 0 | 0 | 44 | 0 | 0 |
+| [Commands and the approval request](security-model/commands.md) | 46 | 0 | 0 | 44 | 0 | 0 |
 | [Sign-in, connectors and stored credentials](security-model/credentials.md) | 17 | 11 | 1 | 3 | 0 | 0 |
 | [The file and web tools](security-model/file-tools.md) | 57 | 0 | 0 | 0 | 0 | 0 |
 | [Kubetail's folders and links](security-model/folders.md) | 26 | 0 | 0 | 2 | 0 | 0 |
@@ -236,7 +236,7 @@ must reproduce. A row's **Residual** is what its protection leaves open.
 | [The sandbox: environment, PATH and processes](security-model/sandbox-process.md) | 28 | 0 | 0 | 14 | 0 | 0 |
 | [Supply chain, release and updates](security-model/supply-chain.md) | 14 | 4 | 9 | 8 | 3 | 0 |
 | [The webview and the windows](security-model/webview.md) | 13 | 0 | 0 | 2 | 0 | 0 |
-| **All** | 423 | 17 | 12 | 143 | 6 | 17 |
+| **All** | 425 | 17 | 12 | 143 | 6 | 17 |
 <!-- index:stop -->
 
 `make lint-desktop` checks every row against the code: each cited test and file exists,

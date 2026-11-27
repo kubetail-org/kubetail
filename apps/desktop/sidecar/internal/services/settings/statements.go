@@ -90,13 +90,16 @@ var statements = []sqlstmt.Statement{
 	stmtSelectCloudPlatformSwitches: sqlstmt.OnReader(`SELECT key, value FROM settings
 	WHERE ifnull(cluster_id, '') = '' AND key IN (?, ?, ?, ?)`),
 	// The settings reads below are OnBoth, so a caller reads inside its own write.
-	// One key for one cluster and for every cluster, through the index on
-	// ifnull(cluster_id, ''), which spells every cluster ''.
-	stmtSelectScopedSetting: sqlstmt.OnBoth(`SELECT ifnull(cluster_id, ''), value FROM settings
-	WHERE ifnull(cluster_id, '') IN (?, '') AND key = ?`),
+	stmtSelectScopedSetting: sqlstmt.OnBoth(selectScopedSettingQuery),
 	stmtSelectSettingScopes: sqlstmt.OnBoth(`SELECT ifnull(cluster_id, ''), value FROM settings WHERE key = ?`),
 	stmtUpsertSetting:       sqlstmt.OnWriter(upsertSettingQuery),
 }
+
+// selectScopedSettingQuery reads one key for one cluster and for every
+// cluster, through the index on cluster_id that spells every cluster as the
+// empty string. Its arguments are the cluster and the key.
+const selectScopedSettingQuery = `SELECT ifnull(cluster_id, ''), value FROM settings
+	WHERE ifnull(cluster_id, '') IN (?, '') AND key = ?`
 
 // upsertSettingQuery writes a key's value in a scope: key, cluster (empty for
 // every cluster), value, time. A row's first write sets created_at; every write

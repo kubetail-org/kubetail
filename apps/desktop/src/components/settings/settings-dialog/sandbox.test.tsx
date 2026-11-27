@@ -21,12 +21,25 @@ import type { SandboxExecutable, SandboxExecutables } from '@/lib/sandbox-execut
 import type { SandboxPath, SandboxPathFolder } from '@/lib/sandbox-path';
 import { expectCodeText } from '@/test-utils';
 
-const { sandbox, path, executables } = vi.hoisted(() => ({
+const { sandbox, path, executables, everyCluster, setDefaultMock } = vi.hoisted(() => ({
   sandbox: { current: {} as Sandbox },
   path: { current: {} as SandboxPath },
   executables: { current: {} as SandboxExecutables },
+  everyCluster: {
+    current: { sandboxDisabled: false, clusterOverride: false },
+    switching: false,
+  },
+  setDefaultMock: vi.fn(),
 }));
 vi.mock('@/lib/sandbox', () => ({ useSandbox: () => sandbox.current }));
+vi.mock('@/lib/sandbox-default', () => ({
+  useSandboxDefault: (clusterID: string | null) => (clusterID === null ? everyCluster.current : undefined),
+  useSandboxDefaultSwitch: (clusterID: string | null) => ({
+    switching: everyCluster.switching,
+    setSandboxDisabled: (disabled: boolean) => setDefaultMock(clusterID, disabled),
+    reset: vi.fn(),
+  }),
+}));
 vi.mock('@/lib/sandbox-path', () => ({ useSandboxPath: () => path.current }));
 vi.mock('@/lib/sandbox-executables', () => ({ useSandboxExecutables: () => executables.current }));
 // Each section's own behavior is its test's; here a stub says it is drawn.
@@ -36,6 +49,7 @@ vi.mock('./sandbox-folders', () => ({
   ),
 }));
 vi.mock('./sandbox-network', () => ({ SandboxNetwork: () => <p>Network</p> }));
+vi.mock('./sandbox-new-chats', () => ({ SandboxNewChats: () => <p>New chats</p> }));
 vi.mock('./sandbox-environment', () => ({ SandboxEnvironment: () => <p>Environment</p> }));
 vi.mock('./sandbox-console', () => ({
   SandboxConsole: ({ open }: { open: boolean }) => (open ? <p>The console</p> : null),
@@ -114,15 +128,22 @@ beforeEach(() => {
   };
   withPath({});
   withExecutables({});
+  everyCluster.current = { sandboxDisabled: false, clusterOverride: false };
+  everyCluster.switching = false;
+  setDefaultMock.mockClear();
 });
 
 describe('SandboxSettings', () => {
-  it('draws the status, then Folders, Network, PATH, Executables and Environment', () => {
+  it('draws the status, then New chats, Folders, Network, PATH, Executables and Environment', () => {
     withPath({ folders: [pathFolder('/opt/homebrew/bin')] });
     render(<SandboxSettings />);
-    expect(screen.getByText('Sandbox is on')).toBeInTheDocument();
+    expect(screen.getByText('Sandbox is on for new chats')).toBeInTheDocument();
     // Folders and PATH share one PATH reader, so a refresh holds both.
     expect(screen.getByText('Folders of 1 PATH folders')).toBeInTheDocument();
+    expect(
+      screen.getByText('New chats').compareDocumentPosition(screen.getByText('Folders of 1 PATH folders')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     const order = ['Network', 'PATH', 'Executables', 'Environment'].map((name) =>
       name === 'PATH' || name === 'Executables' ? screen.getByRole('group', { name }) : screen.getByText(name),
     );
@@ -131,10 +152,27 @@ describe('SandboxSettings', () => {
     });
   });
 
-  // Placeholder: no global switch exists yet.
-  it('draws the switch on and disabled', () => {
+  // The card's switch is every cluster's new-chat default.
+  it("draws every cluster's default and writes it, behind the confirm going outside", async () => {
+    const user = userEvent.setup();
+    const view = render(<SandboxSettings />);
+    expect(screen.getByRole('switch', { name: 'Sandbox for new chats' })).toBeChecked();
+    await user.click(screen.getByRole('switch', { name: 'Sandbox for new chats' }));
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Start outside the sandbox' }),
+    );
+    expect(setDefaultMock).toHaveBeenCalledWith(null, true);
+
+    everyCluster.current = { sandboxDisabled: true, clusterOverride: false };
+    view.rerender(<SandboxSettings />);
+    await user.click(screen.getByRole('switch', { name: 'Sandbox for new chats' }));
+    expect(setDefaultMock).toHaveBeenLastCalledWith(null, false);
+  });
+
+  it('holds the switch while a change of the default is in flight', () => {
+    everyCluster.switching = true;
     render(<SandboxSettings />);
-    expect(screen.getByRole('switch', { name: 'Sandbox' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('switch', { name: 'Sandbox for new chats' })).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('draws the no-sandbox card alone on a machine with none', () => {

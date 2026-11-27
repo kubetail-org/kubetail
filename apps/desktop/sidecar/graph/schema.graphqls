@@ -1090,6 +1090,14 @@ type Chat {
   networkEnabled: Boolean!
 }
 
+"The sandbox switch a new chat starts with, in one scope. A chat copies it when it is created; changing it leaves every chat that exists alone."
+type SandboxDefault {
+  "Whether a new chat starts outside the sandbox: the cluster's own value, else every cluster's, else `false`. Always `false` on a machine with no sandbox."
+  sandboxDisabled: Boolean!
+  "Whether the cluster has a value of its own; `false` for every cluster."
+  clusterOverride: Boolean!
+}
+
 "Whether sandboxed Bash is offered on this machine. It is fixed for the sidecar's life, so this is a query and not a watch."
 type SandboxState {
   available: Boolean!
@@ -2438,8 +2446,8 @@ type Mutation {
   clusterCachedKindSyncEnabledSet(id: ObjectID!, syncEnabled: Boolean!): ClusterCachedKind!
 
   # --- Chat ---
-  "Save a user message and start the assistant's turn. Returns the assistant's message as accepted, not as finished — the answer arrives on chatMessageCollectionWatch. A null `chatID` creates the chat; a chat already running a turn is refused. `requestID` makes the send idempotent for as long as its chat lives, and a repeat is answered by that id alone: this call's `chatID`, `model`, `effort` and `content` are ignored. The key goes with the chat, so a repeat after its delete is a new send. A null `chatID` creates the chat in `mode` and under `clusterID`, which must name an existing cluster; otherwise both are ignored, and on a `requestID` replay they are ignored like `chatID` and `content`. `sandboxDisabled` is the chat's switch as the sender saw it, `false` for a chat the send creates; a send whose switch differs from the chat's is refused with `KUBETAIL_CHAT_SANDBOX_CHANGED`, and a replay ignores it too. `networkEnabled` is the chat's network switch as the sender saw it, `false` for a chat the send creates; a send whose switch differs from the chat's is refused with `KUBETAIL_CHAT_NETWORK_CHANGED`, and a replay ignores it. `networkThisTurn` gives every command of this turn the internet, its subagents' included; refused with `KUBETAIL_VALIDATION_ERROR` where network is unavailable. `snapshot` is what the user's open log view shows, which rides the question as its context's View; a snapshot naming no `LogsView`, `LogsRead` or `LogsWatch` call of this chat, or on a send that creates one, is refused with `KUBETAIL_VALIDATION_ERROR`, and a replay ignores it."
-  chatSend(chatID: ChatID, mode: ChatMode!, clusterID: ClusterID!, sandboxDisabled: Boolean!, networkEnabled: Boolean!, networkThisTurn: Boolean!, providerID: String!, modelID: String!, effort: String!, requestID: String!, content: String!, snapshot: LogsViewSnapshotInput): ChatMessage!
+  "Save a user message and start the assistant's turn. Returns the assistant's message as accepted, not as finished — the answer arrives on chatMessageCollectionWatch. A null `chatID` creates the chat; a chat already running a turn is refused. `requestID` makes the send idempotent for as long as its chat lives, and a repeat is answered by that id alone: this call's `chatID`, `model`, `effort` and `content` are ignored. The key goes with the chat, so a repeat after its delete is a new send. A null `chatID` creates the chat in `mode` and under `clusterID`, which must name an existing cluster; otherwise both are ignored, and on a `requestID` replay they are ignored like `chatID` and `content`. `sandboxDisabled` is the chat's switch as the sender saw it, or, for a chat the send creates, the default it saw for `clusterID` (`sandboxDefaultStateWatch`), which the chat copies; a send whose value differs from the chat's, or from the default the create resolves, is refused with `KUBETAIL_CHAT_SANDBOX_CHANGED`, and a replay ignores it too. `networkEnabled` is the chat's network switch as the sender saw it, `false` for a chat the send creates; a send whose switch differs from the chat's is refused with `KUBETAIL_CHAT_NETWORK_CHANGED`, and a replay ignores it. `networkThisTurn` gives every command of this turn the internet, its subagents' included; refused with `KUBETAIL_VALIDATION_ERROR` where network is unavailable. `sandboxDisabledThisTurn` runs every command of this turn outside the sandbox, its subagents' included, and is never stored on the chat; refused with `KUBETAIL_VALIDATION_ERROR` on a machine with no sandbox and together with `networkThisTurn`, since network is a setting of the sandbox. `snapshot` is what the user's open log view shows, which rides the question as its context's View; a snapshot naming no `LogsView`, `LogsRead` or `LogsWatch` call of this chat, or on a send that creates one, is refused with `KUBETAIL_VALIDATION_ERROR`, and a replay ignores it."
+  chatSend(chatID: ChatID, mode: ChatMode!, clusterID: ClusterID!, sandboxDisabled: Boolean!, networkEnabled: Boolean!, networkThisTurn: Boolean!, sandboxDisabledThisTurn: Boolean!, providerID: String!, modelID: String!, effort: String!, requestID: String!, content: String!, snapshot: LogsViewSnapshotInput): ChatMessage!
 
   "Stop the in-flight turn, keeping the partial answer. Returns true; a no-op when nothing is running."
   chatCancel(chatID: ChatID!): Boolean!
@@ -2463,6 +2471,10 @@ type Mutation {
   chatDelete(id: ChatID!): Boolean!
 
   # --- Sandbox ---
+  "Write the sandbox switch a new chat starts with, for `clusterID`'s chats or, with none, for every cluster's, and answer the scope's default. Chats that exist keep their own switch. Refused with `KUBETAIL_VALIDATION_ERROR` on a machine with no sandbox or for an empty `clusterID`, and with `KUBETAIL_RECORD_NOT_FOUND` for a cluster that is gone or awaiting deletion."
+  sandboxDefaultSet(clusterID: ClusterID, sandboxDisabled: Boolean!): SandboxDefault!
+  "Take `clusterID` back to every cluster's default, and answer it. `sandboxDisabled` is every cluster's default as the caller saw it, which decided whether the reset confirmed; a reset that would land on another value is refused with `KUBETAIL_CONFLICT` and writes nothing. Refused otherwise as `sandboxDefaultSet` is."
+  sandboxDefaultReset(clusterID: ClusterID!, sandboxDisabled: Boolean!): SandboxDefault!
   "Turns a cloud platform's switch on or off, and answers the list. Refuses `Kubernetes`, and a cloud platform this build lacks, with `KUBETAIL_VALIDATION_ERROR`. A switch that cannot be written or read back is an error."
   sandboxCloudAccessSet(target: PermissionTarget!, on: Boolean!): [CloudAccess!]!
   "Save the PATH of every sandboxed command, and answer it. Refused KUBETAIL_VALIDATION_ERROR with the refusal of a value that does not parse, naming the element, or on a machine with no sandbox. A save that took but cannot be read back is KUBETAIL_SAVED_UNREAD."
@@ -2677,6 +2689,8 @@ type Subscription {
   sandboxExecutablesStateWatch: SandboxExecutablesReport!
   "A state watch of the folders granted, always and for `chatID`, each with why it fails its check now, a fresh value on each write of the settings or the always grants and, with a chat, on each write or revoke of the chat's grants. A folder changing on disk sends nothing. Empty lists on a machine with no sandbox."
   sandboxFoldersStateWatch(chatID: ChatID): SandboxFolders!
+  "A state watch of the sandbox switch a new chat starts with, for `clusterID` or, with none, for every cluster: the value on subscribe, then a fresh value on each write of a default in any scope. A read that fails ends the watch with its reason."
+  sandboxDefaultStateWatch(clusterID: ClusterID): SandboxDefault!
   "A state watch of the Sandbox console's last command: a fresh value as it starts, about every quarter second while it writes, and as it ends."
   sandboxConsoleStateWatch: SandboxConsole!
 

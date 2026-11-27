@@ -419,7 +419,7 @@ func TestAFoldersReadThatFailsIsAnError(t *testing.T) {
 	}
 	_, err := s.sessionFor(c.ID, false, false).GrantedFolders(t.Context())
 	assert.Error(t, err)
-	_, err = s.Send(t.Context(), &c.ID, ModeChat, "1", false, false, false, "fake", "fake", "high", reqID("1"), "hi", nil)
+	_, err = s.Send(t.Context(), &c.ID, ModeChat, "1", SendSwitches{}, "fake", "fake", "high", reqID("1"), "hi", nil)
 	assert.ErrorContains(t, err, "folder_grants", "a turn does not start")
 }
 
@@ -705,6 +705,6 @@ func TestASendOutsideTheSandboxReadsNoFolders(t *testing.T) {
 	_, err = s.db.Write.Exec(`DROP TABLE folder_grants`)
 	require.NoError(t, err)
 
-	_, err = s.Send(t.Context(), &c.ID, ModeChat, "1", true, false, false, "fake", "fake", "high", reqID("1"), "hi", nil)
+	_, err = s.Send(t.Context(), &c.ID, ModeChat, "1", SendSwitches{SandboxDisabled: true}, "fake", "fake", "high", reqID("1"), "hi", nil)
 	assert.NoError(t, err)
 }

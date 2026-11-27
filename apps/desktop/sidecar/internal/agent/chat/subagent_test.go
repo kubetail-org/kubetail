@@ -1610,7 +1610,7 @@ func TestASubagentsRuntimeIsItsChatsCluster(t *testing.T) {
 	fakeOf(s).SetToolCalls(agentCall("Look."))
 	subagentFake(s, "Look.").SetToolCalls(llm.StagedCall("where", `{}`))
 
-	msg, err := s.Send(t.Context(), nil, ModeChat, "2", false, false, false, "fake", "fake", "high", reqID("k"), "look", nil)
+	msg, err := s.Send(t.Context(), nil, ModeChat, "2", SendSwitches{}, "fake", "fake", "high", reqID("k"), "look", nil)
 	require.NoError(t, err)
 	awaitSettled(t, s, msg.ChatID, msg.ID)
 	awaitTasks(t, s, msg.ChatID)
@@ -1645,6 +1645,27 @@ func TestASubagentsRuntimeCarriesItsParentsSwitch(t *testing.T) {
 	assert.Equal(t, "subagent 2/"+string(msg.ChatID)+"/true", rows[0].result)
 }
 
+// A subagent of a turn a message took outside the sandbox runs outside too.
+func TestASubagentOfAnOverriddenTurnRunsOutside(t *testing.T) {
+	t.Parallel()
+
+	s := startServiceWithAgent(t, runtimeTool{testTool: testTool{name: "where"}})
+	s.sandboxState = sandbox.State{Available: true}
+	fakeOf(s).SetToolCalls(agentCall("Look."))
+	subagentFake(s, "Look.").SetToolCalls(llm.StagedCall("where", `{}`))
+
+	msg, err := s.Send(t.Context(), nil, ModeChat, "2", SendSwitches{SandboxDisabledThisTurn: true}, "fake", "fake", "high", reqID("look"), "look", nil)
+	require.NoError(t, err)
+	awaitSettled(t, s, msg.ChatID, msg.ID)
+	awaitTasks(t, s, msg.ChatID)
+
+	runs := subagentRuns(t, s.db, msg.RunID)
+	require.Len(t, runs, 1)
+	rows := toolCallRows(t, s.db, runs[0].id)
+	require.Len(t, rows, 1)
+	assert.Equal(t, "subagent 2/"+string(msg.ChatID)+"/true", rows[0].result)
+}
+
 // networkTool answers with its session's network, or nil for a session that
 // never has it.
 type networkTool struct{ testTool }
@@ -1666,7 +1687,7 @@ func TestTheTurnsToggleReachesItsCommandsAndItsSubagents(t *testing.T) {
 	fakeOf(s).SetToolCalls(llm.StagedCall("net", `{}`), agentCall("Look."))
 	subagentFake(s, "Look.").SetToolCalls(llm.StagedCall("net", `{}`))
 
-	msg, err := s.Send(t.Context(), nil, ModeChat, "2", false, false, true, "fake", "fake", "high", reqID("k"), "look", nil)
+	msg, err := s.Send(t.Context(), nil, ModeChat, "2", SendSwitches{NetworkThisTurn: true}, "fake", "fake", "high", reqID("k"), "look", nil)
 	require.NoError(t, err)
 	awaitSettled(t, s, msg.ChatID, msg.ID)
 	awaitTasks(t, s, msg.ChatID)

@@ -333,8 +333,13 @@ func (r *mutationResolver) ClusterCachedKindSyncEnabledSet(ctx context.Context, 
 // ChatSend is the resolver for the chatSend field. The cluster is the chat service's
 // to check, inside the send's transaction, so a send and a cluster delete are
 // serialized where they meet.
-func (r *mutationResolver) ChatSend(ctx context.Context, chatID *apimeta.ChatID, mode chat.Mode, clusterID apimeta.ClusterID, sandboxDisabled bool, networkEnabled bool, networkThisTurn bool, providerID string, modelID string, effort string, requestID string, content string, snapshot *model.LogsViewSnapshotInput) (*chat.ChatMessage, error) {
-	msg, err := r.ChatSvc.Send(ctx, chatID, mode, clusterID, sandboxDisabled, networkEnabled, networkThisTurn, providerID, modelID, effort, requestID, content, snapshotOf(snapshot))
+func (r *mutationResolver) ChatSend(ctx context.Context, chatID *apimeta.ChatID, mode chat.Mode, clusterID apimeta.ClusterID, sandboxDisabled bool, networkEnabled bool, networkThisTurn bool, sandboxDisabledThisTurn bool, providerID string, modelID string, effort string, requestID string, content string, snapshot *model.LogsViewSnapshotInput) (*chat.ChatMessage, error) {
+	msg, err := r.ChatSvc.Send(ctx, chatID, mode, clusterID, chat.SendSwitches{
+		SandboxDisabled:         sandboxDisabled,
+		NetworkEnabled:          networkEnabled,
+		NetworkThisTurn:         networkThisTurn,
+		SandboxDisabledThisTurn: sandboxDisabledThisTurn,
+	}, providerID, modelID, effort, requestID, content, snapshotOf(snapshot))
 	if err != nil {
 		return nil, chatErr(err)
 	}
@@ -400,6 +405,22 @@ func (r *mutationResolver) ChatDelete(ctx context.Context, id apimeta.ChatID) (b
 		return false, chatErr(err)
 	}
 	return true, nil
+}
+
+// SandboxDefaultSet is the resolver for the sandboxDefaultSet field.
+func (r *mutationResolver) SandboxDefaultSet(ctx context.Context, clusterID *apimeta.ClusterID, sandboxDisabled bool) (*model.SandboxDefault, error) {
+	if clusterID != nil && *clusterID == "" {
+		return nil, emptyClusterID()
+	}
+	return sandboxDefaultAnswer(r.Settings.SetSandboxDefault(ctx, scopeOf(clusterID), sandboxDisabled))
+}
+
+// SandboxDefaultReset is the resolver for the sandboxDefaultReset field.
+func (r *mutationResolver) SandboxDefaultReset(ctx context.Context, clusterID apimeta.ClusterID, sandboxDisabled bool) (*model.SandboxDefault, error) {
+	if clusterID == "" {
+		return nil, emptyClusterID()
+	}
+	return sandboxDefaultAnswer(r.Settings.ResetSandboxDefault(ctx, clusterID, sandboxDisabled))
 }
 
 // SandboxCloudAccessSet is the resolver for the sandboxCloudAccessSet field.
@@ -1173,6 +1194,50 @@ func (r *subscriptionResolver) SandboxFoldersStateWatch(ctx context.Context, cha
 					return
 				}
 			case _, ok := <-grantsC:
+				if !ok { // coverage:ignore only the database closing under a subscriber
+					return
+				}
+			}
+		}
+	}()
+	return out, nil
+}
+
+// SandboxDefaultStateWatch is the resolver for the sandboxDefaultStateWatch field:
+// the scope's default, read once, then again on each write of a default in any
+// scope, since every cluster's reaches each cluster without its own. A read
+// that fails ends the watch with its reason.
+func (r *subscriptionResolver) SandboxDefaultStateWatch(ctx context.Context, clusterID *apimeta.ClusterID) (<-chan *model.SandboxDefault, error) {
+	cluster := scopeOf(clusterID)
+	// Subscribed before the first read, so a write between the two is not
+	// missed.
+	changes := r.Settings.ListenForSandboxDefaultChanges()
+	out := make(chan *model.SandboxDefault)
+	go func() {
+		defer close(out)
+		defer changes.Close()
+		changesC := changes.Chan()
+		var sent *model.SandboxDefault
+		for {
+			d, err := sandboxDefaultAnswer(r.Settings.GetSandboxDefault(ctx, cluster))
+			if err != nil {
+				recordSubscriptionFailure(ctx, fmt.Errorf("read the sandbox default: %w", err))
+				return
+			}
+			// A write in another scope wakes every watch, and most leave this
+			// scope's value as it was.
+			if sent == nil || *d != *sent {
+				select {
+				case out <- d:
+					sent = d
+				case <-ctx.Done(): // coverage:ignore only the subscriber leaving while a value is in flight
+					return
+				}
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case _, ok := <-changesC:
 				if !ok { // coverage:ignore only the database closing under a subscriber
 					return
 				}

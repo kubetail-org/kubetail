@@ -32,6 +32,7 @@ import { useClusters } from '@/lib/clusters';
 import { useLastSettled } from '@/lib/graphql/use-last-settled';
 import { useNetworkSwitch } from '@/lib/network-switch';
 import { useSandbox } from '@/lib/sandbox';
+import { useSandboxDefault, useSandboxDefaultChanging } from '@/lib/sandbox-default';
 import { useSandboxSwitch } from '@/lib/sandbox-switch';
 
 type NewChatPaneProps = {
@@ -54,6 +55,10 @@ export function NewChatPane({ mode, empty, centered = false, onCreated, inputRef
   // The toggle needs the machine's word on the sandbox and its network.
   const sandbox = useSandbox();
   useAskAgainWhenLive(sandbox.failed, phase === 'live', sandbox.retry);
+  // The chat is created with its cluster's default, so a send names the one
+  // shown and waits for a change of any default to reach the watch.
+  const sandboxDefault = useSandboxDefault(clusterID);
+  const defaultChanging = useSandboxDefaultChanging(clusterID);
 
   const composer = (
     <ChatComposer
@@ -64,6 +69,8 @@ export function NewChatPane({ mode, empty, centered = false, onCreated, inputRef
       last={null}
       onCreated={onCreated}
       sandboxAvailable={sandbox.available}
+      sandboxDisabled={sandboxDefault?.sandboxDisabled}
+      switching={defaultChanging}
       networkAvailable={sandbox.networkAvailable}
       networkReason={sandbox.networkReason}
       inputRef={inputRef}
@@ -211,6 +218,7 @@ function OpenChat({ chatID, mode, onGone }: ChatPaneProps) {
           networkReason={sandbox.networkReason}
           networkEnabled={chat?.networkEnabled}
           switching={switching}
+          onSwitchSandbox={sandboxSwitch.setSandboxDisabled}
           onSwitchNetwork={networkSwitch.setNetworkEnabled}
           onShowWaiting={
             waiting

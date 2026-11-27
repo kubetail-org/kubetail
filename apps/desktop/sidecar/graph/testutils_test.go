@@ -157,7 +157,7 @@ type refusingChat struct {
 	err error
 }
 
-func (c refusingChat) Send(context.Context, *chat.ChatID, chat.Mode, apimeta.ClusterID, bool, bool, bool, string, string, string, string, string, *chat.Snapshot) (chat.ChatMessage, error) {
+func (c refusingChat) Send(context.Context, *chat.ChatID, chat.Mode, apimeta.ClusterID, chat.SendSwitches, string, string, string, string, string, *chat.Snapshot) (chat.ChatMessage, error) {
 	return chat.ChatMessage{}, c.err
 }
 
@@ -170,8 +170,20 @@ type recordingChat struct {
 	snaps chan *chat.Snapshot
 }
 
-func (c recordingChat) Send(_ context.Context, _ *chat.ChatID, _ chat.Mode, _ apimeta.ClusterID, _, _, _ bool, _, _, _, _, _ string, snap *chat.Snapshot) (chat.ChatMessage, error) {
+func (c recordingChat) Send(_ context.Context, _ *chat.ChatID, _ chat.Mode, _ apimeta.ClusterID, _ chat.SendSwitches, _, _, _, _, _ string, snap *chat.Snapshot) (chat.ChatMessage, error) {
 	c.snaps <- snap
+	return chat.ChatMessage{}, nil
+}
+
+// switchesChat hands each send's switches to switches and answers an empty
+// message. Any other call panics.
+type switchesChat struct {
+	chat.Service
+	switches chan chat.SendSwitches
+}
+
+func (c switchesChat) Send(_ context.Context, _ *chat.ChatID, _ chat.Mode, _ apimeta.ClusterID, switches chat.SendSwitches, _, _, _, _, _ string, _ *chat.Snapshot) (chat.ChatMessage, error) {
+	c.switches <- switches
 	return chat.ChatMessage{}, nil
 }
 

@@ -147,6 +147,9 @@ const (
 	// retook the zones, whether or not shell_path changed. Folder checks read
 	// both, so a folder grant's answer may have changed.
 	KeySandboxPath = "sandbox-path"
+	// KeySandboxDefaults: the sandbox switch a new chat starts with was
+	// written or reset, in any scope, by the settings store.
+	KeySandboxDefaults = "sandbox-defaults"
 )
 
 // MessagesKey: the chat's message rows changed. Re-read and diff.

@@ -144,6 +144,18 @@ type ToolLists interface {
 	AlwaysOn(name string) bool
 }
 
+// SendSwitches is where a send's commands run. SandboxDisabled and
+// NetworkEnabled are the chat's switches as the sender saw them: a created
+// chat's sandbox default and no network. NetworkThisTurn gives this turn's
+// commands the internet and SandboxDisabledThisTurn runs them outside the
+// sandbox, the two never together.
+type SendSwitches struct {
+	SandboxDisabled         bool
+	NetworkEnabled          bool
+	NetworkThisTurn         bool
+	SandboxDisabledThisTurn bool
+}
+
 // Service is what the GraphQL layer calls.
 type Service interface {
 	lifecycle.StartCloser
@@ -153,11 +165,9 @@ type Service interface {
 	// the chat, in mode and under clusterID; an existing chat keeps the mode and
 	// cluster it was made with. model and effort are what this turn runs on.
 	// requestID is the client's key for this send, a UUID it minted; a repeat
-	// returns the first attempt's message and starts nothing. sandboxDisabled
-	// and networkEnabled are the chat's switches as the sender saw them, and
-	// networkThisTurn gives this turn's commands the internet. snap is what
-	// the user's open log view showed, nil with none; a replay ignores it.
-	Send(ctx context.Context, chatID *ChatID, mode Mode, clusterID apimeta.ClusterID, sandboxDisabled, networkEnabled, networkThisTurn bool, providerID, modelID, effort, requestID, content string, snap *Snapshot) (ChatMessage, error)
+	// returns the first attempt's message and starts nothing. snap is what the
+	// user's open log view showed, nil with none; a replay ignores it.
+	Send(ctx context.Context, chatID *ChatID, mode Mode, clusterID apimeta.ClusterID, switches SendSwitches, providerID, modelID, effort, requestID, content string, snap *Snapshot) (ChatMessage, error)
 	// Cancel stops the in-flight turn, keeping the partial answer. A no-op when
 	// nothing is running.
 	Cancel(ctx context.Context, chatID ChatID) error
@@ -470,7 +480,7 @@ func (s *service) notify(key string) { s.db.Notify(key) }
 // Send saves the question and starts its answer. The key is looked up before every
 // other check, so a retry of the send that started the running turn is answered
 // rather than refused as a second one; on a hit the key is the whole identity.
-func (s *service) Send(ctx context.Context, chatID *ChatID, mode Mode, clusterID apimeta.ClusterID, sandboxDisabled, networkEnabled, networkThisTurn bool, providerID, modelID, effort, requestID, content string, snap *Snapshot) (ChatMessage, error) {
+func (s *service) Send(ctx context.Context, chatID *ChatID, mode Mode, clusterID apimeta.ClusterID, switches SendSwitches, providerID, modelID, effort, requestID, content string, snap *Snapshot) (ChatMessage, error) {
 	if err := s.enter(); err != nil {
 		return ChatMessage{}, err
 	}
@@ -504,7 +514,12 @@ func (s *service) Send(ctx context.Context, chatID *ChatID, mode Mode, clusterID
 	}
 	// After the lookup: a replay is answered by its key whatever the machine
 	// offers now.
-	if networkThisTurn && !s.sandboxState.NetworkAvailable {
+	if switches.NetworkThisTurn && !s.sandboxState.NetworkAvailable {
+		return ChatMessage{}, ErrBadRequest
+	}
+	// Network is the sandbox's: outside it a command has the machine's, so
+	// a turn asking for both asks for nothing the override would honour.
+	if switches.SandboxDisabledThisTurn && (!s.sandboxState.Available || switches.NetworkThisTurn) {
 		return ChatMessage{}, ErrBadRequest
 	}
 	// After the lookup, never before: a check ahead of it would refuse a retry of
@@ -519,15 +534,18 @@ func (s *service) Send(ctx context.Context, chatID *ChatID, mode Mode, clusterID
 	if err != nil {
 		return ChatMessage{}, err
 	}
+	// Where the turn's commands run as the sender saw it: the transaction
+	// refuses a switch or a default that differs, so it is the turn's too.
+	outside := switches.SandboxDisabled || switches.SandboxDisabledThisTurn
 	// Read outside the transaction too, since checking each reads the disk. A
-	// turn outside the sandbox takes none; the transaction refuses a switch
-	// that differs from the row. The cloud platform switches are read here too,
-	// so the transaction never holds the writer while it waits for a reader.
+	// turn outside the sandbox takes none. The cloud platform switches are read
+	// here too, so the transaction never holds the writer while it waits for a
+	// reader.
 	var (
 		folders []session.Folder
 		cloudOn []string
 	)
-	if !sandboxDisabled {
+	if !outside {
 		var existing ChatID
 		if chatID != nil {
 			existing = *chatID
@@ -570,11 +588,16 @@ func (s *service) Send(ctx context.Context, chatID *ChatID, mode Mode, clusterID
 		}
 		// Read in the transaction that pins them to the turn, so the turn runs
 		// where and with what the sender saw, whichever window switched meanwhile.
-		disabled := c.SandboxDisabled
-		if disabled != sandboxDisabled {
+		// A create checks the default it copies, which a window can change too.
+		if chatID == nil {
+			if c.SandboxDisabled, err = s.sandboxDefault(ctx, st, clusterID); err != nil {
+				return err
+			}
+		}
+		if c.SandboxDisabled != switches.SandboxDisabled {
 			return ErrChatSandboxChanged
 		}
-		if c.NetworkEnabled != networkEnabled {
+		if c.NetworkEnabled != switches.NetworkEnabled {
 			return ErrChatNetworkChanged
 		}
 		off, err := disabledTools(ctx, st)
@@ -587,7 +610,7 @@ func (s *service) Send(ctx context.Context, chatID *ChatID, mode Mode, clusterID
 				return err
 			}
 		}
-		id, err := s.resolveChat(ctx, st, chatID, mode, clusterID, content, at)
+		id, err := s.resolveChat(ctx, st, chatID, mode, clusterID, c.SandboxDisabled, content, at)
 		if err != nil {
 			return err
 		}
@@ -597,7 +620,7 @@ func (s *service) Send(ctx context.Context, chatID *ChatID, mode Mode, clusterID
 			return err
 		}
 		// Pinned here, beside the context block that tells the model.
-		t.outsideSandbox, t.networkThisTurn, t.disabledTools = disabled, networkThisTurn, off
+		t.outsideSandbox, t.networkThisTurn, t.disabledTools = outside, switches.NetworkThisTurn, off
 		// The chat's id is known only now: a new chat has none when the card is
 		// rendered.
 		block := s.withWorkspace(contextText, id)
@@ -605,7 +628,7 @@ func (s *service) Send(ctx context.Context, chatID *ChatID, mode Mode, clusterID
 			block = withView(block, toolUseID, view, *snap)
 		}
 		question, err := questionBlocks(ctx, st, id, s.withSandbox(block, sandboxState{
-			outside: disabled, networkEnabled: c.NetworkEnabled, networkThisTurn: networkThisTurn, folders: folders, cloudTargetsOn: cloudOn,
+			outside: outside, networkEnabled: c.NetworkEnabled, networkThisTurn: switches.NetworkThisTurn, folders: folders, cloudTargetsOn: cloudOn,
 		}), content)
 		if err != nil {
 			return err
@@ -682,9 +705,8 @@ func (s *service) seenBefore(ctx context.Context, st stmts, requestID string) (C
 }
 
 // checkChat refuses a send into a chat nobody has and a cluster that is missing or
-// marked, and answers the chat: the zero Chat for one the send creates, which
-// starts sandboxed with no network. An existing chat's cluster is the chat's own,
-// never the argument's.
+// marked, and answers the chat: the zero Chat for one the send creates. An
+// existing chat's cluster is the chat's own, never the argument's.
 func (s *service) checkChat(ctx context.Context, st stmts, chatID *ChatID, clusterID apimeta.ClusterID) (Chat, error) {
 	var c Chat
 	if chatID != nil {
@@ -707,11 +729,26 @@ func (s *service) checkChat(ctx context.Context, st stmts, chatID *ChatID, clust
 	return c, nil
 }
 
-// resolveChat creates the chat a nil chatID asks for, else touches the one named:
-// the list sorts by updated_at, which moves when an answer starts.
-func (s *service) resolveChat(ctx context.Context, st stmts, chatID *ChatID, mode Mode, clusterID apimeta.ClusterID, content string, at time.Time) (ChatID, error) {
+// sandboxDefault is the sandbox switch a new chat on cluster starts with: its
+// cluster's default, else every cluster's, else sandboxed. A machine with no
+// sandbox reads none.
+func (s *service) sandboxDefault(ctx context.Context, st stmts, cluster apimeta.ClusterID) (bool, error) {
+	if !s.sandboxState.Available {
+		return false, nil
+	}
+	rows, err := st.Query(ctx, stmtSelectSandboxDefault, settings.SandboxDefaultArgs(cluster)...)
+	if err != nil {
+		return false, fmt.Errorf("sandbox default: %w", err)
+	}
+	return settings.ScanSandboxDefault(rows, cluster)
+}
+
+// resolveChat creates the chat a nil chatID asks for, with no network and
+// sandboxDisabled as its switch, else touches the one named: the list sorts by
+// updated_at, which moves when an answer starts.
+func (s *service) resolveChat(ctx context.Context, st stmts, chatID *ChatID, mode Mode, clusterID apimeta.ClusterID, sandboxDisabled bool, content string, at time.Time) (ChatID, error) {
 	if chatID == nil {
-		c := Chat{ID: newChatID(), Title: titleFrom(content), Mode: mode, ClusterID: clusterID, CreatedAt: at, UpdatedAt: at}
+		c := Chat{ID: newChatID(), Title: titleFrom(content), Mode: mode, ClusterID: clusterID, SandboxDisabled: sandboxDisabled, CreatedAt: at, UpdatedAt: at}
 		return c.ID, insertChat(ctx, st, c)
 	}
 	return *chatID, touchChat(ctx, st, *chatID, at)

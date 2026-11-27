@@ -8,11 +8,11 @@ The model runs shell commands through one tool, Bash. A command the sandbox conf
 
 | ID | Protection | Status | Residual |
 | --- | --- | --- | --- |
-| CMD-1 | A command outside the sandbox runs only after the user approves that exact command, in the transcript. That is any command in a chat the user switched outside it, or any on a machine with no sandbox. No setting, no allowlist and no read is exempt. | **Enforced** | — |
-| CMD-2 | A turn's session carries the switch it reserved under, and a subagent's carries its parent turn's. A switch flipped mid-turn changes the next turn. | **Enforced** | — |
+| CMD-1 | A command outside the sandbox runs only after the user approves that exact command, in the transcript. That is any command in a chat outside it, any in the turn of a message the user sent outside it, or any on a machine with no sandbox. No setting, no allowlist and no read is exempt. | **Enforced** | — |
+| CMD-2 | A turn's session carries the switch it reserved under, or its message's override, and a subagent's carries its parent turn's. A switch flipped mid-turn changes the next turn, and an override changes its own turn alone. | **Enforced** | — |
 | CMD-3 | The model has no way out of the sandbox: `dangerouslyDisableSandbox` is bad input on every machine. | **Enforced** | — |
-| CMD-4 | Only the user switches a chat outside the sandbox, from the composer, after a dialog. | **Enforced** | — |
-| CMD-5 | A send carries the switch its sender saw, and a send whose switch differs is refused. | **Enforced** | — |
+| CMD-4 | Only the user moves a chat, a message or a new-chat default outside the sandbox, from the composer or Settings, after a dialog. | **Enforced** | — |
+| CMD-5 | A send carries the switch its sender saw, or for a new chat the default, and a send whose value differs is refused. | **Enforced** | — |
 | CMD-6 | Bash is offered to every turn on a model that takes tools, wherever a shell is found. | **Enforced** | — |
 | CMD-7 | An input of any other shape than Bash's own shows no request and runs nothing. | **Enforced** | — |
 | CMD-8 | A reply's requests are put to the user one at a time, in reply order. | **Enforced** | — |
@@ -96,6 +96,8 @@ The model runs shell commands through one tool, Bash. A command the sandbox conf
 | CMD-86 | At most 4 background commands run at once in a chat and 16 in the app. | **By decision** | — |
 | CMD-87 | A background command's output file is raw on disk and redacted when `Read` opens it. | **By decision** | — |
 | CMD-88 | A sandboxed command ends with the sidecar however it dies, through the lifeline its forwarder watches. | **By decision** | On macOS a process that left the run's group survives the lifeline too. |
+| CMD-89 | A chat starts with its default: its cluster's, else every cluster's, else sandboxed. A default reaches new chats alone, and a value Kubetail cannot read is sandboxed. A machine with no sandbox ignores a stored default. | **Enforced** | A default set outside opens every new chat; each command there still asks. |
+| CMD-90 | A message's override is refused on a machine with no sandbox and beside this turn's network, which only the sandbox can give or take. | **Enforced** | — |
 
 ## Evidence
 
@@ -113,6 +115,8 @@ The model runs shell commands through one tool, Bash. A command the sandbox conf
 - **Where:** `sidecar/internal/tools/bash`, `sidecar/internal/agent/loop/run.go`, `sidecar/internal/agent/chat/approval.go`
 - `TestATurnsRuntimeCarriesItsChatsSwitch` — a turn's session carries the switch it reserved under.
 - `TestASubagentsRuntimeCarriesItsParentsSwitch` — a subagent's session carries its parent turn's switch.
+- `TestAMessagesOverrideRunsThatTurnAloneOutside` — a message's override runs its turn outside and leaves the chat's switch.
+- `TestASubagentOfAnOverriddenTurnRunsOutside` — a subagent of that turn runs outside.
 
 ### CMD-3
 
@@ -122,14 +126,18 @@ The model runs shell commands through one tool, Bash. A command the sandbox conf
 ### CMD-4
 
 - **Where:** `sidecar/internal/tools/bash`, `sidecar/internal/agent/loop/run.go`, `sidecar/internal/agent/chat/approval.go`
-- **Records:** [outside the sandbox is the user's choice](../security/2026-09-30-outside-the-sandbox-is-the-users-choice.md)
-- `TestTheSwitchIsWrittenAndWatched`, `sandbox-switch.test.tsx` — only the user switches a chat, from the composer, after a dialog.
+- **Records:** [outside the sandbox is the user's choice](../security/2026-09-30-outside-the-sandbox-is-the-users-choice.md), [new-chat defaults and a message's override](../security/2026-11-27-new-chat-defaults-and-a-messages-override.md)
+- `TestTheSwitchIsWrittenAndWatched`, `sandbox-switch.test.tsx`, `sandbox-popover.test.tsx` — only the user switches a chat, from the composer, after a dialog.
+- `message-sandbox-switch.test.tsx` — a message's toggle goes outside only through its dialog.
+- `sandbox-card.test.tsx`, `sandbox-new-chats.test.tsx` — every cluster's default and a cluster's go outside, a reset included, only through their dialog.
+- `TestASandboxDefaultResetThatLandsElsewhereIsRefused` — a reset lands only on the default its caller saw, so no reset skips the confirm.
 
 ### CMD-5
 
 - **Where:** `sidecar/internal/tools/bash`, `sidecar/internal/agent/loop/run.go`, `sidecar/internal/agent/chat/approval.go`
 - **Records:** [outside the sandbox is the user's choice](../security/2026-09-30-outside-the-sandbox-is-the-users-choice.md)
 - `TestASendThatSawTheOtherSwitchIsRefused` — a send whose switch differs from the chat's is refused.
+- `TestACreateThatSawAnotherDefaultIsRefused` — a create whose default differs from the one it resolves is refused.
 
 ### CMD-6
 
@@ -668,3 +676,18 @@ The model runs shell commands through one tool, Bash. A command the sandbox conf
 - **Records:** [background commands](../security/2026-09-23-background-commands.md)
 - `TestARunEndsWithTheLifeline` — a run ends with the lifeline, on macOS and Linux.
 - `TestARunWithTheInternetEndsWithTheLifeline` — the same for a run with the internet.
+
+### CMD-89
+
+- **Where:** `sidecar/internal/services/settings/sandboxdefault.go`, `sidecar/internal/agent/chat/service.go`
+- **Records:** [new-chat defaults and a message's override](../security/2026-11-27-new-chat-defaults-and-a-messages-override.md)
+- `TestANewChatStartsWithItsDefault` — a new chat takes its cluster's default, else every cluster's, else the sandbox.
+- `TestADefaultChangeLeavesExistingChatsAlone` — a changed default leaves every chat that exists as it was.
+- `TestASandboxDefaultKubetailCannotReadIsSandboxed` — a value Kubetail cannot read is sandboxed.
+- `TestANewChatIgnoresItsDefaultWithoutASandbox`, `TestASandboxDefaultWithoutASandbox` — a machine with no sandbox ignores a stored default and refuses a write.
+
+### CMD-90
+
+- **Where:** `sidecar/internal/agent/chat/service.go`
+- **Records:** [new-chat defaults and a message's override](../security/2026-11-27-new-chat-defaults-and-a-messages-override.md)
+- `TestAnOverrideIsRefusedWithoutASandboxOrWithNetwork` — the override is refused with no sandbox and beside this turn's network.

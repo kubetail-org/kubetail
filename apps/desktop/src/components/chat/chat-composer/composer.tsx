@@ -23,12 +23,14 @@ import type { Ref } from 'react';
 import { useMutation } from 'urql';
 
 import { PROSE_TEXT } from '@/components/primitives/text-entry';
+import { VisibleText } from '@/components/primitives/visible-text';
 import { graphql } from '@/gql';
 import type { AppMode } from '@/lib/app-mode';
 import type { Created } from '@/lib/chat-outbox';
 import { useChatOutbox } from '@/lib/chat-outbox';
 import { inFlight } from '@/lib/chats';
 import type { ChatMessage } from '@/lib/chats';
+import { displayName, useClusters } from '@/lib/clusters';
 import { CHATGPT_ID, useOpenChatGPTUsage } from '@/lib/connectors';
 import type { SubscriptionPhase } from '@/lib/graphql/use-folded-subscription';
 import type { LogViewportHandle, SelectedLine } from '@/lib/log-viewport';
@@ -81,7 +83,10 @@ type ChatComposerProps = {
   onCreated?: (chatID: string) => void;
   /** Whether the machine offers a sandbox. Undefined until the sidecar says. */
   sandboxAvailable?: boolean;
-  /** The open chat's switch. Undefined until the list watch delivers the chat. */
+  /**
+   * The open chat's switch, or the default a chat that has not started is
+   * created with. Undefined until its watch delivers it.
+   */
   sandboxDisabled?: boolean;
   /** Whether the machine can give a sandboxed command the internet. Undefined until the sidecar says. */
   networkAvailable?: boolean;
@@ -89,8 +94,10 @@ type ChatComposerProps = {
   networkReason?: string;
   /** The open chat's network switch. Undefined until the list watch delivers the chat. */
   networkEnabled?: boolean;
-  /** A switch is in flight. Send waits for it rather than send a switch about to change. */
+  /** A switch or a default is in flight. Send waits for it rather than send a value about to change. */
   switching?: boolean;
+  /** The open chat's sandbox switch. */
+  onSwitchSandbox?: (disabled: boolean) => void;
   onSwitchNetwork?: (enabled: boolean) => void;
   /** The message box, for a caller that hands it focus. */
   inputRef?: Ref<HTMLTextAreaElement>;
@@ -133,6 +140,7 @@ export function ChatComposer({
   networkReason = '',
   networkEnabled,
   switching = false,
+  onSwitchSandbox = noop,
   onSwitchNetwork = noop,
   inputRef,
 }: ChatComposerProps) {
@@ -150,12 +158,20 @@ export function ChatComposer({
             : null,
         )
       : undefined;
-  const { draft, send, refusal, pick, setDraft, setPick, submit, retry, discard, settle } = useChatOutbox(
-    mode,
-    chatID,
-    clusterID,
-    seed,
-  );
+  const {
+    draft,
+    send,
+    refusal,
+    pick,
+    sandboxDisabledThisTurn,
+    setDraft,
+    setPick,
+    setSandboxDisabledThisTurn,
+    submit,
+    retry,
+    discard,
+    settle,
+  } = useChatOutbox(mode, chatID, clusterID, seed);
   const picked = modelOf(models, pick?.model ?? null);
   // A pick whose provider still lists models, but not this one, moves to the seed:
   // a model can leave the catalog, and the outbox outlives the composer. A pick
@@ -220,12 +236,14 @@ export function ChatComposer({
   // A turn waiting on a command is as busy as one streaming: one turn per chat.
   const streaming = last !== null && inFlight(last.status);
   const settled = send.status === 'idle';
-  // What a send says the user saw. A chat that has not started has no row, and
-  // starts sandboxed with no network.
-  const shownDisabled = chatID === null ? false : sandboxDisabled;
+  // What a send says the user saw. A chat that has not started has no row: it
+  // starts with the default `sandboxDisabled` names, and no network.
   const shownNetwork = chatID === null ? false : networkEnabled;
   // The network switch changes nothing outside the sandbox.
-  const inSandbox = sandboxAvailable === true && shownDisabled !== true;
+  // A held send is drawn as it left, since Retry resends it so, whatever the
+  // window's cluster or the chat's switch says by now.
+  const shownSandboxDisabled = send.status === 'held' ? send.switches.sandboxDisabled : sandboxDisabled;
+  const inSandbox = sandboxAvailable === true && shownSandboxDisabled !== true && !sandboxDisabledThisTurn;
   // Drawn only while network is on, so a chat that has it can still turn it off.
   const showNetwork = inSandbox && shownNetwork === true;
   const openChat = chatID !== null;
@@ -240,7 +258,7 @@ export function ChatComposer({
     phase !== 'connecting' &&
     !streaming &&
     !switching &&
-    shownDisabled !== undefined &&
+    sandboxDisabled !== undefined &&
     shownNetwork !== undefined &&
     draft.trim() !== '';
   // All only once the watch they wait on has answered: a window at startup has not
@@ -260,15 +278,23 @@ export function ChatComposer({
   };
 
   const onSend = () => {
-    if (canSend && shownDisabled !== undefined && shownNetwork !== undefined) {
+    if (canSend && sandboxDisabled !== undefined && shownNetwork !== undefined) {
       // Read at the press: the sidebar's handle as its viewer wrote it, a window's
       // mirror as its last push left it.
       const shown = viewport.get();
       const snapshot = shownView
         ? snapshotOf(shownView, shown.selection === removed ? { ...shown, selection: [], selectedCount: 0 } : shown)
         : null;
-      void follow(submit({ sandboxDisabled: shownDisabled, networkEnabled: shownNetwork }, snapshot));
+      void follow(submit({ sandboxDisabled, networkEnabled: shownNetwork }, snapshot));
     }
+  };
+
+  // The chat's own switch replaces the message's toggle: the user has said
+  // where the chat runs, and a toggle hidden while it ran outside must not
+  // come back armed.
+  const switchSandbox = (disabled: boolean) => {
+    setSandboxDisabledThisTurn(false);
+    onSwitchSandbox(disabled);
   };
 
   let action;
@@ -288,7 +314,7 @@ export function ChatComposer({
     action = (
       <>
         <Button type="button" size="sm" onClick={() => follow(retry())}>
-          Retry
+          {send.clusterID === clusterID ? 'Retry' : <RetryOn clusterID={send.clusterID} />}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={discard}>
           Discard
@@ -319,7 +345,11 @@ export function ChatComposer({
         </p>
       )}
       {refusal?.kind === 'sandbox-changed' && (
-        <p className="text-xs text-destructive">This chat&apos;s sandbox switch changed. Check it, then send again.</p>
+        <p className="text-xs text-destructive">
+          {openChat
+            ? "This chat's sandbox switch changed. Check it, then send again."
+            : 'The sandbox default for new chats changed. Check it, then send again.'}
+        </p>
       )}
       {refusal?.kind === 'network-changed' && (
         <p className="text-xs text-destructive">This chat&apos;s network switch changed. Check it, then send again.</p>
@@ -383,7 +413,17 @@ export function ChatComposer({
         {/* The chat's settings. Wraps rather than clip at the dashboard sidebar's narrowest. */}
         <div className="flex flex-wrap items-center justify-between gap-1 px-1">
           <div className="flex min-w-0 items-center gap-0.5">
-            {sandboxAvailable === true && <SandboxPopover sandboxDisabled={shownDisabled} />}
+            {/* Outside is only ever said where there is a sandbox, so it is drawn
+                even before the sidecar says whether there is one. */}
+            {(sandboxAvailable === true || shownSandboxDisabled === true) && (
+              <SandboxPopover
+                sandboxDisabled={shownSandboxDisabled}
+                chat={openChat ? { switching, onSwitch: switchSandbox } : undefined}
+                thisMessage={sandboxDisabledThisTurn}
+                onThisMessage={setSandboxDisabledThisTurn}
+                held={send.status === 'held'}
+              />
+            )}
             {showNetwork && (
               <NetworkSwitch
                 networkEnabled={networkEnabled}
@@ -413,5 +453,17 @@ export function ChatComposer({
         <p className="px-1 text-xs text-muted-foreground">No network on this machine: {networkReason}</p>
       )}
     </form>
+  );
+}
+
+// A held send is retried under the cluster it left with, so a window that has
+// moved to another names it.
+function RetryOn({ clusterID }: { clusterID: string }) {
+  const { clusters } = useClusters();
+  const cluster = clusters?.find((c) => c.id === clusterID);
+  return (
+    <>
+      Retry on <VisibleText text={cluster ? displayName(cluster) : 'its cluster'} />
+    </>
   );
 }

@@ -705,7 +705,7 @@ type ComplexityRoot struct {
 		ChatPermissionRuleRemove        func(childComplexity int, chatID apimeta.ChatID, id string) int
 		ChatRename                      func(childComplexity int, id apimeta.ChatID, title string) int
 		ChatSandboxDisabledSet          func(childComplexity int, id apimeta.ChatID, sandboxDisabled bool) int
-		ChatSend                        func(childComplexity int, chatID *apimeta.ChatID, mode chat.Mode, clusterID apimeta.ClusterID, sandboxDisabled bool, networkEnabled bool, networkThisTurn bool, providerID string, modelID string, effort string, requestID string, content string, snapshot *model.LogsViewSnapshotInput) int
+		ChatSend                        func(childComplexity int, chatID *apimeta.ChatID, mode chat.Mode, clusterID apimeta.ClusterID, sandboxDisabled bool, networkEnabled bool, networkThisTurn bool, sandboxDisabledThisTurn bool, providerID string, modelID string, effort string, requestID string, content string, snapshot *model.LogsViewSnapshotInput) int
 		ClusterCacheClear               func(childComplexity int, id apimeta.ObjectID) int
 		ClusterCachedKindSyncEnabledSet func(childComplexity int, id apimeta.ObjectID, syncEnabled bool) int
 		ClusterConnectionRetry          func(childComplexity int, id apimeta.ClusterID) int
@@ -742,6 +742,8 @@ type ComplexityRoot struct {
 		SandboxCloudAccessSet           func(childComplexity int, target permissions.Target, on bool) int
 		SandboxConsoleRun               func(childComplexity int, command string, clusterID *apimeta.ClusterID, network bool) int
 		SandboxConsoleStop              func(childComplexity int, number *int) int
+		SandboxDefaultReset             func(childComplexity int, clusterID apimeta.ClusterID, sandboxDisabled bool) int
+		SandboxDefaultSet               func(childComplexity int, clusterID *apimeta.ClusterID, sandboxDisabled bool) int
 		SandboxExecutableRegister       func(childComplexity int, name string, invocation *string) int
 		SandboxExecutableRemove         func(childComplexity int, name string) int
 		SandboxExecutablesProbe         func(childComplexity int) int
@@ -890,6 +892,11 @@ type ComplexityRoot struct {
 		Running    func(childComplexity int) int
 	}
 
+	SandboxDefault struct {
+		ClusterOverride func(childComplexity int) int
+		SandboxDisabled func(childComplexity int) int
+	}
+
 	SandboxExecutable struct {
 		Error      func(childComplexity int) int
 		Invocation func(childComplexity int) int
@@ -985,6 +992,7 @@ type ComplexityRoot struct {
 		OpenRouterConnectionStateWatch         func(childComplexity int) int
 		ProviderCredentialsStateWatch          func(childComplexity int) int
 		SandboxConsoleStateWatch               func(childComplexity int) int
+		SandboxDefaultStateWatch               func(childComplexity int, clusterID *apimeta.ClusterID) int
 		SandboxExecutablesStateWatch           func(childComplexity int) int
 		SandboxFoldersStateWatch               func(childComplexity int, chatID *apimeta.ChatID) int
 		ToolSettingsStateWatch                 func(childComplexity int) int
@@ -1122,7 +1130,7 @@ type MutationResolver interface {
 	ClusterDelete(ctx context.Context, id apimeta.ClusterID) (bool, error)
 	ClusterCacheClear(ctx context.Context, id apimeta.ObjectID) (*cluster.ClusterCache, error)
 	ClusterCachedKindSyncEnabledSet(ctx context.Context, id apimeta.ObjectID, syncEnabled bool) (*cluster.ClusterCachedKind, error)
-	ChatSend(ctx context.Context, chatID *apimeta.ChatID, mode chat.Mode, clusterID apimeta.ClusterID, sandboxDisabled bool, networkEnabled bool, networkThisTurn bool, providerID string, modelID string, effort string, requestID string, content string, snapshot *model.LogsViewSnapshotInput) (*chat.ChatMessage, error)
+	ChatSend(ctx context.Context, chatID *apimeta.ChatID, mode chat.Mode, clusterID apimeta.ClusterID, sandboxDisabled bool, networkEnabled bool, networkThisTurn bool, sandboxDisabledThisTurn bool, providerID string, modelID string, effort string, requestID string, content string, snapshot *model.LogsViewSnapshotInput) (*chat.ChatMessage, error)
 	ChatCancel(ctx context.Context, chatID apimeta.ChatID) (bool, error)
 	ApprovalDecide(ctx context.Context, id chat.ApprovalID, decision chat.ApprovalDecision) (bool, error)
 	BackgroundTaskStop(ctx context.Context, id chat.ToolCallID) (bool, error)
@@ -1130,6 +1138,8 @@ type MutationResolver interface {
 	ChatSandboxDisabledSet(ctx context.Context, id apimeta.ChatID, sandboxDisabled bool) (*chat.Chat, error)
 	ChatNetworkEnabledSet(ctx context.Context, id apimeta.ChatID, enabled bool) (*chat.Chat, error)
 	ChatDelete(ctx context.Context, id apimeta.ChatID) (bool, error)
+	SandboxDefaultSet(ctx context.Context, clusterID *apimeta.ClusterID, sandboxDisabled bool) (*model.SandboxDefault, error)
+	SandboxDefaultReset(ctx context.Context, clusterID apimeta.ClusterID, sandboxDisabled bool) (*model.SandboxDefault, error)
 	SandboxCloudAccessSet(ctx context.Context, target permissions.Target, on bool) ([]*model.CloudAccess, error)
 	SandboxPathSet(ctx context.Context, value string) (*model.SandboxPath, error)
 	SandboxPathRefresh(ctx context.Context) (*model.SandboxPath, error)
@@ -1220,6 +1230,7 @@ type SubscriptionResolver interface {
 	LogsTail(ctx context.Context, id apimeta.ClusterID, request model.LogsTailInput) (<-chan *model.LogsTailFrame, error)
 	SandboxExecutablesStateWatch(ctx context.Context) (<-chan *model.SandboxExecutablesReport, error)
 	SandboxFoldersStateWatch(ctx context.Context, chatID *apimeta.ChatID) (<-chan *model.SandboxFolders, error)
+	SandboxDefaultStateWatch(ctx context.Context, clusterID *apimeta.ClusterID) (<-chan *model.SandboxDefault, error)
 	SandboxConsoleStateWatch(ctx context.Context) (<-chan *model.SandboxConsole, error)
 	AuthStateWatch(ctx context.Context) (<-chan *connectors.State, error)
 	ChatGPTConnectionStateWatch(ctx context.Context) (<-chan *connectors.State, error)
@@ -3787,7 +3798,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Mutation.ChatSend(childComplexity, args["chatID"].(*apimeta.ChatID), args["mode"].(chat.Mode), args["clusterID"].(apimeta.ClusterID), args["sandboxDisabled"].(bool), args["networkEnabled"].(bool), args["networkThisTurn"].(bool), args["providerID"].(string), args["modelID"].(string), args["effort"].(string), args["requestID"].(string), args["content"].(string), args["snapshot"].(*model.LogsViewSnapshotInput)), true
+		return e.ComplexityRoot.Mutation.ChatSend(childComplexity, args["chatID"].(*apimeta.ChatID), args["mode"].(chat.Mode), args["clusterID"].(apimeta.ClusterID), args["sandboxDisabled"].(bool), args["networkEnabled"].(bool), args["networkThisTurn"].(bool), args["sandboxDisabledThisTurn"].(bool), args["providerID"].(string), args["modelID"].(string), args["effort"].(string), args["requestID"].(string), args["content"].(string), args["snapshot"].(*model.LogsViewSnapshotInput)), true
 	case "Mutation.clusterCacheClear":
 		if e.ComplexityRoot.Mutation.ClusterCacheClear == nil {
 			break
@@ -4134,6 +4145,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.SandboxConsoleStop(childComplexity, args["number"].(*int)), true
+	case "Mutation.sandboxDefaultReset":
+		if e.ComplexityRoot.Mutation.SandboxDefaultReset == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_sandboxDefaultReset_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.SandboxDefaultReset(childComplexity, args["clusterID"].(apimeta.ClusterID), args["sandboxDisabled"].(bool)), true
+	case "Mutation.sandboxDefaultSet":
+		if e.ComplexityRoot.Mutation.SandboxDefaultSet == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_sandboxDefaultSet_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.SandboxDefaultSet(childComplexity, args["clusterID"].(*apimeta.ClusterID), args["sandboxDisabled"].(bool)), true
 	case "Mutation.sandboxExecutableRegister":
 		if e.ComplexityRoot.Mutation.SandboxExecutableRegister == nil {
 			break
@@ -4741,6 +4774,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.SandboxConsoleRun.Running(childComplexity), true
 
+	case "SandboxDefault.clusterOverride":
+		if e.ComplexityRoot.SandboxDefault.ClusterOverride == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SandboxDefault.ClusterOverride(childComplexity), true
+	case "SandboxDefault.sandboxDisabled":
+		if e.ComplexityRoot.SandboxDefault.SandboxDisabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SandboxDefault.SandboxDisabled(childComplexity), true
+
 	case "SandboxExecutable.error":
 		if e.ComplexityRoot.SandboxExecutable.Error == nil {
 			break
@@ -5217,6 +5263,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subscription.SandboxConsoleStateWatch(childComplexity), true
+	case "Subscription.sandboxDefaultStateWatch":
+		if e.ComplexityRoot.Subscription.SandboxDefaultStateWatch == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_sandboxDefaultStateWatch_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Subscription.SandboxDefaultStateWatch(childComplexity, args["clusterID"].(*apimeta.ClusterID)), true
 	case "Subscription.sandboxExecutablesStateWatch":
 		if e.ComplexityRoot.Subscription.SandboxExecutablesStateWatch == nil {
 			break
@@ -7076,6 +7133,16 @@ func (ec *executionContext) childFields_SandboxConsoleRun(ctx context.Context, f
 	return nil, fmt.Errorf("no field named %q was found under type SandboxConsoleRun", field.Name)
 }
 
+func (ec *executionContext) childFields_SandboxDefault(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "sandboxDisabled":
+		return ec.fieldContext_SandboxDefault_sandboxDisabled(ctx, field)
+	case "clusterOverride":
+		return ec.fieldContext_SandboxDefault_clusterOverride(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type SandboxDefault", field.Name)
+}
+
 func (ec *executionContext) childFields_SandboxExecutable(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "name":
@@ -7761,54 +7828,62 @@ func (ec *executionContext) field_Mutation_chatSend_args(ctx context.Context, ra
 		return nil, err
 	}
 	args["networkThisTurn"] = arg5
-	arg6, err := graphql.ProcessArgField(ctx, rawArgs, "providerID",
+	arg6, err := graphql.ProcessArgField(ctx, rawArgs, "sandboxDisabledThisTurn",
+		func(ctx context.Context, v any) (bool, error) {
+			return ec.unmarshalNBoolean2bool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["sandboxDisabledThisTurn"] = arg6
+	arg7, err := graphql.ProcessArgField(ctx, rawArgs, "providerID",
 		func(ctx context.Context, v any) (string, error) {
 			return ec.unmarshalNString2string(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["providerID"] = arg6
-	arg7, err := graphql.ProcessArgField(ctx, rawArgs, "modelID",
+	args["providerID"] = arg7
+	arg8, err := graphql.ProcessArgField(ctx, rawArgs, "modelID",
 		func(ctx context.Context, v any) (string, error) {
 			return ec.unmarshalNString2string(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["modelID"] = arg7
-	arg8, err := graphql.ProcessArgField(ctx, rawArgs, "effort",
+	args["modelID"] = arg8
+	arg9, err := graphql.ProcessArgField(ctx, rawArgs, "effort",
 		func(ctx context.Context, v any) (string, error) {
 			return ec.unmarshalNString2string(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["effort"] = arg8
-	arg9, err := graphql.ProcessArgField(ctx, rawArgs, "requestID",
+	args["effort"] = arg9
+	arg10, err := graphql.ProcessArgField(ctx, rawArgs, "requestID",
 		func(ctx context.Context, v any) (string, error) {
 			return ec.unmarshalNString2string(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["requestID"] = arg9
-	arg10, err := graphql.ProcessArgField(ctx, rawArgs, "content",
+	args["requestID"] = arg10
+	arg11, err := graphql.ProcessArgField(ctx, rawArgs, "content",
 		func(ctx context.Context, v any) (string, error) {
 			return ec.unmarshalNString2string(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["content"] = arg10
-	arg11, err := graphql.ProcessArgField(ctx, rawArgs, "snapshot",
+	args["content"] = arg11
+	arg12, err := graphql.ProcessArgField(ctx, rawArgs, "snapshot",
 		func(ctx context.Context, v any) (*model.LogsViewSnapshotInput, error) {
 			return ec.unmarshalOLogsViewSnapshotInput2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐLogsViewSnapshotInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["snapshot"] = arg11
+	args["snapshot"] = arg12
 	return args, nil
 }
 
@@ -8360,6 +8435,50 @@ func (ec *executionContext) field_Mutation_sandboxConsoleStop_args(ctx context.C
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_sandboxDefaultReset_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "clusterID",
+		func(ctx context.Context, v any) (apimeta.ClusterID, error) {
+			return ec.unmarshalNClusterID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋlibᚋapimetaᚐClusterID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["clusterID"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "sandboxDisabled",
+		func(ctx context.Context, v any) (bool, error) {
+			return ec.unmarshalNBoolean2bool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["sandboxDisabled"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_sandboxDefaultSet_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "clusterID",
+		func(ctx context.Context, v any) (*apimeta.ClusterID, error) {
+			return ec.unmarshalOClusterID2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋlibᚋapimetaᚐClusterID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["clusterID"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "sandboxDisabled",
+		func(ctx context.Context, v any) (bool, error) {
+			return ec.unmarshalNBoolean2bool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["sandboxDisabled"] = arg1
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_sandboxExecutableRegister_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -8763,6 +8882,20 @@ func (ec *executionContext) field_Subscription_objectEventFeed_args(ctx context.
 		return nil, err
 	}
 	args["category"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Subscription_sandboxDefaultStateWatch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "clusterID",
+		func(ctx context.Context, v any) (*apimeta.ClusterID, error) {
+			return ec.unmarshalOClusterID2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋlibᚋapimetaᚐClusterID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["clusterID"] = arg0
 	return args, nil
 }
 
@@ -18765,7 +18898,7 @@ func (ec *executionContext) _Mutation_chatSend(ctx context.Context, field graphq
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().ChatSend(ctx, fc.Args["chatID"].(*apimeta.ChatID), fc.Args["mode"].(chat.Mode), fc.Args["clusterID"].(apimeta.ClusterID), fc.Args["sandboxDisabled"].(bool), fc.Args["networkEnabled"].(bool), fc.Args["networkThisTurn"].(bool), fc.Args["providerID"].(string), fc.Args["modelID"].(string), fc.Args["effort"].(string), fc.Args["requestID"].(string), fc.Args["content"].(string), fc.Args["snapshot"].(*model.LogsViewSnapshotInput))
+			return ec.Resolvers.Mutation().ChatSend(ctx, fc.Args["chatID"].(*apimeta.ChatID), fc.Args["mode"].(chat.Mode), fc.Args["clusterID"].(apimeta.ClusterID), fc.Args["sandboxDisabled"].(bool), fc.Args["networkEnabled"].(bool), fc.Args["networkThisTurn"].(bool), fc.Args["sandboxDisabledThisTurn"].(bool), fc.Args["providerID"].(string), fc.Args["modelID"].(string), fc.Args["effort"].(string), fc.Args["requestID"].(string), fc.Args["content"].(string), fc.Args["snapshot"].(*model.LogsViewSnapshotInput))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *chat.ChatMessage) graphql.Marshaler {
@@ -19101,6 +19234,94 @@ func (ec *executionContext) fieldContext_Mutation_chatDelete(ctx context.Context
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_chatDelete_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_sandboxDefaultSet(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_sandboxDefaultSet(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().SandboxDefaultSet(ctx, fc.Args["clusterID"].(*apimeta.ClusterID), fc.Args["sandboxDisabled"].(bool))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.SandboxDefault) graphql.Marshaler {
+			return ec.marshalNSandboxDefault2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐSandboxDefault(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_sandboxDefaultSet(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_SandboxDefault(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_sandboxDefaultSet_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_sandboxDefaultReset(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_sandboxDefaultReset(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().SandboxDefaultReset(ctx, fc.Args["clusterID"].(apimeta.ClusterID), fc.Args["sandboxDisabled"].(bool))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.SandboxDefault) graphql.Marshaler {
+			return ec.marshalNSandboxDefault2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐSandboxDefault(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_sandboxDefaultReset(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_SandboxDefault(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_sandboxDefaultReset_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -22760,6 +22981,52 @@ func (ec *executionContext) fieldContext_SandboxConsoleRun_durationMs(_ context.
 	return graphql.NewScalarFieldContext("SandboxConsoleRun", field, false, false, "Int")
 }
 
+func (ec *executionContext) _SandboxDefault_sandboxDisabled(ctx context.Context, field graphql.CollectedField, obj *model.SandboxDefault) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SandboxDefault_sandboxDisabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SandboxDisabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SandboxDefault_sandboxDisabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SandboxDefault", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _SandboxDefault_clusterOverride(ctx context.Context, field graphql.CollectedField, obj *model.SandboxDefault) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SandboxDefault_clusterOverride(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClusterOverride, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SandboxDefault_clusterOverride(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SandboxDefault", field, false, false, "Boolean")
+}
+
 func (ec *executionContext) _SandboxExecutable_name(ctx context.Context, field graphql.CollectedField, obj *model.SandboxExecutable) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -24509,6 +24776,50 @@ func (ec *executionContext) fieldContext_Subscription_sandboxFoldersStateWatch(c
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Subscription_sandboxFoldersStateWatch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_sandboxDefaultStateWatch(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Subscription_sandboxDefaultStateWatch(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Subscription().SandboxDefaultStateWatch(ctx, fc.Args["clusterID"].(*apimeta.ClusterID))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.SandboxDefault) graphql.Marshaler {
+			return ec.marshalNSandboxDefault2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐSandboxDefault(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Subscription_sandboxDefaultStateWatch(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_SandboxDefault(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Subscription_sandboxDefaultStateWatch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -32086,6 +32397,20 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "sandboxDefaultSet":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_sandboxDefaultSet(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "sandboxDefaultReset":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_sandboxDefaultReset(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "sandboxCloudAccessSet":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_sandboxCloudAccessSet(ctx, field)
@@ -33368,6 +33693,44 @@ func (ec *executionContext) _SandboxConsoleRun(ctx context.Context, sel ast.Sele
 	return out
 }
 
+var sandboxDefaultImplementors = []string{"SandboxDefault"}
+
+func (ec *executionContext) _SandboxDefault(ctx context.Context, sel ast.SelectionSet, obj *model.SandboxDefault) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, sandboxDefaultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SandboxDefault")
+		case "sandboxDisabled":
+			out.Values[i] = ec._SandboxDefault_sandboxDisabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "clusterOverride":
+			out.Values[i] = ec._SandboxDefault_clusterOverride(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var sandboxExecutableImplementors = []string{"SandboxExecutable"}
 
 func (ec *executionContext) _SandboxExecutable(ctx context.Context, sel ast.SelectionSet, obj *model.SandboxExecutable) graphql.Marshaler {
@@ -33876,6 +34239,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 		return ec._Subscription_sandboxExecutablesStateWatch(ctx, fields[0])
 	case "sandboxFoldersStateWatch":
 		return ec._Subscription_sandboxFoldersStateWatch(ctx, fields[0])
+	case "sandboxDefaultStateWatch":
+		return ec._Subscription_sandboxDefaultStateWatch(ctx, fields[0])
 	case "sandboxConsoleStateWatch":
 		return ec._Subscription_sandboxConsoleStateWatch(ctx, fields[0])
 	case "authStateWatch":
@@ -36463,6 +36828,14 @@ func (ec *executionContext) marshalNSandboxConsole2ᚖgithubᚗcomᚋkubetailᚑ
 		return graphql.Null
 	}
 	return ec._SandboxConsole(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNSandboxDefault2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐSandboxDefault(ctx context.Context, sel ast.SelectionSet, v *model.SandboxDefault) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "SandboxDefault!")
+		return graphql.Null
+	}
+	return ec._SandboxDefault(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNSandboxExecutable2ᚕᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐSandboxExecutableᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.SandboxExecutable) graphql.Marshaler {

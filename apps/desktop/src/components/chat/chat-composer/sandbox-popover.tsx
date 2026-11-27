@@ -12,19 +12,56 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The composer's sandbox button. It names where the chat's commands run, as the
-// list watch has it, and opens a popup that will hold the chat's network options.
+// The composer's sandbox button. It names where the next message's commands
+// run: the open chat's switch as the list watch has it, or the default a new
+// chat starts with, unless the message's toggle takes it outside. Its popup
+// holds the open chat's switch and the toggle, each of which confirms leaving
+// the sandbox in its own dialog.
 import { Button } from '@kubetail/ui/elements/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@kubetail/ui/elements/popover';
 import { ShieldCheck, ShieldOff } from 'lucide-react';
 
+import { MessageSandboxSwitch } from './message-sandbox-switch';
+import { SandboxSwitch } from './sandbox-switch';
+
 type SandboxPopoverProps = {
-  /** The chat's switch: false for a chat that has not started, undefined until the list watch delivers it. */
+  /**
+   * The open chat's switch, or the default a chat that has not started is
+   * created with. Undefined until its watch delivers it.
+   */
   sandboxDisabled: boolean | undefined;
+  /** The open chat's switch; absent for a chat that has not started. */
+  chat?: { switching: boolean; onSwitch: (disabled: boolean) => void };
+  /** The next message's toggle. */
+  thisMessage: boolean;
+  onThisMessage: (on: boolean) => void;
+  /**
+   * What is drawn is a held send's, which Retry resends as it is, so nothing
+   * here changes it until Retry or Discard.
+   */
+  held?: boolean;
 };
 
-export function SandboxPopover({ sandboxDisabled }: SandboxPopoverProps) {
-  const outside = sandboxDisabled === true;
+export function SandboxPopover({
+  sandboxDisabled,
+  chat,
+  thisMessage,
+  onThisMessage,
+  held = false,
+}: SandboxPopoverProps) {
+  const outside = sandboxDisabled === true || thisMessage;
+  let label = 'Sandbox';
+  if (sandboxDisabled === true) label = 'Outside the sandbox';
+  else if (thisMessage) label = 'Outside for this message';
+  // A held create keeps the default it left with, whatever cluster the window shows by now.
+  let newChat = sandboxDisabled
+    ? 'New chats on this cluster start outside the sandbox. Settings › Sandbox changes it.'
+    : 'New chats on this cluster start in the sandbox. Settings › Sandbox changes it.';
+  if (held) {
+    newChat = sandboxDisabled
+      ? 'This message starts its chat outside the sandbox.'
+      : 'This message starts its chat in the sandbox.';
+  }
   return (
     <Popover>
       <PopoverTrigger
@@ -43,11 +80,25 @@ export function SandboxPopover({ sandboxDisabled }: SandboxPopoverProps) {
         ) : (
           <ShieldCheck className="size-4 text-emerald-500" aria-hidden />
         )}
-        {outside ? 'Outside the sandbox' : 'Sandbox'}
+        {label}
       </PopoverTrigger>
-      <PopoverContent align="start" sideOffset={8} className="w-72">
+      <PopoverContent align="start" sideOffset={8} className="flex w-80 flex-col items-start gap-2">
         <p className="text-sm font-medium">Sandbox</p>
-        <p className="text-sm text-muted-foreground">Network options are coming soon.</p>
+        {chat ? (
+          <>
+            <p className="text-xs text-muted-foreground">Where this chat&apos;s commands run.</p>
+            <SandboxSwitch
+              sandboxDisabled={sandboxDisabled}
+              switching={chat.switching || held}
+              onSwitch={chat.onSwitch}
+            />
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">{newChat}</p>
+        )}
+        {sandboxDisabled === false && (
+          <MessageSandboxSwitch on={thisMessage} disabled={held} onSwitch={onThisMessage} />
+        )}
       </PopoverContent>
     </Popover>
   );
