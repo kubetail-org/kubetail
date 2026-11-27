@@ -88,6 +88,10 @@ the function and `TestCheckFolderRefusesEachRule`).
 never probed, and removable. A stored name is `ErrExecutableListed` before any check. A write
 notifies `appdb.KeyExecutables`.
 
+**The sandbox default is the `sandbox.disabled` setting** (`sandboxdefault.go`), per cluster.
+`agent/chat` reads it (`SelectSandboxDefault`) only on a create. With no sandbox
+`Service` reads sandboxed and refuses writes. → [ADR](../../../../docs/adr/2026-11-27-a-new-chat-starts-with-its-default-and-a-message-can-leave-the-sandbox-for-its-turn.md).
+
 **The cloud platform switches are `sandbox.<platform>.enabled` settings**, each on by default
 ([ADR](../../../../docs/adr/2026-11-18-every-cloud-platform-is-on-until-the-user-turns-it-off.md)).
 `CloudPlatformSwitches` reads all four in one read; a value Kubetail cannot use is off. A failed
