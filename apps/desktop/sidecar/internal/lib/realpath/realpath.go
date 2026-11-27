@@ -113,13 +113,12 @@ func canonical(p string) (string, error) {
 // is spelled, so a folder that folds names is one folder. Names past the
 // deepest part of dir that is there are compared as given. It reads the disk.
 func Under(p, dir string) bool {
-	return beneath(Resolved(p), dir)
+	return ResolveDirs([]string{dir}).Holds(p)
 }
 
 // UnderAny reports whether p is Under any of dirs.
 func UnderAny(p string, dirs []string) bool {
-	p = Resolved(p)
-	return slices.ContainsFunc(dirs, func(d string) bool { return beneath(p, d) })
+	return ResolveDirs(dirs).Holds(p)
 }
 
 // Same reports whether a and b are one path, as files (Under). It reads the
@@ -128,17 +127,48 @@ func Same(a, b string) bool {
 	return Under(a, b) && Under(b, a)
 }
 
-// beneath is Under for a p already resolved.
-func beneath(p, dir string) bool {
-	dir = Resolved(dir)
-	if Within(p, dir) {
+// Dirs is folders read from the disk once, for a caller that compares many
+// paths against the same folders: UnderAny reads them again on every call.
+type Dirs []dir
+
+// dir is one folder of Dirs: resolved, and its deepest part that is there.
+type dir struct {
+	path  string
+	there os.FileInfo
+	rest  string
+}
+
+// ResolveDirs is dirs read for Holds. It reads the disk.
+func ResolveDirs(dirs []string) Dirs {
+	out := make(Dirs, len(dirs))
+	for i, d := range dirs {
+		path := Resolved(d)
+		there, rest := deepest(path)
+		out[i] = dir{path: path, there: there, rest: rest}
+	}
+	return out
+}
+
+// Holds reports whether p is Under any of ds. It reads the disk.
+func (ds Dirs) Holds(p string) bool {
+	p = Resolved(p)
+	if slices.ContainsFunc(ds, func(d dir) bool { return Within(p, d.path) }) {
 		return true
 	}
-	there, rest := deepest(dir)
+	// Walking up from p, the first folder that is a dir's deepest part
+	// decides that dir alone; a dir no folder matches does not hold p.
+	decided := make([]bool, len(ds))
 	for at := p; ; at = filepath.Dir(at) {
-		if info, err := os.Lstat(at); err == nil && os.SameFile(info, there) {
-			below, _ := filepath.Rel(at, p)
-			return Within(below, rest)
+		if info, err := os.Lstat(at); err == nil {
+			for i, d := range ds {
+				if decided[i] || !os.SameFile(info, d.there) {
+					continue
+				}
+				decided[i] = true
+				if below, _ := filepath.Rel(at, p); Within(below, d.rest) {
+					return true
+				}
+			}
 		}
 		if at == filepath.Dir(at) {
 			return false
