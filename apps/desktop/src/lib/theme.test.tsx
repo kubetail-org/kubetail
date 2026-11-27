@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { act, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mockMatchMedia, mockTauriCore, mockTauriEvent } from '@/test-utils';
 
@@ -26,11 +26,14 @@ vi.mock('@tauri-apps/api/event', () => eventFactory());
 const { ThemeProvider, applyPreference, readInjectedPreference, useColorScheme } = await import('@/lib/theme');
 
 beforeEach(() => {
-  // The injected global is per-window state; each test sets what it needs.
-  delete window.__KUBETAIL_HOST__;
   document.documentElement.classList.remove('dark');
   invokeMock.mockReset();
   invokeMock.mockResolvedValue(undefined);
+});
+
+// The injected global is per-window state; each test sets what it needs.
+afterEach(() => {
+  delete window.__KUBETAIL_HOST__;
 });
 
 describe('readInjectedPreference', () => {

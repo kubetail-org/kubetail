@@ -34,6 +34,8 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 describe('useObjectView', () => {
   beforeEach(() => {
     active.clusterID = 'c1';
+    // The right sidebar's open flag persists in localStorage.
+    localStorage.clear();
   });
 
   it('focuses an object on a tab and opens the right sidebar, moves between tabs, and clears it', () => {

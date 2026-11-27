@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -159,7 +159,8 @@ describe('ClusterPicker', () => {
     serveContexts(['a', 'b', 'c', 'd', 'e', 'f']);
     await openPicker();
 
-    expect(screen.getByRole('textbox', { name: 'Filter clusters' })).toHaveFocus();
+    // The popup moves focus once it has opened.
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Filter clusters' })).toHaveFocus());
   });
 
   // jsdom lays nothing out, so this checks the style that sizes it.

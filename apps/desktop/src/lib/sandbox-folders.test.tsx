@@ -50,10 +50,9 @@ beforeEach(() => {
     data: watch.frames && reduce(undefined, watch.frames),
     connected: true,
   }));
-  useMutationMock.mockImplementation((doc: string) => {
-    mutations[doc] ??= vi.fn();
-    return [{}, mutations[doc]];
-  });
+  mutations.FolderGrant = vi.fn();
+  mutations.FolderRevoke = vi.fn();
+  useMutationMock.mockImplementation((doc: string) => [{}, mutations[doc]]);
 });
 
 describe('useSandboxFolders', () => {

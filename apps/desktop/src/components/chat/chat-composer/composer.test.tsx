@@ -247,6 +247,7 @@ const answered = { fetching: false, data: { models: [fake, plain] } };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  inWindow.current = null;
   catalog.current = answered;
   sendMock.mockResolvedValue(accepted());
   cancelMock.mockResolvedValue({ data: { chatCancel: true } });
@@ -1199,10 +1200,6 @@ describe('the view in a window', () => {
     };
     return viewport;
   };
-
-  beforeEach(() => {
-    inWindow.current = null;
-  });
 
   it("rides the mirror of this chat's window when the sidebar shows none", async () => {
     windowWith(2);
