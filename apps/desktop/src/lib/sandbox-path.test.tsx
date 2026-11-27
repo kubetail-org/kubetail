@@ -46,10 +46,9 @@ const queried = {
 beforeEach(() => {
   vi.clearAllMocks();
   useQueryMock.mockImplementation(() => [queried, reexecute]);
-  useMutationMock.mockImplementation((doc: string) => {
-    mutations[doc] ??= vi.fn();
-    return [{}, mutations[doc]];
-  });
+  mutations.SandboxPathSet = vi.fn();
+  mutations.SandboxPathRefresh = vi.fn();
+  useMutationMock.mockImplementation((doc: string) => [{}, mutations[doc]]);
 });
 
 describe('useSandboxPath', () => {

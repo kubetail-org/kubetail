@@ -46,10 +46,9 @@ beforeEach(() => {
     { fetching: false, data: { envVarsGet: listed }, operation: { variables } },
     reexecute,
   ]);
-  useMutationMock.mockImplementation((doc: string) => {
-    mutations[doc] ??= vi.fn();
-    return [{}, mutations[doc]];
-  });
+  mutations.EnvVarSet = vi.fn();
+  mutations.EnvVarRemove = vi.fn();
+  useMutationMock.mockImplementation((doc: string) => [{}, mutations[doc]]);
 });
 
 describe('useEnvVars', () => {

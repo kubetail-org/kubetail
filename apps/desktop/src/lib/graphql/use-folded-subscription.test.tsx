@@ -500,9 +500,11 @@ describe('operation context', () => {
 // The production scheduler. A minimized window gets no animation frames, so the frames
 // every watch is queueing have to reach the reducer some other way.
 describe('scheduleFlush', () => {
+  // The stubs replaced the fake timers' frame functions: put those back first,
+  // so the real ones come back after them.
   afterEach(() => {
-    vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it('flushes on the animation frame when the window is drawing', () => {

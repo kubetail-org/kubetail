@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { mockTauriCore } from '@/test-utils';
 
@@ -55,13 +55,16 @@ function deferredListen() {
 // Tests ---------------------------------------------------------------
 
 describe('readInjectedHostFile', () => {
+  afterEach(() => {
+    delete window.__KUBETAIL_HOST__;
+  });
+
   it('reads the snapshot the host injected before first paint', () => {
     window.__KUBETAIL_HOST__ = { schemaVersion: 1, colorSchemePreference: 'dark' };
     expect(readInjectedHostFile()).toEqual({ schemaVersion: 1, colorSchemePreference: 'dark' });
   });
 
   it('reads an empty file outside Tauri, where nothing was injected', () => {
-    delete window.__KUBETAIL_HOST__;
     expect(readInjectedHostFile()).toEqual({});
   });
 });
