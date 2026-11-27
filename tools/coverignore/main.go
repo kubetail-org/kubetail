@@ -38,6 +38,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strings"
 
 	"golang.org/x/tools/cover"
 
@@ -89,8 +90,10 @@ func run(dir, out string, inputs []string) error {
 		if err != nil {
 			return err
 		}
-		if len(profiles) > 0 {
-			mode = profiles[0].Mode
+		if mode == "" {
+			if mode, err = profileMode(in, profiles); err != nil {
+				return err
+			}
 		}
 		all = append(all, profiles)
 	}
@@ -108,6 +111,29 @@ func run(dir, out string, inputs []string) error {
 		return err
 	}
 	return f.Close()
+}
+
+// profileMode is the mode a profile names. A profile with no blocks, as go
+// test writes for packages with no test files, parses to no profiles, so its
+// mode is read from its first line.
+func profileMode(path string, profiles []*cover.Profile) (string, error) {
+	if len(profiles) > 0 {
+		return profiles[0].Mode, nil
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	line, err := bufio.NewReader(f).ReadString('\n')
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+	mode, ok := strings.CutPrefix(strings.TrimSpace(line), "mode: ")
+	if !ok {
+		return "", fmt.Errorf("%s: bad mode line: %s", path, line)
+	}
+	return mode, nil
 }
 
 type blockKey struct {

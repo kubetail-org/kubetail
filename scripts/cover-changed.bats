@@ -90,6 +90,16 @@ go_code=$'\nfunc batsUncovered() int {\n\treturn 1\n}\n'
   uncovered desktop apps/desktop/src/lib/held-still.ts $'\nexport function batsUncovered() {\n  return 1;\n}\n'
 }
 
+# go test writes a profile with no blocks for a package with no test file and
+# no statements.
+@test "a changed Go package with no test file passes" {
+  printf '\nconst batsUnmeasured = 1\n' >>"$repo/libs/go-common/config/config.go"
+  BASE=HEAD run bash "$repo/scripts/cover-changed.sh" libs
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"libs/go-common/config"*"[no test files]"* ]]
+  [[ "$output" == *"Every changed line a test measured is covered." ]]
+}
+
 @test "an area leaves out another area's lines" {
   printf '%s' "$go_code" >>"$repo/cluster/api/pkg/config/config.go"
   BASE=HEAD run bash "$repo/scripts/cover-changed.sh" libs
