@@ -28,6 +28,7 @@ import (
 
 // The run's kubeconfig is owner-only whatever the umask.
 func TestTheRunsKubeconfigIsOwnerOnly(t *testing.T) {
+	// syscall.Umask changes the process's umask, so this test stays serial.
 	old := syscall.Umask(0)
 	defer syscall.Umask(old)
 	path := filepath.Join(t.TempDir(), "kubeconfig")

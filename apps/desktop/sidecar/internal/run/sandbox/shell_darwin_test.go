@@ -27,6 +27,8 @@ import (
 
 // Each refusal ShellMain makes before the exec answers, in this process.
 func TestShellMainAnswersWhatItCannotRun(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, initFailed, ShellMain([]string{"--memory", "1", "--", "/bin/sh"}), "a memory limit")
 	assert.Equal(t, initFailed, ShellMain([]string{"--", filepath.Join(t.TempDir(), "missing")}), "a missing command")
 }

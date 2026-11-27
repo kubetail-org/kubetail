@@ -42,6 +42,8 @@ import (
 )
 
 func TestFileOfTellsFilesApart(t *testing.T) {
+	t.Parallel()
+
 	base := realpath.Resolved(t.TempDir())
 	d := mkdirs(t, base, "a", "b")
 	file := filepath.Join(d[0], "file")

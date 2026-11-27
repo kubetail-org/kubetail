@@ -27,6 +27,8 @@ import (
 // The user's count holds this test and its child, through the scan on Linux
 // and the sysctl on macOS.
 func TestTheUsersProcessesAreCounted(t *testing.T) {
+	t.Parallel()
+
 	child := exec.Command("sleep", "60")
 	require.NoError(t, child.Start())
 	t.Cleanup(func() { _ = child.Process.Kill(); _ = child.Wait() })

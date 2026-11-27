@@ -27,6 +27,8 @@ import (
 // The console runs a command of one line or many, refusing one that is blank,
 // too long, not UTF-8 or holding a control character but a tab or a newline.
 func TestCheckCommand(t *testing.T) {
+	t.Parallel()
+
 	for _, ok := range []string{"ls ~", "echo a\techo b", "for x in 1 2\ndo echo $x\ndone", strings.Repeat("x", MaxConsoleCommand)} {
 		assert.NoError(t, checkCommand(ok), ok)
 	}
@@ -48,6 +50,8 @@ func TestCheckCommand(t *testing.T) {
 // Output a line may still continue is sent up to its last newline, which
 // never splits a character.
 func TestWholeLinesEndAtTheLastNewline(t *testing.T) {
+	t.Parallel()
+
 	for in, want := range map[string]string{
 		"":                     "",
 		"abc":                  "",
@@ -62,6 +66,8 @@ func TestWholeLinesEndAtTheLastNewline(t *testing.T) {
 // The console runs nothing on a machine whose sandbox does not confine a
 // command, or that has none: nothing it runs leaves the sandbox.
 func TestTheConsoleRunsNothingOutsideTheSandbox(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	_, err := tl.StartConsoleCommand(ConsoleRequest{Command: "echo hi"})
 	assert.ErrorIs(t, err, ErrNoConsole)
@@ -76,6 +82,8 @@ func TestTheConsoleRunsNothingOutsideTheSandbox(t *testing.T) {
 // A command asking for the internet where the machine has none is refused,
 // saying why, and so is a command checkCommand refuses.
 func TestTheConsoleRefusesWhatItCannotRun(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	fake := &fakeSandboxer{confines: true, networkReason: "pasta is missing"}
 	tl.sandboxer = fake
@@ -92,6 +100,8 @@ func TestTheConsoleRefusesWhatItCannotRun(t *testing.T) {
 
 // Once the tool is closed, the console starts nothing.
 func TestAClosedConsoleStartsNothing(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	tl.sandboxer = &fakeSandboxer{confines: true}
 	require.NoError(t, tl.Close())
@@ -104,6 +114,8 @@ func TestAClosedConsoleStartsNothing(t *testing.T) {
 // last, and one the cap cut, which counts as discarded. A command that ended
 // within the cap is sent whole.
 func TestPublishSendsWholeLines(t *testing.T) {
+	t.Parallel()
+
 	for name, c := range map[string]struct {
 		run       ConsoleRun
 		out       string
@@ -133,6 +145,8 @@ func TestPublishSendsWholeLines(t *testing.T) {
 // A stop ends the command it names, or whichever runs for 0, and nothing
 // else: a stop sent late for an older command never ends a newer one.
 func TestAStopEndsOnlyTheCommandItNames(t *testing.T) {
+	t.Parallel()
+
 	for number, stops := range map[int]bool{0: true, 3: true, 2: false, 4: false} {
 		tl := &Tool{console: newConsole()}
 		stopped := false

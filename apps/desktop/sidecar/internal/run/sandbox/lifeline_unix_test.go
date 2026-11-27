@@ -45,6 +45,8 @@ func pipe(t *testing.T) (r, w *os.File) {
 // The watch ends once the write end closes, and the descriptor closes on
 // exec, so no child holds it.
 func TestTheWatchEndsAtTheLifelinesEOF(t *testing.T) {
+	t.Parallel()
+
 	r, w := pipe(t)
 	fd, err := unix.Dup(int(r.Fd()))
 	require.NoError(t, err)
@@ -61,6 +63,8 @@ func TestTheWatchEndsAtTheLifelinesEOF(t *testing.T) {
 
 // A descriptor that is not open is no lifeline.
 func TestTheWatchRefusesAClosedDescriptor(t *testing.T) {
+	t.Parallel()
+
 	r, _ := pipe(t)
 	fd, err := unix.Dup(int(r.Fd()))
 	require.NoError(t, err)
@@ -83,6 +87,8 @@ func lifeline(t *testing.T) *Sandbox {
 // A run is handed the lifeline on lifelineFD and told so; a Sandbox with
 // none hands nothing and says nothing.
 func TestARunIsHandedTheLifeline(t *testing.T) {
+	t.Parallel()
+
 	cmd := exec.Command("true")
 
 	(&Sandbox{}).handLifeline(cmd)
@@ -98,6 +104,8 @@ func TestARunIsHandedTheLifeline(t *testing.T) {
 // A closed Sandbox has nothing left to close, and hands no run anything; one
 // with no lifeline closes all the same.
 func TestCloseClosesOnce(t *testing.T) {
+	t.Parallel()
+
 	s := lifeline(t)
 
 	require.NoError(t, s.Close())
@@ -111,6 +119,8 @@ func TestCloseClosesOnce(t *testing.T) {
 // When the lifeline closes, the forwarder kills its whole group: the shell,
 // and the sleep it left running.
 func TestTheForwarderEndsTheRunAtTheLifelinesEOF(t *testing.T) {
+	t.Parallel()
+
 	r, w := pipe(t)
 	cmd := initCmd(lifelineFlag, strconv.Itoa(lifelineFD), "--", "/bin/sh", "-c", "sleep 1000 & echo up; wait")
 	cmd.ExtraFiles = []*os.File{r}
@@ -124,6 +134,8 @@ func TestTheForwarderEndsTheRunAtTheLifelinesEOF(t *testing.T) {
 // A forwarder told of a lifeline it was not given fails before its child
 // starts.
 func TestTheForwarderNeedsTheLifelineItIsTold(t *testing.T) {
+	t.Parallel()
+
 	code, stdout, stderr := runInit(t, initCmd(lifelineFlag, "1000", "--", "/bin/sh", "-c", "echo ran"))
 
 	assert.Equal(t, initFailed, code)

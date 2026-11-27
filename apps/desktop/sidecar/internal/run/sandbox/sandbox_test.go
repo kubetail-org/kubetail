@@ -23,6 +23,8 @@ import (
 // sandbox-init, sandbox-shell or sandbox-pasta as the first argument runs that part of a run,
 // whose own arguments come after it; anything else is the caller's.
 func TestMainRunsTheSubcommandItNames(t *testing.T) {
+	t.Parallel()
+
 	for _, command := range []string{InitCommand, ShellCommand, PastaCommand} {
 		code, ok := Main([]string{"kubetail-sidecar", command})
 		assert.True(t, ok, command)
@@ -39,6 +41,8 @@ func TestMainRunsTheSubcommandItNames(t *testing.T) {
 // A run holding a variable no run may hold fails its check, whatever its
 // policy; one holding none passes as its policy does.
 func TestARunsCheckRefusesAnUnpassableVariable(t *testing.T) {
+	t.Parallel()
+
 	for _, kv := range []string{
 		"LD_PRELOAD=/x.so", "AWS_SESSION_TOKEN=t", "AZURE_STORAGE_KEY=k", "ARM_CLIENT_SECRET=s", "MSI_SECRET=s",
 	} {
@@ -50,6 +54,8 @@ func TestARunsCheckRefusesAnUnpassableVariable(t *testing.T) {
 
 // A clone shares no slice with its run, so changing the run leaves it be.
 func TestACloneSharesNoSliceWithItsRun(t *testing.T) {
+	t.Parallel()
+
 	full := func() Run {
 		return Run{
 			Args: []string{"-c"}, Env: []string{"A=1"},

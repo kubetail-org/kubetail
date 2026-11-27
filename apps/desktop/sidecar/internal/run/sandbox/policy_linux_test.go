@@ -26,6 +26,8 @@ import (
 // A process that ignores SIGXCPU is killed at the hard limit, the grace past
 // the soft one.
 func TestAnIgnoredSIGXCPUIsKilledAtTheHardLimit(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	s.testCPUGrace = 1
 
@@ -36,6 +38,8 @@ func TestAnIgnoredSIGXCPUIsKilledAtTheHardLimit(t *testing.T) {
 
 // An allocation past the memory limit fails, where with none it succeeds.
 func TestAllocatingPastTheMemoryLimitFails(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	dd := []string{"/bin/sh", "-c", "dd if=/dev/zero of=/dev/null bs=1G count=1 2>&1"}
 
@@ -51,6 +55,8 @@ func TestAllocatingPastTheMemoryLimitFails(t *testing.T) {
 // namespace alone, and holds forwarderTasks for the forwarder: the test starts
 // a process while the run is full.
 func TestAForkLoopStopsAtTheProcessLimit(t *testing.T) {
+	t.Parallel()
+
 	if os.Getuid() == 0 {
 		t.Skip("the kernel holds root to no process limit")
 	}

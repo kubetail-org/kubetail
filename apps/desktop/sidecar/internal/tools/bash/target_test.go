@@ -123,6 +123,8 @@ func targetTool(t *testing.T, clusters map[apimeta.ClusterID]*cluster.Cluster) *
 // The target is the card's context, read off the cluster's record, and the
 // kubectl cache of the server the record serves.
 func TestTheTargetIsTheRecordsContextAndServer(t *testing.T) {
+	t.Parallel()
+
 	c := kubeCluster("prod-admin", "uid-1")
 	tl := targetTool(t, map[apimeta.ClusterID]*cluster.Cluster{"7": c})
 
@@ -137,6 +139,8 @@ func TestTheTargetIsTheRecordsContextAndServer(t *testing.T) {
 
 // A cluster never identified has no server UID to claim by.
 func TestAnUnidentifiedTargetHasNoServerUID(t *testing.T) {
+	t.Parallel()
+
 	tl := targetTool(t, map[apimeta.ClusterID]*cluster.Cluster{"7": kubeCluster("prod", "")})
 
 	got, err := tl.target(t.Context(), "7")
@@ -147,6 +151,8 @@ func TestAnUnidentifiedTargetHasNoServerUID(t *testing.T) {
 
 // A target whose kubectl cache cannot be made has none, and says why.
 func TestATargetWithNoCacheFails(t *testing.T) {
+	t.Parallel()
+
 	tl := targetTool(t, map[apimeta.ClusterID]*cluster.Cluster{"7": kubeCluster("prod", "uid-1")})
 	file := filepath.Join(t.TempDir(), "file")
 	require.NoError(t, os.WriteFile(file, nil, 0o600))
@@ -160,6 +166,8 @@ func TestATargetWithNoCacheFails(t *testing.T) {
 // A record that names no kube-context has none on its card, and the run's one
 // context still needs a name.
 func TestARecordWithNoContextNamesTheRunsOwn(t *testing.T) {
+	t.Parallel()
+
 	c := &cluster.Cluster{}
 	tl := targetTool(t, map[apimeta.ClusterID]*cluster.Cluster{"7": c})
 
@@ -174,6 +182,8 @@ func TestARecordWithNoContextNamesTheRunsOwn(t *testing.T) {
 // for it: a sandboxed kubectl aimed at nothing would read as the cluster being
 // down. A record that cannot be read is an error of its own.
 func TestAGoneClusterHasNoTarget(t *testing.T) {
+	t.Parallel()
+
 	marked := kubeCluster("prod", "uid")
 	at := time.Now()
 	marked.DeletionRequestedAt = &at

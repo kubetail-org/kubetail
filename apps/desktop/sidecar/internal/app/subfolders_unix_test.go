@@ -28,6 +28,8 @@ import (
 // A link at any subfolder fails the start, naming it and the folder to link
 // instead; the folder it leads to is left as it was.
 func TestALinkedSubfolderFailsTheStart(t *testing.T) {
+	t.Parallel()
+
 	for _, sub := range []struct{ root, name string }{
 		{"data", "chats"}, {"data", "monitor"},
 		{"cache", "kube"}, {"cache", "logs"}, {"cache", "kubectl"}, {"cache", "tmp"},
@@ -53,6 +55,8 @@ func TestALinkedSubfolderFailsTheStart(t *testing.T) {
 // A subfolder that cannot be made, in a folder this user cannot write, fails
 // the start.
 func TestASubfolderThatCannotBeMadeFailsTheStart(t *testing.T) {
+	t.Parallel()
+
 	f := testFolders(t)
 	require.NoError(t, os.Chmod(f.Runtime, 0o500))
 	t.Cleanup(func() { _ = os.Chmod(f.Runtime, 0o700) })

@@ -69,6 +69,8 @@ func (c *stubSourceClient) Requeue(_ context.Context, id beehive.ObjectID, _ ...
 // --- ensureClusterSources ---
 
 func TestEnsureClusterSourcesCreatesTheKubeconfigAnchor(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 
 	obj, err := d.sourceClient.GetByName(context.Background(), ClusterSourceNameKubeconfig)
@@ -79,6 +81,8 @@ func TestEnsureClusterSourcesCreatesTheKubeconfigAnchor(t *testing.T) {
 // The bootstrap runs on every start, so a store carried over from a previous process
 // must not gain a second anchor — its dependents' edges point at the first.
 func TestEnsureClusterSourcesIsIdempotent(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	ctx := context.Background()
 
@@ -105,6 +109,8 @@ func fingerprintOf(t *testing.T, cfg *api.Config) string {
 // The digest is the wake signal, so it has to move for every field the observation
 // folds in and stay put for everything else.
 func TestKubeconfigFingerprint(t *testing.T) {
+	t.Parallel()
+
 	base := fingerprintOf(t, cfgCurrent("prod", "prod", "staging"))
 
 	assert.Equal(t, base, fingerprintOf(t, cfgCurrent("prod", "staging", "prod")),
@@ -118,6 +124,8 @@ func TestKubeconfigFingerprint(t *testing.T) {
 }
 
 func TestKubeconfigFingerprintTracksTheClusterAndUserEntries(t *testing.T) {
+	t.Parallel()
+
 	cfg := cfgWith("prod")
 	base := fingerprintOf(t, cfg)
 
@@ -132,6 +140,8 @@ func TestKubeconfigFingerprintTracksTheClusterAndUserEntries(t *testing.T) {
 // JSON delimits its own values, so a boundary cannot be moved without changing the
 // digest.
 func TestKubeconfigFingerprintSeparatesAdjacentValues(t *testing.T) {
+	t.Parallel()
+
 	a := &api.Config{Contexts: map[string]*api.Context{"ab": {Cluster: "c"}}}
 	b := &api.Config{Contexts: map[string]*api.Context{"a": {Cluster: "bc"}}}
 
@@ -143,6 +153,8 @@ func TestKubeconfigFingerprintSeparatesAdjacentValues(t *testing.T) {
 // record it reaches relays the change to the probe that would otherwise dial the old
 // server until its next poll.
 func TestKubeconfigFingerprintMovesWhenCredentialsChange(t *testing.T) {
+	t.Parallel()
+
 	cfg := cfgWith("prod")
 	cfg.AuthInfos = map[string]*api.AuthInfo{"prod-user": {Token: "one"}}
 	base := fingerprintOf(t, cfg)
@@ -158,6 +170,8 @@ func TestKubeconfigFingerprintMovesWhenCredentialsChange(t *testing.T) {
 // all. The cost the coarse digest is chosen for: every one of those passes compares,
 // finds nothing moved, and settles.
 func TestKubeconfigFingerprintMovesForWhatNoRecordObserves(t *testing.T) {
+	t.Parallel()
+
 	cfg := cfgWith("prod")
 	base := fingerprintOf(t, cfg)
 	baseFold := observedFold(t, cfg)
@@ -174,6 +188,8 @@ func TestKubeconfigFingerprintMovesForWhatNoRecordObserves(t *testing.T) {
 // a wake signal. It holds by covering everything: the folds read a subset of the
 // snapshot, so a change either of them can see is a change to the bytes hashed here.
 func TestKubeconfigFingerprintFollowsTheObservation(t *testing.T) {
+	t.Parallel()
+
 	same := func(a, b *api.Config) bool {
 		return observedFold(t, a) == observedFold(t, b) &&
 			(fingerprintOf(t, a) == fingerprintOf(t, b))
@@ -228,6 +244,8 @@ func (c *stubSourceController) UpdateStatus(_ context.Context, status ClusterSou
 
 // Only the kubeconfig has an anchor; a row of another source has none to wake.
 func TestClusterSourceNameFor(t *testing.T) {
+	t.Parallel()
+
 	name, ok := clusterSourceNameFor(SourceKubeconfig)
 	assert.True(t, ok)
 	assert.Equal(t, ClusterSourceNameKubeconfig, name)
@@ -239,6 +257,8 @@ func TestClusterSourceNameFor(t *testing.T) {
 // A snapshot that will not digest fails the pass: no fingerprint means nothing to
 // publish, and settling would leave every record unwoken.
 func TestSourceReconcileFailsOnASnapshotThatWillNotDigest(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cfg := cfgWith("prod")
 	cfg.Extensions = map[string]runtime.Object{"yaml": &runtime.Unknown{ContentType: "application/yaml"}}
@@ -254,6 +274,8 @@ func TestSourceReconcileFailsOnASnapshotThatWillNotDigest(t *testing.T) {
 
 // A row the import cannot insert fails the import and names the context it was for.
 func TestImportReportsAContextItCannotInsert(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	_, err := d.db.Write.Exec(`CREATE TRIGGER refuse_import BEFORE INSERT ON clusters BEGIN SELECT RAISE(ABORT, 'refused'); END`)
 	require.NoError(t, err)
@@ -266,6 +288,8 @@ func TestImportReportsAContextItCannotInsert(t *testing.T) {
 
 // The pass creates the records and publishes what it observed for them to wake on.
 func TestSourceReconcileImportsAndPublishes(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	d.kubeconfigSvc = fakeKubeconfigService{cfg: cfgWith("prod", "staging"), loaded: true}
 	c, obj := sourceControllerOver(t, d)
@@ -282,6 +306,8 @@ func TestSourceReconcileImportsAndPublishes(t *testing.T) {
 // The status write is what wakes every Cluster, so an unchanged snapshot must not
 // produce one — otherwise every record reconciles on every backstop tick.
 func TestSourceReconcileWritesNothingWhenTheSnapshotIsUnchanged(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cfg := cfgWith("prod")
 	d.kubeconfigSvc = fakeKubeconfigService{cfg: cfg, loaded: true}
@@ -299,6 +325,8 @@ func TestSourceReconcileWritesNothingWhenTheSnapshotIsUnchanged(t *testing.T) {
 // to run ahead of the fingerprint gate — behind it, the retry would be skipped as a
 // no-op and that context would never be imported.
 func TestSourceReconcileImportsEvenWhenTheSnapshotIsUnchanged(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cfg := cfgWith("prod")
 	d.kubeconfigSvc = fakeKubeconfigService{cfg: cfg, loaded: true}
@@ -314,6 +342,8 @@ func TestSourceReconcileImportsEvenWhenTheSnapshotIsUnchanged(t *testing.T) {
 // The pre-read config is an empty one, so importing against it would fingerprint an
 // empty set and wake every record to observe its context absent.
 func TestSourceReconcileDefersUntilTheKubeconfigIsRead(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	d.kubeconfigSvc = fakeKubeconfigService{}
 	c, obj := sourceControllerOver(t, d)
@@ -335,6 +365,8 @@ func TestSourceReconcileDefersUntilTheKubeconfigIsRead(t *testing.T) {
 // create pass runs ahead of the fingerprint gate so the retry is not skipped as a
 // no-op (TestSourceReconcileImportsEvenWhenTheSnapshotIsUnchanged).
 func TestSourceReconcilePublishesDespiteAFailedImport(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cfg := cfgWith("prod")
 	d.kubeconfigSvc = fakeKubeconfigService{cfg: cfg, loaded: true}
@@ -352,6 +384,8 @@ func TestSourceReconcilePublishesDespiteAFailedImport(t *testing.T) {
 // The settle path carries the create failure out too, or a pass whose observation was
 // already current would report success and drop the retry.
 func TestSourceReconcileReportsAFailedImportOnAnUnchangedSnapshot(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cfg := cfgWith("prod")
 	d.kubeconfigSvc = fakeKubeconfigService{cfg: cfg, loaded: true}
@@ -366,6 +400,8 @@ func TestSourceReconcileReportsAFailedImportOnAnUnchangedSnapshot(t *testing.T) 
 
 // An anchor on its way out has no set to maintain.
 func TestSourceReconcileSkipsADeletingAnchor(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	d.kubeconfigSvc = fakeKubeconfigService{cfg: cfgWith("prod"), loaded: true}
 	c, obj := sourceControllerOver(t, d)
@@ -492,6 +528,8 @@ func observedPresent(t *testing.T, svc Service, contextName string) (observed, p
 }
 
 func TestSourceWakesADepartedContextsRecord(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "config")
 	writeKubeconfig(t, path, "prod", "staging")
 	svc := startService(t, path)
@@ -519,6 +557,8 @@ func TestSourceWakesADepartedContextsRecord(t *testing.T) {
 // fails rather than settling: settling would leave the observation unpublished and no
 // record would ever re-read the kubeconfig this pass just saw change.
 func TestSourceReconcileFailsWhenTheFingerprintWillNotStore(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	d.kubeconfigSvc = fakeKubeconfigService{cfg: cfgWith("prod"), loaded: true}
 	c, obj := sourceControllerOver(t, d)

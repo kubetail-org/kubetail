@@ -50,6 +50,8 @@ func writeExecutable(t *testing.T, dir, name, body string) string {
 // A name is the first regular, executable file of that name in the PATH's
 // entries, in order: a file that does not run and a directory are passed over.
 func TestAnExecutableResolvesToTheFirstEntry(t *testing.T) {
+	t.Parallel()
+
 	base := t.TempDir()
 	a, b, c := filepath.Join(base, "a"), filepath.Join(base, "b"), filepath.Join(base, "c")
 	require.NoError(t, os.MkdirAll(filepath.Join(a, "kubectl"), 0o755))
@@ -71,6 +73,8 @@ func TestAnExecutableResolvesToTheFirstEntry(t *testing.T) {
 // a link to mise itself, which lies elsewhere. A #! script elsewhere is no
 // shim.
 func TestAFileUnderAShimsFolderIsAShim(t *testing.T) {
+	t.Parallel()
+
 	home := t.TempDir()
 	asdf := writeExecutable(t, filepath.Join(home, ".asdf", "shims"), "kubectl", "exec asdf exec kubectl")
 	miseBin := writeExecutable(t, filepath.Join(home, ".local", "bin"), "mise", "exec mise")
@@ -122,6 +126,8 @@ var kubectl = settings.CuratedExecutables[0]
 
 // A PATH with no kubectl reports it not found, and runs nothing for it.
 func TestAMissingKubectlIsReported(t *testing.T) {
+	t.Parallel()
+
 	tl, fake, _ := probingTool(t)
 
 	got := tl.ProbeExecutables(t.Context(), nil)
@@ -135,6 +141,8 @@ func TestAMissingKubectlIsReported(t *testing.T) {
 // resolved binary and its arguments, never through a shell; a binary planted
 // beside them is never run.
 func TestTheProbeRunsOnlyTheList(t *testing.T) {
+	t.Parallel()
+
 	tl, fake, bin := probingTool(t)
 	kubectlBin := writeExecutable(t, bin, "kubectl", `echo; echo "Client Version: v1.31.0"`)
 	helmBin := writeExecutable(t, bin, "helm", "echo 'Error: no such command' >&2; exit 3")
@@ -166,6 +174,8 @@ func TestTheProbeRunsOnlyTheList(t *testing.T) {
 // caller passed it: marked, or malformed and unmarked. The curated kubectl
 // still runs beside a registered kubectl.
 func TestAProbeRunsNoRefusedExecutable(t *testing.T) {
+	t.Parallel()
+
 	tl, fake, bin := probingTool(t)
 	kubectlBin := writeExecutable(t, bin, "kubectl", "echo v1")
 	writeExecutable(t, bin, "other", "true")
@@ -195,6 +205,8 @@ func TestAProbeRunsNoRefusedExecutable(t *testing.T) {
 // resolver names, which runs in the sandbox first; a #! script elsewhere is
 // no shim.
 func TestAShimResolvesToItsTarget(t *testing.T) {
+	t.Parallel()
+
 	tl, fake, bin := probingTool(t)
 	// Not under /tmp, which a typed folder's check refuses on Linux.
 	tl.home = testutil.GrantableDir(t)
@@ -223,6 +235,8 @@ func TestAShimResolvesToItsTarget(t *testing.T) {
 // reports a timeout. The test fires the deadline once the tool has started,
 // so how long the run takes to start never decides it.
 func TestAProbeIsBounded(t *testing.T) {
+	t.Parallel()
+
 	tl, _, bin := probingTool(t)
 	h := newHolder(t)
 	c := newClock()
@@ -246,6 +260,8 @@ func TestAProbeIsBounded(t *testing.T) {
 
 // Each run's throwaway home and tool home are gone once it ends.
 func TestTheProbesWorkspaceIsGone(t *testing.T) {
+	t.Parallel()
+
 	tl, fake, bin := probingTool(t)
 	writeExecutable(t, bin, "kubectl", `echo "$HOME" > "$HOME/where"`)
 	writeExecutable(t, bin, "helm", "true")
@@ -275,6 +291,8 @@ func TestTheProbesWorkspaceIsGone(t *testing.T) {
 // The probe's run reads the folders it was handed, the ones granted always,
 // as any run reads its session's: here as a Read rule.
 func TestAProbeReadsTheAlwaysFoldersAlone(t *testing.T) {
+	t.Parallel()
+
 	tl, fake, bin := probingTool(t)
 	writeExecutable(t, bin, "kubectl", "true")
 	granted := testutil.GrantableDir(t)
@@ -301,6 +319,8 @@ func (p *executableProbe) asked() int {
 // A second and a third probe asked while the first runs wait for it, then
 // share one run, which starts after both asked.
 func TestOneProbeRunsAtATime(t *testing.T) {
+	t.Parallel()
+
 	tl, fake, bin := probingTool(t)
 	writeExecutable(t, bin, "kubectl", "true")
 	fake.entered, fake.gate = make(chan struct{}, 2), make(chan struct{})
@@ -324,6 +344,8 @@ func TestOneProbeRunsAtATime(t *testing.T) {
 
 // Close ends a running probe and waits for it.
 func TestCloseEndsARunningProbe(t *testing.T) {
+	t.Parallel()
+
 	tl, fake, bin := probingTool(t)
 	writeExecutable(t, bin, "kubectl", "true")
 	fake.hold = testutil.NewSignal()
@@ -342,6 +364,8 @@ func TestCloseEndsARunningProbe(t *testing.T) {
 // Close returns while the read is still parked, and each report says the
 // probe could not start. The read is released only once the test ends.
 func TestCloseEndsAProbeReadingTheDisk(t *testing.T) {
+	t.Parallel()
+
 	tl, fake, bin := probingTool(t)
 	writeExecutable(t, bin, "kubectl", "true")
 	reading := testutil.NewSignal()
@@ -363,6 +387,8 @@ func TestCloseEndsAProbeReadingTheDisk(t *testing.T) {
 // disk does. The deadline is shrunk; the hold is the mount's own latency, the
 // one the deadline is there to cut, and the assertion waits on nothing.
 func TestAProbesDiskReadIsBounded(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, 5*time.Second, newExecutableProbe().diskTimeout)
 	tl, fake, bin := probingTool(t)
 	writeExecutable(t, bin, "kubectl", "true")
@@ -386,6 +412,8 @@ func TestAProbesDiskReadIsBounded(t *testing.T) {
 // answers. The hold lets the PATH build's read through and parks the run's;
 // only the build's deadline is shrunk, so the reads before it are not cut.
 func TestAProbesRunBuildIsBounded(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, 5*time.Second, newExecutableProbe().buildTimeout)
 	tl, fake, bin := probingTool(t)
 	writeExecutable(t, bin, "kubectl", "true")
@@ -408,6 +436,8 @@ func TestAProbesRunBuildIsBounded(t *testing.T) {
 // A run's build that fails on its own, before the deadline, reports its own
 // error: a runs directory too long for a socket is one no deadline caused.
 func TestAProbesSetupFailureKeepsItsError(t *testing.T) {
+	t.Parallel()
+
 	tl, _, bin := probingTool(t)
 	writeExecutable(t, bin, "kubectl", "true")
 	tl.runsDir = filepath.Join(t.TempDir(), strings.Repeat("x", longestRuns))
@@ -421,6 +451,8 @@ func TestAProbesSetupFailureKeepsItsError(t *testing.T) {
 // A probe whose throwaway directory cannot be made reports why and runs
 // nothing: its folder under a file, or one whose lock it cannot take.
 func TestAProbeWithNoDirectoryRunsNothing(t *testing.T) {
+	t.Parallel()
+
 	if os.Getuid() == 0 {
 		t.Skip("root writes any folder")
 	}
@@ -446,6 +478,7 @@ func TestAProbeWithNoDirectoryRunsNothing(t *testing.T) {
 // A probe's directory that cannot be removed is left for the next start's
 // sweep, and the probe still reports.
 func TestAProbeDirectoryThatCannotBeRemovedIsLogged(t *testing.T) {
+	// CaptureLogs swaps the process's default logger, so this test stays serial.
 	if os.Getuid() == 0 {
 		t.Skip("root removes any folder")
 	}
@@ -495,6 +528,7 @@ func realProbingTool(t *testing.T) (*Tool, *recording, string) {
 // the loopback outside the sandbox gets no connection from a tool that dials
 // it.
 func TestTheProbesSandboxHasNoClusterAndNoNetwork(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	t.Setenv("HTTP_PROXY", "http://127.0.0.1:3128")
 	tl, rec, bin := realProbingTool(t)
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -535,6 +569,8 @@ func TestTheProbesSandboxHasNoClusterAndNoNetwork(t *testing.T) {
 // the same invocation answers its report, and one listed since, or changed,
 // is not probed yet. A tool removed since is gone.
 func TestReportOverlaysTheLastProbe(t *testing.T) {
+	t.Parallel()
+
 	tl, _, bin := probingTool(t)
 	writeExecutable(t, bin, "kubectl", "echo v1")
 	writeExecutable(t, bin, "k9s", "echo k9s")
@@ -558,6 +594,8 @@ func TestReportOverlaysTheLastProbe(t *testing.T) {
 
 // StartProbe returns before the probe runs, which LastProbe then answers.
 func TestStartProbeRunsInTheBackground(t *testing.T) {
+	t.Parallel()
+
 	tl, fake, bin := probingTool(t)
 	writeExecutable(t, bin, "kubectl", "true")
 	fake.entered, fake.gate = make(chan struct{}, 1), make(chan struct{})
@@ -573,6 +611,8 @@ func TestStartProbeRunsInTheBackground(t *testing.T) {
 
 // WatchProbeState sees a probe start, then end with its report.
 func TestWatchProbeStateSeesAProbeStartAndEnd(t *testing.T) {
+	t.Parallel()
+
 	tl, fake, bin := probingTool(t)
 	writeExecutable(t, bin, "kubectl", "true")
 	fake.entered, fake.gate = make(chan struct{}, 1), make(chan struct{})
@@ -594,6 +634,8 @@ func TestWatchProbeStateSeesAProbeStartAndEnd(t *testing.T) {
 
 // Where no sandbox confines a run, nothing is probed.
 func TestNoSandboxProbesNothing(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	tl.sandboxer = nil
 
@@ -604,6 +646,8 @@ func TestNoSandboxProbesNothing(t *testing.T) {
 
 // A caller whose context ends stops waiting and gets nil; the probe runs on.
 func TestACallerThatLeavesGetsNoReport(t *testing.T) {
+	t.Parallel()
+
 	tl, fake, bin := probingTool(t)
 	writeExecutable(t, bin, "kubectl", "true")
 	fake.entered, fake.gate = make(chan struct{}, 1), make(chan struct{})
@@ -621,6 +665,8 @@ func TestACallerThatLeavesGetsNoReport(t *testing.T) {
 
 // A PATH that cannot be read starts no probe: each report says why.
 func TestAProbeOverAPathThatCannotBeReadRunsNothing(t *testing.T) {
+	t.Parallel()
+
 	tl, fake, _ := probingTool(t)
 	tl.pathList = func(context.Context) (settings.RunPath, error) {
 		return settings.RunPath{}, settings.PathRefusal("Your PATH setting cannot be used.")

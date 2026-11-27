@@ -52,6 +52,8 @@ func startHeld(t *testing.T, trap, tail string, killGrace time.Duration) (*task,
 // A stop sends SIGTERM first: a trap on it runs, and the task reads as stopped
 // whatever the trap exits with.
 func TestAStopSendsTermFirst(t *testing.T) {
+	t.Parallel()
+
 	tk, h := startHeld(t, `trap 'exit 0' TERM`, "; wait", time.Hour)
 	tk.Stop(false)
 	assert.Equal(t, tools.Exit{Code: 0, OK: true, Stopped: true}, tk.Wait())
@@ -60,6 +62,8 @@ func TestAStopSendsTermFirst(t *testing.T) {
 
 // A group that ignores SIGTERM gets SIGKILL once the grace is out.
 func TestAStopKillsWhatIgnoresTerm(t *testing.T) {
+	t.Parallel()
+
 	tk, h := startHeld(t, `trap '' TERM`, blocked(t), time.Millisecond)
 	tk.Stop(false)
 	assert.Equal(t, tools.Exit{Code: 137, OK: true, Stopped: true}, tk.Wait())
@@ -68,6 +72,8 @@ func TestAStopKillsWhatIgnoresTerm(t *testing.T) {
 
 // A stop now does not wait the grace out, whatever the command traps.
 func TestAStopNowKillsAtOnce(t *testing.T) {
+	t.Parallel()
+
 	tk, h := startHeld(t, `trap '' TERM`, blocked(t), time.Hour)
 	tk.Stop(false)
 	tk.Stop(true)
@@ -78,6 +84,8 @@ func TestAStopNowKillsAtOnce(t *testing.T) {
 // The call's context bounds a task's start alone: the task keeps running once
 // it ends, and exits as its command does.
 func TestATaskOutlivesTheContextItStartedUnder(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	fifo := filepath.Join(t.TempDir(), "go")
 	require.NoError(t, syscall.Mkfifo(fifo, 0o600))
@@ -99,6 +107,8 @@ func TestATaskOutlivesTheContextItStartedUnder(t *testing.T) {
 
 // A stop after the reap sends nothing and changes nothing.
 func TestATaskStopAfterTheReapDoesNothing(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	tk, err := startTask(t.Context(), tl.spec("exit 4", 1024), taskOut(t))
 	require.NoError(t, err)
@@ -111,6 +121,8 @@ func TestATaskStopAfterTheReapDoesNothing(t *testing.T) {
 // Bash's exit kills its group, as a foreground command's does: a sleep left
 // behind in it is gone once Wait returns.
 func TestATasksGroupDiesWithBash(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	h := newHolder(t)
 	tk, err := startTask(t.Context(), tl.spec(h.command(""), 1024), taskOut(t))
@@ -123,6 +135,7 @@ func TestATasksGroupDiesWithBash(t *testing.T) {
 // A descendant that left the group and holds the pipe does not hold Wait past
 // the pipe's grace.
 func TestATaskPipeHeldPastTheGraceIsLetGo(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	tl := tool(t)
 	exe, err := os.Executable()
 	require.NoError(t, err)
@@ -150,6 +163,8 @@ func TestATaskPipeHeldPastTheGraceIsLetGo(t *testing.T) {
 // A sandboxed task's run directory stays while the task runs and goes once
 // Wait has reaped it.
 func TestATasksRunDirectoryGoesAtWait(t *testing.T) {
+	t.Parallel()
+
 	tl := clusterTool(t, map[apimeta.ClusterID]*cluster.Cluster{"7": kubeCluster("prod", "uid")})
 	rt := tools.Runtime{ClusterID: "7", Dir: testChatDir(t), Tasks: newFakeTasks(t)}
 	release := filepath.Join(t.TempDir(), "release")
@@ -180,6 +195,8 @@ func TestATasksRunDirectoryGoesAtWait(t *testing.T) {
 // A task that never starts leaves no run directory: one the chat refused, and
 // one whose call was cancelled before its start.
 func TestATaskThatNeverStartsLeavesNoRunDirectory(t *testing.T) {
+	t.Parallel()
+
 	cancelled, cancel := context.WithCancel(t.Context())
 	cancel()
 	for name, c := range map[string]struct {
@@ -209,6 +226,8 @@ func TestATaskThatNeverStartsLeavesNoRunDirectory(t *testing.T) {
 // A background call on a cluster that is gone could not start, as a
 // foreground one could not.
 func TestAGoneClusterCouldNotStartATask(t *testing.T) {
+	t.Parallel()
+
 	tl := clusterTool(t, nil)
 	tasks := newFakeTasks(t)
 

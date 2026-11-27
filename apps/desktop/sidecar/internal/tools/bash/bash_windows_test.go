@@ -41,6 +41,11 @@ import (
 // which is short enough here.
 const shortTempBase = ""
 
+// testBash is Git for Windows' bash, the one New finds.
+func testBash() (string, bool) {
+	return findGitBash()
+}
+
 // stubInstallPath points the registry seam at a fixed answer for one test.
 func stubInstallPath(t *testing.T, path string, ok bool) {
 	t.Helper()
@@ -52,6 +57,7 @@ func stubInstallPath(t *testing.T, path string, ok bool) {
 // Only Git's own install record finds a bash: a bash.exe on PATH is never
 // consulted, and a recorded install whose bash is gone offers nothing.
 func TestNewDeclinesWithoutGitBash(t *testing.T) {
+	// stubInstallPath swaps the package's registry seam, so this test stays serial.
 	stubInstallPath(t, "", false)
 	bin := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(bin, "bash.exe"), []byte("MZ"), 0o700))
@@ -66,6 +72,7 @@ func TestNewDeclinesWithoutGitBash(t *testing.T) {
 
 // A recorded install whose bin\bash.exe exists is found; New only stats it.
 func TestNewFindsTheRecordedBash(t *testing.T) {
+	// stubInstallPath swaps the package's registry seam, so this test stays serial.
 	install := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(install, "bin"), 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(install, "bin", "bash.exe"), []byte("MZ"), 0o700))
@@ -77,6 +84,8 @@ func TestNewFindsTheRecordedBash(t *testing.T) {
 
 // The real registry against the machine's Git for Windows.
 func TestNewFindsGitBash(t *testing.T) {
+	t.Parallel()
+
 	if _, ok := registryInstallPath(); !ok {
 		t.Skip("no Git for Windows install record on this machine")
 	}
@@ -86,12 +95,16 @@ func TestNewFindsGitBash(t *testing.T) {
 
 // A key nothing records is read in every view, and answers no install.
 func TestAnAbsentInstallRecordIsNoInstall(t *testing.T) {
+	t.Parallel()
+
 	_, ok := installPathUnder(`SOFTWARE\KubetailTestNoSuchKey`)
 	assert.False(t, ok)
 }
 
 // A context that ended before run starts nothing, as on Unix.
 func TestRunStartsNothingPastAnEndedContext(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	r := run(ctx, spec{})
@@ -120,6 +133,8 @@ func unwritableDir(t *testing.T) string {
 // A scripts directory that cannot be made, or written in, runs nothing and
 // says why.
 func TestRunFailsWithoutItsScriptsDirectory(t *testing.T) {
+	t.Parallel()
+
 	for _, dir := range []string{notADir(t), unwritableDir(t)} {
 		r := run(t.Context(), spec{scripts: dir, command: "echo ran"})
 		assert.NotEmpty(t, r.Error, dir)
@@ -127,6 +142,8 @@ func TestRunFailsWithoutItsScriptsDirectory(t *testing.T) {
 }
 
 func TestWriteScriptFailsUnderAMissingDirectory(t *testing.T) {
+	t.Parallel()
+
 	_, err := writeScript(filepath.Join(t.TempDir(), "missing"), "echo ran")
 	assert.Error(t, err)
 }
@@ -134,6 +151,8 @@ func TestWriteScriptFailsUnderAMissingDirectory(t *testing.T) {
 // A NUL in the command line, the directory or the environment is refused
 // before CreateProcess, which would read the string only up to it.
 func TestStartSuspendedRefusesANUL(t *testing.T) {
+	t.Parallel()
+
 	for name, c := range map[string]struct {
 		bash, dir string
 		env       []string
@@ -166,6 +185,8 @@ func TestAnEmptyEnvironmentBlockIsADoubleNUL(t *testing.T) {
 
 // An entry with no separator is all name.
 func TestEnvNameOfAnEntryWithNoSeparator(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, "PATH", envName("PATH"))
 	assert.Equal(t, "PATH", envName("PATH=x"))
 	assert.Equal(t, "=C:", envName(`=C:=C:\x`))
@@ -175,6 +196,7 @@ func TestEnvNameOfAnEntryWithNoSeparator(t *testing.T) {
 // An entry of extra replaces the process's own of its name, which Windows
 // compares without case, so the child reads the one given.
 func TestAnExtraEntryReplacesTheProcesssOwn(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	t.Setenv("KUBETAIL_TEST_MARK", "process")
 
 	block, err := environBlock([]string{"kubetail_test_mark=extra"})
@@ -207,6 +229,8 @@ func failResume(s *sys) {
 
 // Each call that starts bash fails the run with its own error.
 func TestRunFailsOnAFailedWindowsCall(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	for name, edit := range map[string]func(*sys){
 		"pipe": func(s *sys) {
@@ -247,6 +271,8 @@ func TestRunFailsOnAFailedWindowsCall(t *testing.T) {
 
 // A bash whose exit code cannot be read ended all the same.
 func TestRunReportsAnUnreadExitCode(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	s := tl.spec("exit 3", 1024)
 	s.hooks = failing(func(s *sys) {
@@ -261,6 +287,8 @@ func TestRunReportsAnUnreadExitCode(t *testing.T) {
 // bash read. The guard leads because bash executes a script command-by-command,
 // so the bytes print before a fragment below them is even parsed.
 func TestRunDeliversTheCommandByteForByte(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	corpus := []string{
 		`"`,
@@ -341,6 +369,8 @@ func (h *holder) awaitGone(t *testing.T) {
 // A command past its own deadline is killed with everything in its job, and the
 // result reads as timed out with the conventional code.
 func TestRunKillsTheJobOnTimeout(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	h := newHolder(t)
 	c := newClock()
@@ -359,6 +389,8 @@ func TestRunKillsTheJobOnTimeout(t *testing.T) {
 // A cancelled command is killed with everything in its job, and the result says
 // so.
 func TestRunKillsTheJobOnCancel(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	h := newHolder(t)
 	ctx, cancel := context.WithCancel(t.Context())
@@ -376,6 +408,8 @@ func TestRunKillsTheJobOnCancel(t *testing.T) {
 // A deadline after the reap sends nothing and records nothing: the lock is what
 // disarms the watcher, which is alive through the drain.
 func TestAnExitReapedBeforeTheDeadlineIsNotRelabelled(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	c := newClock()
 	s := tl.spec("exit 0", 1024)
@@ -391,6 +425,7 @@ func TestAnExitReapedBeforeTheDeadlineIsNotRelabelled(t *testing.T) {
 // A pipe held from outside the job past the deadline is not the command's: a
 // command that exited 0 is a success however long the drain takes.
 func TestASlowDrainAfterTheExitIsNotATimeout(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	tl := tool(t)
 	c := newClock()
 	s := tl.spec("exit 0", 1024)
@@ -416,6 +451,8 @@ func TestASlowDrainAfterTheExitIsNotATimeout(t *testing.T) {
 // also the job-closed-after-exit assertion — the sleep's own Windows pid is
 // unreachable from bash ($! is an MSYS pid), so the socket says it died.
 func TestRunKillsWhatACommandLeftBehind(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	h := newHolder(t)
 	r := run(t.Context(), tl.spec(h.command("&"), 1024))
@@ -429,6 +466,7 @@ func TestRunKillsWhatACommandLeftBehind(t *testing.T) {
 // translation: HOME falls back to %USERPROFILE%, paths come back in POSIX
 // form and cygpath -w undoes them.
 func TestACommandsEnvironmentIsTheProcessOwn(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	// A BASH_ENV in the test's own environment would have bash source a file
 	// that rewrites PATH before the command runs; empty is unset to bash.
 	t.Setenv("BASH_ENV", "")

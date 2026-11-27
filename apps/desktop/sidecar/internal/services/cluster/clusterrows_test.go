@@ -66,6 +66,8 @@ func importRow(t *testing.T, st *sqlstmt.Set[stmtID], contextName string) Cluste
 // A fresh import takes SQL's defaults: enabled, syncing, not monitored, not the
 // default, unnamed, unmarked, both stamps at the import time.
 func TestInsertClusterIfAbsentTakesTheDefaults(t *testing.T) {
+	t.Parallel()
+
 	_, st := openTestStore(t)
 	row := importRow(t, st, "dev")
 
@@ -86,6 +88,8 @@ func TestInsertClusterIfAbsentTakesTheDefaults(t *testing.T) {
 // source_key), so the row, its id and its toggles survive a context that leaves and
 // returns, and a marked row keeps the claim until it is removed.
 func TestInsertClusterIfAbsentKeepsTheClaim(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	_, st := openTestStore(t)
 	row := importRow(t, st, "dev")
@@ -117,6 +121,8 @@ func TestInsertClusterIfAbsentKeepsTheClaim(t *testing.T) {
 // wrote. A marked row refuses every toggle as not found: the user's choices are
 // closed once its deletion is asked for.
 func TestClusterTogglesAreGuardedByTheMark(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	_, st := openTestStore(t)
 	row := importRow(t, st, "dev")
@@ -158,6 +164,8 @@ func TestClusterTogglesAreGuardedByTheMark(t *testing.T) {
 // The mark is a user edit, so it stamps updated_at; a repeat leaves the first stamp
 // and reports that nothing changed.
 func TestMarkClusterIsIdempotent(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	_, st := openTestStore(t)
 	row := importRow(t, st, "dev")
@@ -188,6 +196,8 @@ func TestMarkClusterIsIdempotent(t *testing.T) {
 // The final delete goes only through a marked row nothing references: unmarked, it
 // deletes nothing; a chat filed under it holds it; once the chat is gone it goes.
 func TestDeleteClusterIsGuarded(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	db, st := openTestStore(t)
 	row := importRow(t, st, "dev")
@@ -216,6 +226,8 @@ func TestDeleteClusterIsGuarded(t *testing.T) {
 
 // The list is in id order — ids are v7, so that is import order.
 func TestListClustersIsInIDOrder(t *testing.T) {
+	t.Parallel()
+
 	_, st := openTestStore(t)
 	first := importRow(t, st, "b")
 	second := importRow(t, st, "a")
@@ -227,6 +239,8 @@ func TestListClustersIsInIDOrder(t *testing.T) {
 // Every read and write over the table reports a store that will not answer, never an
 // empty or a no-op answer.
 func TestClusterRowsReportAStorageFault(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	db, st := openTestStore(t)
 	row := importRow(t, st, "dev")
@@ -284,6 +298,8 @@ func reread(t *testing.T, st *sqlstmt.Set[stmtID], id ClusterID) ClusterRow {
 // Setting the default clears the one before, and both stamps move, so the watch
 // sends a change for each.
 func TestSetClusterDefaultMovesTheDefault(t *testing.T) {
+	t.Parallel()
+
 	_, st := openTestStore(t)
 	a, b := importRow(t, st, "a"), importRow(t, st, "b")
 	at := t0.Add(time.Second)
@@ -304,6 +320,8 @@ func TestSetClusterDefaultMovesTheDefault(t *testing.T) {
 
 // Clearing the default leaves no row the default.
 func TestSetClusterDefaultClears(t *testing.T) {
+	t.Parallel()
+
 	_, st := openTestStore(t)
 	a := importRow(t, st, "a")
 	makeDefault(t, st, a.ID)
@@ -316,6 +334,8 @@ func TestSetClusterDefaultClears(t *testing.T) {
 
 // A call that changes nothing writes nothing: the stamp stays, so no change is sent.
 func TestSetClusterDefaultThatChangesNothingWritesNothing(t *testing.T) {
+	t.Parallel()
+
 	_, st := openTestStore(t)
 	a, b := importRow(t, st, "a"), importRow(t, st, "b")
 	at := t0.Add(time.Second)
@@ -336,6 +356,8 @@ func TestSetClusterDefaultThatChangesNothingWritesNothing(t *testing.T) {
 // A marked row is closed to the default as to every toggle, and an absent one is
 // not found; one the predicate refuses cannot become the default.
 func TestSetClusterDefaultRefusals(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	_, st := openTestStore(t)
 	marked, disabled := importRow(t, st, "marked"), importRow(t, st, "disabled")
@@ -359,6 +381,8 @@ func TestSetClusterDefaultRefusals(t *testing.T) {
 // Marking the default for deletion clears it in the same write, so another can be
 // the default while it is torn down.
 func TestMarkingTheDefaultClearsIt(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	_, st := openTestStore(t)
 	a, b := importRow(t, st, "a"), importRow(t, st, "b")
@@ -375,6 +399,8 @@ func TestMarkingTheDefaultClearsIt(t *testing.T) {
 
 // Disabling the default clears it, and enabling the cluster again leaves it clear.
 func TestDisablingTheDefaultClearsIt(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	_, st := openTestStore(t)
 	a := importRow(t, st, "a")
@@ -391,6 +417,8 @@ func TestDisablingTheDefaultClearsIt(t *testing.T) {
 
 // Enabling a cluster that is already the default keeps it the default.
 func TestEnablingTheDefaultKeepsIt(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	_, st := openTestStore(t)
 	a := importRow(t, st, "a")
@@ -404,6 +432,8 @@ func TestEnablingTheDefaultKeepsIt(t *testing.T) {
 // The importer leaves a returning context's row alone, so an archived default is
 // the default again when its context comes back.
 func TestAReturningDefaultIsStillTheDefault(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	_, st := openTestStore(t)
 	a := importRow(t, st, "a")
@@ -418,6 +448,8 @@ func TestAReturningDefaultIsStillTheDefault(t *testing.T) {
 
 // A clear that fails rolls the whole write back: the old default stays.
 func TestSetClusterDefaultRollsBackAFailedClear(t *testing.T) {
+	t.Parallel()
+
 	db, st := openTestStore(t)
 	a, b := importRow(t, st, "a"), importRow(t, st, "b")
 	makeDefault(t, st, a.ID)

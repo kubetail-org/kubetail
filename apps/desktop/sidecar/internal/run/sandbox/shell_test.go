@@ -24,6 +24,8 @@ import (
 // The command follows a --, and there must be one. With no --cpu-grace, the
 // grace is cpuGrace.
 func TestParseShellArgs(t *testing.T) {
+	t.Parallel()
+
 	got, err := parseShellArgs([]string{"--", "/bin/sh", "-c", "true"})
 	require.NoError(t, err)
 	assert.Equal(t, shellArgs{cpuGrace: cpuGrace, argv: []string{"/bin/sh", "-c", "true"}}, got)
@@ -34,6 +36,8 @@ func TestParseShellArgs(t *testing.T) {
 }
 
 func TestShellArgsReadTheLimits(t *testing.T) {
+	t.Parallel()
+
 	got, err := parseShellArgs([]string{
 		"--cpu", "7", "--cpu-grace", "5", "--files", "64", "--memory", "536870912", "--processes", "128", "--", "/bin/sh", "--memory", "1",
 	})
@@ -53,6 +57,8 @@ func TestShellArgsReadTheLimits(t *testing.T) {
 // back to them, the process limit holding forwarderTasks more, since the
 // forwarder starts before it is set.
 func TestShellCommandRoundTrip(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, []string{ShellCommand, "--"}, shellCommand(Limits{}, 3))
 
 	args := shellCommand(Limits{CPUSeconds: 7, MemoryBytes: 1 << 30, OpenFiles: 64, Processes: 9}, 3)

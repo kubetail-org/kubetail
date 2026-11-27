@@ -32,6 +32,8 @@ import (
 // reversed, a resolver would read nil on the losing side of the race and report a
 // broken watch as a graceful end — the exact failure this type exists to prevent.
 func TestStreamRecordsTheReasonBeforeClosingFrames(t *testing.T) {
+	t.Parallel()
+
 	boom := errors.New("watch ended: too old")
 	s := NewStream(context.Background(), func(_ context.Context, out chan<- int) error {
 		out <- 1
@@ -44,6 +46,8 @@ func TestStreamRecordsTheReasonBeforeClosingFrames(t *testing.T) {
 }
 
 func TestStreamReportsNoErrorOnACleanEnd(t *testing.T) {
+	t.Parallel()
+
 	s := NewStream(context.Background(), func(context.Context, chan<- int) error { return nil })
 
 	testutil.WaitClosed(t, s.Frames, "the stream")
@@ -54,6 +58,8 @@ func TestStreamReportsNoErrorOnACleanEnd(t *testing.T) {
 // leaking the pump goroutine and the store watch behind it once per client disconnect —
 // and reporting nothing, since Frames never closes.
 func TestSendFrameGivesUpWhenTheConsumerIsGone(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -64,6 +70,8 @@ func TestSendFrameGivesUpWhenTheConsumerIsGone(t *testing.T) {
 // ends, so a pump that does not select on it blocks forever on its next send. A
 // cancelled watch is a teardown, not a failure, so Err stays nil.
 func TestStreamPumpEndsOnACancelledContext(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	s := NewStream(ctx, func(ctx context.Context, out chan<- int) error {
@@ -136,6 +144,8 @@ func pumpFrames[Spec, Status, Frame any](t *testing.T, w collectionWatch[Spec, S
 // before the first change. A consumer renders an empty state off it, so a collection
 // with nothing in it must still get one.
 func TestPumpEmitsTheSnapshotThenABookmark(t *testing.T) {
+	t.Parallel()
+
 	frames := pumpFrames(t, testWatch, []*beehive.Object[testSpec, testStatus]{{ID: 1}, {ID: 2}},
 		beehive.ObjectChange[testSpec, testStatus]{Type: beehive.Modified, ID: 1, Object: &beehive.Object[testSpec, testStatus]{ID: 1}},
 	)
@@ -149,6 +159,8 @@ func TestPumpEmitsTheSnapshotThenABookmark(t *testing.T) {
 // rather than folded: a frame with no entity is one a consumer discards anyway, and
 // building it would dereference the object that is missing.
 func TestPumpDropsAChangeWithNoObject(t *testing.T) {
+	t.Parallel()
+
 	frames := pumpFrames(t, testWatch, nil,
 		beehive.ObjectChange[testSpec, testStatus]{Type: beehive.Modified, ID: 7, Object: nil},
 	)
@@ -160,6 +172,8 @@ func TestPumpDropsAChangeWithNoObject(t *testing.T) {
 // A removal whose final row beehive could not decode carries no object, and nothing
 // later in the log mentions the id — so the departure is built from the change alone.
 func TestPumpReportsAnUndecodableDeparture(t *testing.T) {
+	t.Parallel()
+
 	frames := pumpFrames(t, testWatch, nil,
 		beehive.ObjectChange[testSpec, testStatus]{Type: beehive.Deleted, ID: 7, Object: nil},
 	)
@@ -171,6 +185,8 @@ func TestPumpReportsAnUndecodableDeparture(t *testing.T) {
 // A failing projection ends the stream with its reason rather than skipping the frame:
 // a consumer that silently missed one would hold a record that no later frame corrects.
 func TestPumpEndsOnAFailedProjection(t *testing.T) {
+	t.Parallel()
+
 	boom := errors.New("read owner: no such row")
 	failing := testWatch
 	failing.frame = func(CollectionWatchFrameType, *beehive.Object[testSpec, testStatus]) (testFrame, error) {
@@ -193,6 +209,8 @@ func TestPumpEndsOnAFailedProjection(t *testing.T) {
 // The pump ends by reporting why its source did, which is the only thing telling a dead
 // watch from a drained one — Frames closes either way.
 func TestPumpReportsWhyTheSourceDied(t *testing.T) {
+	t.Parallel()
+
 	boom := errors.New("watch ended: resource version too old")
 	changes := make(chan beehive.ObjectChange[testSpec, testStatus])
 	close(changes)
@@ -242,6 +260,8 @@ func takeBookmark(t *testing.T, p *parkedPump) {
 // it once per client disconnect, and says nothing about it — Frames never closes, so
 // there is no Err for anyone to read.
 func TestPumpEndsWhereverTheConsumerStopped(t *testing.T) {
+	t.Parallel()
+
 	obj := &beehive.Object[testSpec, testStatus]{ID: 1}
 
 	tests := map[string]struct {
@@ -286,6 +306,8 @@ func TestPumpEndsWhereverTheConsumerStopped(t *testing.T) {
 // A single-object watch whose id holds nothing yet is a snapshot of none, not a
 // failure: the record may still arrive, and the bookmark is what says so.
 func TestStreamOneBookmarksAnAbsentRecord(t *testing.T) {
+	t.Parallel()
+
 	changes := make(chan beehive.ObjectChange[testSpec, testStatus])
 	close(changes)
 
@@ -301,6 +323,8 @@ func TestStreamOneBookmarksAnAbsentRecord(t *testing.T) {
 // front of a user who has already navigated away, and suppress the transport's backoff
 // reset on the reconnect.
 func TestAStreamDropsWhateverAPumpEndsWithOnceItsContextIsDone(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -315,6 +339,8 @@ func TestAStreamDropsWhateverAPumpEndsWithOnceItsContextIsDone(t *testing.T) {
 // Only a cancellation is dropped. A pump that fails while its consumer is still there
 // carries the reason out — that is the whole point of the terminal error.
 func TestAStreamKeepsThePumpsErrorWhileTheConsumerIsStillThere(t *testing.T) {
+	t.Parallel()
+
 	boom := errors.New("the file will not read")
 
 	s := NewStream(context.Background(), func(context.Context, chan<- int) error { return boom })

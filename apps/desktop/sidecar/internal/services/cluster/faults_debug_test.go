@@ -30,6 +30,8 @@ import (
 // store=fail fails the open kubesync arms a cache with, which the cache reads as StoreFailed.
 // Every other reader keeps the real manager.
 func TestAStoreFaultFailsEveryCachesStore(t *testing.T) {
+	t.Parallel()
+
 	svc, err := New(openTestDB(t), testPaths(t), newTestKubeconfig(t), nil, WithFaults("store=fail"))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, svc.Close()) })
@@ -48,6 +50,8 @@ func TestAStoreFaultFailsEveryCachesStore(t *testing.T) {
 }
 
 func TestNoStoreFaultHandsKubesyncTheManager(t *testing.T) {
+	t.Parallel()
+
 	mgr := kubestore.NewManager(t.TempDir(), kubestore.Retention{})
 	t.Cleanup(func() { _ = mgr.Close() })
 

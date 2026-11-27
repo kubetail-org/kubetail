@@ -56,6 +56,8 @@ func errno(e unix.Errno) uint32 { return unix.SECCOMP_RET_ERRNO | uint32(e) }
 // A syscall of another architecture is killed, since its numbers mean other
 // calls; one of the build's own is allowed.
 func TestTheFilterKillsAnotherArchitecture(t *testing.T) {
+	t.Parallel()
+
 	other := uint32(unix.AUDIT_ARCH_X86_64)
 	if auditArch == unix.AUDIT_ARCH_X86_64 {
 		other = unix.AUDIT_ARCH_AARCH64
@@ -68,6 +70,8 @@ func TestTheFilterKillsAnotherArchitecture(t *testing.T) {
 // A socket is IP or refused: a Unix socket would reach a resolver, and vsock
 // the hypervisor, past the network namespace.
 func TestTheFilterAllowsOnlyAnIPSocket(t *testing.T) {
+	t.Parallel()
+
 	for _, family := range []uint64{unix.AF_UNIX, unix.AF_VSOCK, unix.AF_NETLINK, unix.AF_PACKET} {
 		assert.Equal(t, errno(unix.EPERM), verdict(t, auditArch, unix.SYS_SOCKET, family, unix.SOCK_STREAM), family)
 	}
@@ -80,6 +84,8 @@ func TestTheFilterAllowsOnlyAnIPSocket(t *testing.T) {
 // whatever it is connected to; a stream or seqpacket pair reaches its other
 // end alone.
 func TestTheFilterRefusesADatagramSocketPair(t *testing.T) {
+	t.Parallel()
+
 	for _, typ := range []uint64{unix.SOCK_DGRAM, unix.SOCK_DGRAM | unix.SOCK_CLOEXEC, unix.SOCK_RAW} {
 		assert.Equal(t, errno(unix.EPERM), verdict(t, auditArch, unix.SYS_SOCKETPAIR, unix.AF_UNIX, typ), typ)
 	}
@@ -91,6 +97,8 @@ func TestTheFilterRefusesADatagramSocketPair(t *testing.T) {
 // io_uring can open and connect a socket without calling socket, so it is
 // answered as a kernel without it.
 func TestTheFilterRefusesIOUring(t *testing.T) {
+	t.Parallel()
+
 	for _, nr := range []int{unix.SYS_IO_URING_SETUP, unix.SYS_IO_URING_ENTER, unix.SYS_IO_URING_REGISTER} {
 		assert.Equal(t, errno(unix.ENOSYS), verdict(t, auditArch, nr), nr)
 	}
@@ -100,6 +108,8 @@ func TestTheFilterRefusesIOUring(t *testing.T) {
 // behind a pointer the filter cannot read, so clone3 answers as a kernel
 // without it, and glibc falls back to clone.
 func TestTheFilterRefusesAUserNamespace(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, errno(unix.EPERM), verdict(t, auditArch, unix.SYS_UNSHARE, unix.CLONE_NEWUSER|unix.CLONE_NEWNS))
 	assert.Equal(t, errno(unix.EPERM), verdict(t, auditArch, unix.SYS_CLONE, unix.CLONE_NEWUSER))
 	assert.Equal(t, errno(unix.ENOSYS), verdict(t, auditArch, unix.SYS_CLONE3))
@@ -157,6 +167,8 @@ func shellCmd(argv ...string) *exec.Cmd {
 // Under sandbox-shell a process is refused a Unix or vsock socket and a
 // datagram pair, and keeps TCP and a stream pair.
 func TestTheShellCannotOpenAUnixOrVsockSocket(t *testing.T) {
+	t.Parallel()
+
 	cmd := shellCmd(os.Args[0])
 	cmd.Env = append(os.Environ(), "KUBETAIL_SANDBOX_TEST_HELPER=sockets")
 
@@ -169,6 +181,8 @@ func TestTheShellCannotOpenAUnixOrVsockSocket(t *testing.T) {
 // The filter holds whatever the shell starts: unshare cannot make a user
 // namespace.
 func TestTheShellCannotMakeAUserNamespace(t *testing.T) {
+	t.Parallel()
+
 	out, err := shellCmd("/bin/sh", "-c", "unshare -U true").CombinedOutput()
 
 	require.Error(t, err)
@@ -177,6 +191,8 @@ func TestTheShellCannotMakeAUserNamespace(t *testing.T) {
 
 // A shell launcher with no command is its own failure: 125 and one line.
 func TestTheShellRefusesBadArguments(t *testing.T) {
+	t.Parallel()
+
 	code, _, stderr := runInit(t, exec.Command(os.Args[0], ShellCommand))
 
 	assert.Equal(t, 125, code)
@@ -186,6 +202,8 @@ func TestTheShellRefusesBadArguments(t *testing.T) {
 // ShellMain refuses what it cannot run before it installs anything, so
 // these run in the test's own process.
 func TestShellMainRefusesBeforeItFilters(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, 125, ShellMain(nil))
 	assert.Equal(t, 125, ShellMain([]string{"--", "/nonexistent/shell"}))
 }
@@ -193,6 +211,8 @@ func TestShellMainRefusesBeforeItFilters(t *testing.T) {
 // The filter assembles into one socket filter instruction per BPF one, the
 // shape the kernel loads.
 func TestTheFilterAssembles(t *testing.T) {
+	t.Parallel()
+
 	got, err := assemble(filter())
 
 	require.NoError(t, err)
@@ -203,6 +223,8 @@ func TestTheFilterAssembles(t *testing.T) {
 // A program that does not assemble is refused before the kernel is asked, so
 // this runs in the test's own process.
 func TestAProgramThatDoesNotAssembleIsNotInstalled(t *testing.T) {
+	t.Parallel()
+
 	bad := []bpf.Instruction{bpf.LoadAbsolute{Off: 0, Size: 3}}
 
 	_, err := assemble(bad)
@@ -226,6 +248,8 @@ func limitOf(t *testing.T, limits, name string) string {
 // sandbox-shell sets the memory and process limits on what it execs, and
 // everything that starts.
 func TestTheShellAppliesItsLimits(t *testing.T) {
+	t.Parallel()
+
 	p := strconv.Itoa(ownProcesses(t))
 	cmd := exec.Command(os.Args[0], ShellCommand, "--memory", "536870912", "--processes", p, "--", "/bin/sh", "-c", "cat /proc/self/limits")
 
@@ -239,6 +263,8 @@ func TestTheShellAppliesItsLimits(t *testing.T) {
 // A command the kernel will not exec under the limits is sandbox-shell's
 // failure, written without allocating: the line, the errno, and 125.
 func TestAShellThatCannotExecUnderLimitsSaysWhy(t *testing.T) {
+	t.Parallel()
+
 	garbage := filepath.Join(t.TempDir(), "garbage")
 	require.NoError(t, os.WriteFile(garbage, []byte{0, 1, 2, 3}, 0o700))
 	p := strconv.Itoa(ownProcesses(t))
@@ -252,6 +278,8 @@ func TestAShellThatCannotExecUnderLimitsSaysWhy(t *testing.T) {
 // Tracing is refused: attaching, reading or writing another process's memory,
 // taking its descriptors, or comparing kernel objects with it.
 func TestTheFilterRefusesTracing(t *testing.T) {
+	t.Parallel()
+
 	for _, nr := range []int{unix.SYS_PTRACE, unix.SYS_PROCESS_VM_READV, unix.SYS_PROCESS_VM_WRITEV,
 		unix.SYS_PIDFD_GETFD, unix.SYS_KCMP, unix.SYS_PROCESS_MADVISE} {
 		assert.Equal(t, errno(unix.EPERM), verdict(t, auditArch, nr), nr)
@@ -288,6 +316,8 @@ func outside(t *testing.T, helper string) {
 }
 
 func TestTheShellCannotTraceAProcess(t *testing.T) {
+	t.Parallel()
+
 	outside(t, "trace")
 	cmd := shellCmd(os.Args[0])
 	cmd.Env = append(os.Environ(), "KUBETAIL_SANDBOX_TEST_HELPER=trace")
@@ -299,6 +329,8 @@ func TestTheShellCannotTraceAProcess(t *testing.T) {
 }
 
 func TestTheFilterRefusesTheKeyring(t *testing.T) {
+	t.Parallel()
+
 	for _, nr := range []int{unix.SYS_KEYCTL, unix.SYS_ADD_KEY, unix.SYS_REQUEST_KEY} {
 		assert.Equal(t, errno(unix.EPERM), verdict(t, auditArch, nr), nr)
 	}
@@ -319,6 +351,8 @@ func init() {
 }
 
 func TestTheShellCannotReadTheKeyring(t *testing.T) {
+	t.Parallel()
+
 	outside(t, "keyring")
 	cmd := shellCmd(os.Args[0])
 	cmd.Env = append(os.Environ(), "KUBETAIL_SANDBOX_TEST_HELPER=keyring")
@@ -338,6 +372,8 @@ var mountSyscalls = []int{
 // No run mounts anything, so a capability that slipped through unmounts
 // nothing.
 func TestTheFilterRefusesMounts(t *testing.T) {
+	t.Parallel()
+
 	for _, nr := range mountSyscalls {
 		assert.Equal(t, errno(unix.EPERM), verdict(t, auditArch, nr), nr)
 	}

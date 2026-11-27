@@ -87,6 +87,7 @@ export PATH="/opt/kubetail-test/bin:$PATH"
 // The snapshot holds the profile's functions, aliases and PATH, and none of what
 // its rc files print.
 func TestTheSnapshotHoldsTheProfile(t *testing.T) {
+	// profileTool sets $HOME and $SHELL on the process, so this test stays serial.
 	for _, kind := range shells {
 		t.Run(kind, func(t *testing.T) {
 			snap := snapshotOf(t, profileTool(t, kind, profile))
@@ -102,6 +103,7 @@ func TestTheSnapshotHoldsTheProfile(t *testing.T) {
 // denied-always list included, writes nothing but a TMPDIR under the tool's,
 // reaches no network, and holds nothing the sandbox refuses to pass.
 func TestTheSnapshotIsTakenInTheSandbox(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	tl := profileTool(t, "bash", profile)
 	sb := &fakeSandboxer{never: []string{"/never"}}
 	tl.sandboxer = sb
@@ -131,6 +133,7 @@ func TestTheSnapshotIsTakenInTheSandbox(t *testing.T) {
 // replayed: monitor above all, which would move a command's background jobs out
 // of its process group. Nor are global aliases, which expand anywhere in a line.
 func TestTheSnapshotLeavesOutStartupOptionsAndGlobalAliases(t *testing.T) {
+	// profileTool sets $HOME and $SHELL on the process, so this test stays serial.
 	snap := snapshotOf(t, profileTool(t, "zsh", "setopt monitor\nalias -g G='| grep'\n"))
 	for _, option := range []string{"interactive", "login", "monitor", "zle", "shinstdin"} {
 		assert.False(t, strings.Contains(snap, "setopt "+option+"\n"), "holds %q", "setopt "+option+"\n")
@@ -141,6 +144,7 @@ func TestTheSnapshotLeavesOutStartupOptionsAndGlobalAliases(t *testing.T) {
 
 // bash's read-only options are not replayed either.
 func TestTheBashSnapshotLeavesOutReadOnlyOptions(t *testing.T) {
+	// profileTool sets $HOME and $SHELL on the process, so this test stays serial.
 	snap := snapshotOf(t, profileTool(t, "bash", ""))
 	assert.False(t, strings.Contains(snap, "login_shell"), "holds %q", "login_shell")
 	assert.False(t, strings.Contains(snap, "restricted_shell"), "holds %q", "restricted_shell")
@@ -151,6 +155,7 @@ func TestTheBashSnapshotLeavesOutReadOnlyOptions(t *testing.T) {
 // to its text. Each shadowing name here prints broken2 when it runs; the
 // definitions only ever show the unexpanded $((1+1)).
 func TestTheDumpIgnoresTheProfilesNames(t *testing.T) {
+	// profileTool sets $HOME and $SHELL on the process, so this test stays serial.
 	shadows := map[string]string{
 		"bash": `alias builtin='echo broken$((1+1)); true '
 alias printf='echo broken$((1+1))'
@@ -180,6 +185,7 @@ setopt() { echo broken$((1+1)); }
 // The snapshot runs before every command, so it is the owner's alone, and
 // read-only: nothing appends to it by accident.
 func TestTheSnapshotIsReadOnly(t *testing.T) {
+	// profileTool sets $HOME and $SHELL on the process, so this test stays serial.
 	tl := profileTool(t, "bash", profile)
 	snapshotOf(t, tl)
 	info, err := os.Stat(tl.snapshot)
@@ -219,6 +225,7 @@ func alive(cmd *exec.Cmd) bool {
 // kill and pkill refuse the sidecar and the host, whatever the profile aliased
 // them to, and pass everything else through.
 func TestTheKillShimsRefuseKubetail(t *testing.T) {
+	// profileTool sets $HOME and $SHELL on the process, so this test stays serial.
 	rt := testRuntime(t)
 	if _, err := exec.LookPath("pgrep"); err != nil {
 		t.Skip("no pgrep on this machine")
@@ -289,6 +296,7 @@ func TestTheKillShimsRefuseKubetail(t *testing.T) {
 // A profile under kshoptionprint, where setopt lists every option beside on or
 // off, still replays as the options it had: a command runs and says so.
 func TestTheZshSnapshotReadsOptionsUnderKshOptionPrint(t *testing.T) {
+	// profileTool sets $HOME and $SHELL on the process, so this test stays serial.
 	rt := testRuntime(t)
 	tl := profileTool(t, "zsh", "setopt kshoptionprint\n")
 	snap := snapshotOf(t, tl)
@@ -302,6 +310,7 @@ func TestTheZshSnapshotReadsOptionsUnderKshOptionPrint(t *testing.T) {
 // else: the file holds the shims alone and a command runs. The shrunk timeout is
 // the assertion, not a wait: only it can end the hanging shell.
 func TestAFailedSnapshotOffersTheToolAnyway(t *testing.T) {
+	// profileTool sets $HOME and $SHELL on the process, so this test stays serial.
 	rt := testRuntime(t)
 	for name, rc := range map[string]string{
 		"hangs":  "sleep 300\n",
@@ -322,6 +331,7 @@ func TestAFailedSnapshotOffersTheToolAnyway(t *testing.T) {
 // A command runs with the profile's functions, aliases and PATH, as it would in
 // the user's terminal.
 func TestACommandSeesTheProfile(t *testing.T) {
+	// profileTool sets $HOME and $SHELL on the process, so this test stays serial.
 	rt := testRuntime(t)
 	for _, kind := range shells {
 		t.Run(kind, func(t *testing.T) {
@@ -340,6 +350,7 @@ func TestACommandSeesTheProfile(t *testing.T) {
 // A relative PATH entry means the directory the profile ended in, not the home a
 // command runs in, and an empty one is dropped.
 func TestTheSnapshotResolvesARelativePathEntry(t *testing.T) {
+	// profileTool sets $HOME and $SHELL on the process, so this test stays serial.
 	rt := testRuntime(t)
 	rc := `mkdir -p ~/tools/bin
 printf '#!/bin/sh\necho found\n' > ~/tools/bin/kubetail-tool
@@ -367,6 +378,7 @@ export PATH="bin:$PATH:"
 // own. zsh refuses monitor without a terminal, so this guards a run that has
 // one.
 func TestRunKillsWhatACommandLeftBehindUnderZsh(t *testing.T) {
+	// profileTool sets $HOME and $SHELL on the process, so this test stays serial.
 	rt := testRuntime(t)
 	tl := profileTool(t, "zsh", "setopt monitor\n")
 	snapshotOf(t, tl)
@@ -394,6 +406,8 @@ func heldLaunch(release <-chan struct{}, dump string) func(context.Context) ([]b
 // with the profile; a cancelled call stops waiting. The hook fires as a call
 // begins to wait, which is when the test lets the snapshot land.
 func TestACallWaitsForTheSnapshot(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := tool(t)
 	release := make(chan struct{})
@@ -421,6 +435,8 @@ func TestACallWaitsForTheSnapshot(t *testing.T) {
 // A dump that arrives without its frame is no dump: the file holds the shims
 // alone.
 func TestAnUnframedDumpLeavesTheShimsAlone(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	tl.launch = func(context.Context) ([]byte, string, int) {
 		return []byte("greet() { echo hi; }\n"), "", 0
@@ -432,6 +448,7 @@ func TestAnUnframedDumpLeavesTheShimsAlone(t *testing.T) {
 // command runs in home and a relative path would not find the file. A removed
 // working directory is the one way to make that resolution fail.
 func TestWriteSnapshotNeedsAnAbsolutePath(t *testing.T) {
+	// t.Chdir changes the process's working directory, so this test stays serial.
 	gone := filepath.Join(t.TempDir(), "gone")
 	require.NoError(t, os.Mkdir(gone, 0o700))
 	t.Chdir(gone)
@@ -442,6 +459,8 @@ func TestWriteSnapshotNeedsAnAbsolutePath(t *testing.T) {
 
 // A snapshot that cannot be written is left out, and a command runs without it.
 func TestASnapshotThatCannotBeWrittenIsLeftOut(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := tool(t)
 	tl.scripts = filepath.Join(t.TempDir(), "a-file")
@@ -462,6 +481,8 @@ func closed() chan struct{} {
 
 // A tool whose snapshot was never started runs at once.
 func TestACallDoesNotWaitForASnapshotNeverStarted(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := tool(t)
 	tl.onSnapshotWait = func() { t.Error("a call waited on a snapshot nobody started") }
@@ -472,6 +493,8 @@ func TestACallDoesNotWaitForASnapshotNeverStarted(t *testing.T) {
 
 // Stopping the snapshot ends the shell and writes nothing.
 func TestStoppingTheSnapshotWritesNothing(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	tl.launch = heldLaunch(make(chan struct{}), "")
 	stop, err := tl.StartSnapshot(t.Context())
@@ -487,6 +510,7 @@ func TestStoppingTheSnapshotWritesNothing(t *testing.T) {
 // before it returns, so no shell outlives the sidecar. The rc names its own pid
 // before it hangs, and the test waits for that file rather than for time.
 func TestStoppingTheSnapshotReapsTheShell(t *testing.T) {
+	// profileTool sets $HOME and $SHELL on the process, so this test stays serial.
 	pidFile := filepath.Join(t.TempDir(), "shell.pid")
 	tl := profileTool(t, "bash", "echo $$ > '"+pidFile+"'\nsleep 300\n")
 	stop, err := tl.StartSnapshot(t.Context())
@@ -509,6 +533,7 @@ func TestStoppingTheSnapshotReapsTheShell(t *testing.T) {
 // a snapshot that fails to parse stops sourcing there, losing everything after
 // it: the options are restored ahead of the functions.
 func TestAnExtglobFunctionSurvivesTheSnapshot(t *testing.T) {
+	// profileTool sets $HOME and $SHELL on the process, so this test stays serial.
 	rt := testRuntime(t)
 	rc := "shopt -s extglob\nisnum() { case \"$1\" in +([0-9])) echo num ;; *) echo not ;; esac; }\n" + profile
 	tl := profileTool(t, "bash", rc)
@@ -520,6 +545,7 @@ func TestAnExtglobFunctionSurvivesTheSnapshot(t *testing.T) {
 
 // The snapshot is written in the shell directory the tool is handed.
 func TestTheSnapshotIsInItsShellDirectory(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	t.Setenv("SHELL", "")
 	shell := filepath.Join(t.TempDir(), "shell")
 	tl, ok := New(Paths{ShellDir: shell}, 0, nil, nil, nil, nil, Cloud{})
@@ -534,6 +560,8 @@ func TestTheSnapshotIsInItsShellDirectory(t *testing.T) {
 // A sandboxed run sources no snapshot and its policy does not read one: a
 // function the profile defined is not there.
 func TestASandboxedRunSourcesNoSnapshot(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := tool(t)
 	tl.launch = heldLaunch(closed(), "greet() { echo hi; }\n")
@@ -555,6 +583,8 @@ func TestASandboxedRunSourcesNoSnapshot(t *testing.T) {
 // A sandboxed call and a sandboxed background call run while the snapshot is
 // still being taken: neither waits for it.
 func TestASandboxedRunDoesNotWaitForTheSnapshot(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := tool(t)
 	tl.launch = heldLaunch(make(chan struct{}), "")
@@ -578,6 +608,8 @@ func TestASandboxedRunDoesNotWaitForTheSnapshot(t *testing.T) {
 // On a machine with a sandbox no snapshot is taken at start. The first runs
 // outside it take it once, and every one of them waits for it.
 func TestTheSnapshotIsTakenOnTheFirstRunOutside(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	rt.Session.Outside = true
 	tl := tool(t)
@@ -615,6 +647,8 @@ func TestTheSnapshotIsTakenOnTheFirstRunOutside(t *testing.T) {
 // The stop cancels a snapshot a run outside started and returns once its
 // shell is reaped; with none started it returns at once.
 func TestTheStopReapsASnapshotStartedLate(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	rt.Session.Outside = true
 	tl := tool(t)
@@ -650,6 +684,8 @@ func TestTheStopReapsASnapshotStartedLate(t *testing.T) {
 // Once the stop has returned, a first run outside the sandbox starts no
 // shell and runs without a snapshot.
 func TestNoSnapshotStartsAfterTheStop(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	rt.Session.Outside = true
 	tl := tool(t)
@@ -671,6 +707,7 @@ func TestNoSnapshotStartsAfterTheStop(t *testing.T) {
 // The snapshot's shell sees the process's environment, as a command outside the
 // sandbox does: only the PATH resolution's is scrubbed.
 func TestTheSnapshotKeepsTheProcessEnvironment(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	for _, kind := range shells {
 		t.Run(kind, func(t *testing.T) {
 			t.Setenv("KUBETAIL_TEST_PROCESS_VAR", "kept")

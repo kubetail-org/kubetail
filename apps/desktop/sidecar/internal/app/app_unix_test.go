@@ -75,6 +75,7 @@ func TestMain(m *testing.M) {
 // Where the probe passes, Bash is offered through the sandbox, and its schema
 // has no way out of it. Without one, testutil.RequireSandbox decides.
 func TestBashIsOfferedWithTheSandbox(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	sb, v, err := sandbox.Probe(t.Context())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sb.Close() })
@@ -100,6 +101,7 @@ func TestBashIsOfferedWithTheSandbox(t *testing.T) {
 // test clears it and points PATH at a directory it controls. Read, Memory and Write come
 // after bash, then TaskStop, which only a bash has tasks for.
 func TestBashIsOfferedWhenItIsFound(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	t.Setenv("SHELL", "")
 	withBash := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(withBash, "bash"), []byte("#!/bin/sh\n"), 0o755))
@@ -118,6 +120,7 @@ func TestBashIsOfferedWhenItIsFound(t *testing.T) {
 // The approval request draws what a gated call does, so every gated tool's calls
 // are of a kind it can draw.
 func TestEveryGatedToolCanBeShown(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	t.Setenv("SHELL", "")
 	withBash := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(withBash, "bash"), []byte("#!/bin/sh\n"), 0o755))
@@ -147,6 +150,7 @@ func TestEveryGatedToolCanBeShown(t *testing.T) {
 // does: a test's app never spawns the developer's login shell. It comes last, so
 // its stop runs first.
 func TestAppTakesTheSnapshotOnlyWhenAsked(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	withBash := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(withBash, "bash"), []byte("#!/bin/sh\n"), 0o755))
 	t.Setenv("SHELL", "")
@@ -167,6 +171,8 @@ func TestAppTakesTheSnapshotOnlyWhenAsked(t *testing.T) {
 // A sandboxed read of the chat's cluster runs as the model asks for it: no one
 // is asked, and the row says the sandbox confined it.
 func TestASandboxedReadRunsUnasked(t *testing.T) {
+	t.Parallel()
+
 	e := startE2E(t)
 
 	e.ask(t, "how many pods", llm.StagedCall("Bash", bashInput("kubectl get pods -o json | jq '.items | length'")))
@@ -181,6 +187,8 @@ func TestASandboxedReadRunsUnasked(t *testing.T) {
 
 // A variable the user set in Settings reaches a sandboxed command.
 func TestAStoredVariableReachesASandboxedCommand(t *testing.T) {
+	t.Parallel()
+
 	e := startE2E(t)
 	raw := graphql(t, e.url, `mutation { envVarSet(name: "HELM_NAMESPACE", value: "apps", target: Sandbox) { name } }`)
 	require.Contains(t, raw, `"name":"HELM_NAMESPACE"`, raw)
@@ -196,6 +204,8 @@ func TestAStoredVariableReachesASandboxedCommand(t *testing.T) {
 // A delete from the sandbox waits for the user on one request showing the
 // DELETE, reaches the cluster once approved, and the command reads its answer.
 func TestASandboxedDeleteAsksAndRuns(t *testing.T) {
+	t.Parallel()
+
 	e := startE2E(t)
 
 	e.ask(t, "delete pod x", llm.StagedCall("Bash", bashInput("kubectl delete pod x --wait=false")))
@@ -222,6 +232,8 @@ func TestASandboxedDeleteAsksAndRuns(t *testing.T) {
 // folders granted always: a read of the cluster runs, and a delete is refused
 // and never reaches it, since nobody is there to ask.
 func TestTheSandboxConsoleReadsTheClusterAndChangesNothing(t *testing.T) {
+	t.Parallel()
+
 	e := startE2E(t)
 	granted := testutil.GrantableDir(t)
 	require.NoError(t, os.WriteFile(filepath.Join(granted, "note"), []byte("granted\n"), 0o600))
@@ -279,6 +291,8 @@ func TestTheSandboxConsoleReadsTheClusterAndChangesNothing(t *testing.T) {
 
 // A denied delete comes back Forbidden and never reaches the cluster.
 func TestASandboxedDeleteDeniedIsForbidden(t *testing.T) {
+	t.Parallel()
+
 	e := startE2E(t)
 
 	e.ask(t, "delete pod x", llm.StagedCall("Bash", bashInput("kubectl delete pod x --wait=false")))
@@ -300,6 +314,8 @@ func TestASandboxedDeleteDeniedIsForbidden(t *testing.T) {
 // test fires the deadline once the write waits, so how long kubectl takes to
 // start never decides it.
 func TestACallTimingOutWhileAWriteWaits(t *testing.T) {
+	t.Parallel()
+
 	deadline := make(chan time.Time)
 	e := startE2E(t, func(cfg *Config) {
 		cfg.callDeadline = func(time.Duration) <-chan time.Time { return deadline }
@@ -322,6 +338,8 @@ func TestACallTimingOutWhileAWriteWaits(t *testing.T) {
 // The same change in a chat the user switched outside the sandbox waits for
 // the user, and a denial runs nothing.
 func TestASwitchedChatAsks(t *testing.T) {
+	t.Parallel()
+
 	e := startE2E(t)
 	chatID := e.ask(t, "switch this chat")
 	raw := graphql(t, e.url, `mutation { chatSandboxDisabledSet(id: "`+chatID+`", sandboxDisabled: true) { sandboxDisabled } }`)
@@ -344,6 +362,8 @@ func TestASwitchedChatAsks(t *testing.T) {
 
 // A subagent's sandboxed call runs unasked, as its parent's does.
 func TestASubagentsSandboxedCallRunsUnasked(t *testing.T) {
+	t.Parallel()
+
 	e := startE2E(t)
 	e.fake.Route("count the pods").SetToolCalls(
 		llm.StagedCall("Bash", bashInput("kubectl get pods -o json | jq '.items | length'")))
@@ -362,6 +382,7 @@ func TestASubagentsSandboxedCallRunsUnasked(t *testing.T) {
 // machine with a sandbox, from the launch's one run of the shell; with none
 // read there is nothing to store.
 func TestTheLaunchRunsTheShellOnce(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	requireSandbox(t)
 	t.Setenv("SHELL", "")
 	withBash := t.TempDir()
@@ -392,6 +413,7 @@ func TestTheLaunchRunsTheShellOnce(t *testing.T) {
 // A launch whose shell answers no usable PATH, as either reader answers an
 // empty one, keeps the PATH an earlier launch stored.
 func TestAnEmptyShellPathKeepsTheLastRow(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	requireSandbox(t)
 	t.Setenv("SHELL", "")
 	data := t.TempDir()
@@ -431,6 +453,7 @@ func countProbes(t *testing.T) (count *atomic.Int32, probed **sandbox.Sandbox) {
 // New probes the sandbox once, for the login shell and the bash tool alike,
 // and runs the login shell once wherever the platform reads its answer.
 func TestTheSandboxIsProbedOnce(t *testing.T) {
+	// countProbes swaps the package's probeSandbox, so this test stays serial.
 	probes, probed := countProbes(t)
 	launches := stubLaunch(t, loginshell.Result{Path: []string{"/usr/bin"}}, nil)
 
@@ -470,6 +493,8 @@ func (s *refusingSandbox) System(string, string) sandbox.System { return sandbox
 // policy: the denied-always list, as it stands at each refresh, and Kubetail's
 // directories shut.
 func TestTheRefreshRunsInTheSandbox(t *testing.T) {
+	t.Parallel()
+
 	store, err := settings.Open(appdbtest.Open(t))
 	require.NoError(t, err)
 	sb := &refusingSandbox{never: []string{"/never"}}
@@ -491,6 +516,7 @@ func TestTheRefreshRunsInTheSandbox(t *testing.T) {
 // A context that ends during startup stops New before the login shell runs,
 // so a probe a quit cut short never stands for no sandbox.
 func TestNewStopsWhenItsContextEnds(t *testing.T) {
+	// stubLaunch swaps the package's resolveShell, so this test stays serial.
 	launches := stubLaunch(t, loginshell.Result{Path: []string{"/usr/bin"}}, nil)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -505,6 +531,7 @@ func TestNewStopsWhenItsContextEnds(t *testing.T) {
 // New asks the login shell for every provider key and lists the providers it
 // sets; a key the launch environment set wins.
 func TestNewTakesTheProviderKeysTheShellSets(t *testing.T) {
+	// It swaps the package's resolveShell, so this test stays serial.
 	requireSandbox(t)
 	t.Cleanup(safe.ResetSecrets)
 	var asked []string
@@ -540,6 +567,8 @@ func TestNewTakesTheProviderKeysTheShellSets(t *testing.T) {
 
 // A quit during the sandbox probe fails the build and releases the lock.
 func TestAQuitDuringTheProbeReleasesTheLock(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	cfg := withDirs(t, Config{})
@@ -633,6 +662,8 @@ func (f *fakeCloud) Mount(_ context.Context, run bash.CloudRun) (bash.CloudMount
 // cloud platform unasked, and its change waits on one request and reaches the
 // upstream once approved; with the switch off the route is the door's 401.
 func TestASandboxedCommandReachesACloudPlatformThroughTheDoor(t *testing.T) {
+	t.Parallel()
+
 	cloud := newFakeCloud(t)
 	e := startE2E(t, func(c *Config) { c.cloudPlatforms = []bash.CloudPlatform{cloud} })
 	raw := graphql(t, e.url, `mutation { sandboxCloudAccessSet(target: AWS, on: true) { target on } }`)
@@ -779,6 +810,8 @@ func startAzureE2E(t *testing.T, arm *fakeARM) *e2e {
 
 // az reads Resource Manager in the sandbox across a paged answer, unasked.
 func TestAzListsInTheSandbox(t *testing.T) {
+	t.Parallel()
+
 	arm := newFakeARM(t)
 	e := startAzureE2E(t, arm)
 	e.ask(t, "list azure", llm.StagedCall("Bash", bashInput(`az aks list --query '[].name' -o tsv && az vm list --query '[].name' -o tsv`)))
@@ -792,6 +825,8 @@ func TestAzListsInTheSandbox(t *testing.T) {
 // A resource group delete waits on one request; denied, az fails and Azure
 // sees no DELETE.
 func TestAnAzChangeAsks(t *testing.T) {
+	t.Parallel()
+
 	arm := newFakeARM(t)
 	e := startAzureE2E(t, arm)
 	e.ask(t, "delete azure group", llm.StagedCall("Bash", bashInput(`az group delete -n rg --yes`)))
@@ -814,6 +849,8 @@ func TestAnAzChangeAsks(t *testing.T) {
 // Approved, the delete reaches Azure once and az polls its result through
 // the door to the end.
 func TestAnApprovedAzChangePollsToItsEnd(t *testing.T) {
+	t.Parallel()
+
 	arm := newFakeARM(t)
 	e := startAzureE2E(t, arm)
 	e.ask(t, "delete azure group for real", llm.StagedCall("Bash", bashInput(`az group delete -n rg --yes && echo deleted`)))
@@ -834,6 +871,8 @@ func TestAnApprovedAzChangePollsToItsEnd(t *testing.T) {
 // One run holds the cluster and Azure: kubectl and az each read, and no
 // variable is set two ways.
 func TestAzureBesideTheCluster(t *testing.T) {
+	t.Parallel()
+
 	arm := newFakeARM(t)
 	e := startAzureE2E(t, arm)
 	e.ask(t, "kubectl and az", llm.StagedCall("Bash", bashInput(
@@ -861,6 +900,8 @@ func (awsLogin) Region() string { return "eu-west-1" }
 // once approved, signed with the user's credentials; kubectl still reads the
 // cluster. With the switch off the run holds no AWS variable.
 func TestASandboxedCommandReachesAWS(t *testing.T) {
+	t.Parallel()
+
 	// Each request AWS got: its host, its body and who signed it.
 	seen := make(chan string, 8)
 	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -914,6 +955,8 @@ func TestASandboxedCommandReachesAWS(t *testing.T) {
 // cluster, and a push waits on one request and lands once approved. The run
 // starting at all says no two cloud platforms set one variable two ways.
 func TestASandboxedGitReachesGitHubThroughTheDoor(t *testing.T) {
+	t.Parallel()
+
 	origin, repo := testutil.GitOrigin(t)
 	cloud := newFakeCloud(t)
 	github := bash.NewGitHub(knownTokens("gho_theUsersOwnGitHubToken0001"), githubproxy.Upstreams{
@@ -1005,6 +1048,8 @@ func googleOn(t *testing.T, g *fakeGoogle) *e2e {
 }
 
 func TestASandboxedGCPReadRunsUnasked(t *testing.T) {
+	t.Parallel()
+
 	g := newFakeGoogle(t)
 	e := googleOn(t, g)
 
@@ -1019,6 +1064,8 @@ func TestASandboxedGCPReadRunsUnasked(t *testing.T) {
 }
 
 func TestASandboxedGCPChangeAsks(t *testing.T) {
+	t.Parallel()
+
 	g := newFakeGoogle(t)
 	e := googleOn(t, g)
 
@@ -1040,6 +1087,8 @@ func TestASandboxedGCPChangeAsks(t *testing.T) {
 // With the switch turned off, a run mounts nothing: the route is the door's
 // 401, and gcloud's helper never runs.
 func TestGCPOffServesNothing(t *testing.T) {
+	t.Parallel()
+
 	g := newFakeGoogle(t)
 	e := startE2E(t, func(c *Config) { c.cloudPlatforms = []bash.CloudPlatform{g.cloudPlatform()} })
 	raw := graphql(t, e.url, `mutation { sandboxCloudAccessSet(target: GCP, on: false) { target on } }`)

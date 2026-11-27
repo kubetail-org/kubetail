@@ -52,6 +52,8 @@ func cpuSeconds(pid string) float64 {
 // process that ignores the signal runs on. This pins that residual: the day
 // macOS kills it at the hard limit, the test fails and the residual comes off.
 func TestAnIgnoredSIGXCPUOutlivesTheLimit(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	r := m.on(s)
@@ -86,6 +88,8 @@ func deniedAt(t *testing.T, p Policy) []string {
 // A Read granted in the disk's spelling reaches a denied-always path whose
 // link spells it in another case, so its Deny is compiled.
 func TestADenyLinkedInAnotherCaseIsCompiled(t *testing.T) {
+	t.Parallel()
+
 	folder, link := linkInAnotherCase(t)
 	p := Policy{
 		Files:  FilePolicy{Read: []string{filepath.Dir(folder)}},
@@ -98,6 +102,8 @@ func TestADenyLinkedInAnotherCaseIsCompiled(t *testing.T) {
 // A Kubetail root linked in another case, as a dotfiles-managed config folder
 // can be, is denied under a Read granted in the disk's spelling.
 func TestAKubetailRootLinkedInAnotherCaseIsDenied(t *testing.T) {
+	t.Parallel()
+
 	folder, link := linkInAnotherCase(t)
 	p := Policy{
 		Files:  FilePolicy{Read: []string{filepath.Dir(folder)}},
@@ -110,6 +116,8 @@ func TestAKubetailRootLinkedInAnotherCaseIsDenied(t *testing.T) {
 // Check compares in the disk's spelling: a Read on a Kubetail root that a link
 // spells in another case lies on a path no rule opens.
 func TestCheckRefusesAReadOnAKubetailRootLinkedInAnotherCase(t *testing.T) {
+	t.Parallel()
+
 	folder, link := linkInAnotherCase(t)
 	p := Policy{
 		Files:  FilePolicy{Read: []string{folder}},
@@ -122,6 +130,8 @@ func TestCheckRefusesAReadOnAKubetailRootLinkedInAnotherCase(t *testing.T) {
 // Outside compares in the disk's spelling: a Read inside a path that a link
 // spells in another case is dropped.
 func TestOutsideDropsARuleInsideAPathLinkedInAnotherCase(t *testing.T) {
+	t.Parallel()
+
 	folder, link := linkInAnotherCase(t)
 	f := FilePolicy{Read: []string{folder, filepath.Dir(folder)}}
 
@@ -131,12 +141,16 @@ func TestOutsideDropsARuleInsideAPathLinkedInAnotherCase(t *testing.T) {
 // A toolchain or shell folder that is the home in another case would compile
 // to a Read on the home.
 func TestAFolderLinkedInAnotherCaseIsBroad(t *testing.T) {
+	t.Parallel()
+
 	folder, link := linkInAnotherCase(t)
 
 	assert.True(t, isBroad(link, broadDirs(folder)))
 }
 
 func TestAPathEntryLinkedInAnotherCaseIsBroad(t *testing.T) {
+	t.Parallel()
+
 	folder, link := linkInAnotherCase(t)
 
 	_, _, reason := SearchFolder(link, nil, Broad(folder))

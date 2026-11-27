@@ -29,6 +29,8 @@ import (
 
 // Every rule a run's policy holds a PATH folder to, each its own reason.
 func TestSearchFolderRefusesWhatARunCannotSearch(t *testing.T) {
+	t.Parallel()
+
 	base := realpath.Resolved(t.TempDir())
 	ok := mkdirs(t, base, "bin")[0]
 	denied := mkdirs(t, base, "denied")[0]
@@ -91,6 +93,8 @@ func TestSearchFolderRefusesWhatARunCannotSearch(t *testing.T) {
 // The folders are real, since a Deny is resolved before it is compared: a
 // fixed path such as /home/... resolves elsewhere on macOS.
 func TestWithSearchOpensTheFolderItself(t *testing.T) {
+	t.Parallel()
+
 	base := realpath.Resolved(t.TempDir())
 	downloads := filepath.Join(base, "Downloads")
 	documents := filepath.Join(base, "Documents")
@@ -107,6 +111,8 @@ func TestWithSearchOpensTheFolderItself(t *testing.T) {
 // The kernel follows a link before the .. after it, so the entry names the
 // folder beside the link's target, not the one beside the link.
 func TestSearchFolderFollowsALinkBeforeDotDot(t *testing.T) {
+	t.Parallel()
+
 	base := realpath.Resolved(t.TempDir())
 	dirs := mkdirs(t, base, "bin", "versions/bin", "versions/v1")
 	beside, target := dirs[1], dirs[2]

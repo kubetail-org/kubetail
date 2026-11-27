@@ -27,6 +27,8 @@ import (
 
 // Logs linked out of the state keep an entry of their own, as their target.
 func TestLogsLinkedOutOfTheStateAreFencedAtTheirTarget(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	n := linuxNamed(root)
 	target := filepath.Join(root, "mnt", "logs")

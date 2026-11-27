@@ -50,7 +50,7 @@ What the desktop adds to the root *Testing conventions*. → [ADR: test conventi
 - **How a test waits.** TypeScript: `vi.useFakeTimers()` with `advanceTimersByTimeAsync`, `await waitFor(...)`, or a `flush()`/`act` helper. Go: a channel, through `testutil.Probe`/`Signal`, `testutil.Recv`/`Wait`, or `require.Eventually`. Rust: `#[tokio::test(start_paused = true)]` (`connect_retries_until_endpoint_appears` in `src-tauri/src/services/sidecar/ipc.rs`).
 - **A negative assertion's window is a multiple of the (shrunk) cadence**, and its baseline is sampled off the same channel, never by polling a counter.
 - **In Go, split a partly platform-specific test rather than skip it** (`atomicjson`'s `TestSaveCreatesMissingDirs` / `TestSaveIsOwnerOnly`). Unix paths (`/tmp`) and rename-over-open-file belong to the Unix half. Wait out a stray goroutine through the unit's test seam (`write`'s `TestWriteSetsTheStamp`).
-- **`agent/chat`, `kubestore` and `kubeconn` call `t.Parallel()` in every test**; one that must touch process state (`t.Setenv`, `syscall.Umask`) stays serial and says why.
+- **`agent/chat`, `app`, `run/sandbox`, `tools/bash`, `services/cluster` and its `kubesync`, `kubestore` and `kubeconn` call `t.Parallel()` in every test**; one that must touch process state (`t.Setenv`, `syscall.Umask`, the default logger) or swap a package variable stays serial and says why.
 - **A Rust file with no line a test can reach is left out of coverage**, in the root `scripts/cover-changed.sh`'s `ignored` and in Codecov's `ignore` with its reason; a file with one reachable line marks the rest.
 
 ## Checks

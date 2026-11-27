@@ -90,6 +90,8 @@ func azureRun(t *testing.T) CloudRun {
 // The mount writes az's three files under TMPDIR and sets four variables,
 // none holding the grant's token but IDENTITY_HEADER.
 func TestAnAzureMountWritesItsFilesAndVariables(t *testing.T) {
+	t.Parallel()
+
 	run := azureRun(t)
 	m, err := NewAzure(fakeLogin{account: azureAccount("Pay-As-You-Go"), ok: true}, nil).Mount(t.Context(), run)
 	require.NoError(t, err)
@@ -146,6 +148,8 @@ func TestAnAzureMountWritesItsFilesAndVariables(t *testing.T) {
 // A subscription's name is the user's text: it reaches azureProfile.json
 // through the encoder alone, and the other two files never.
 func TestTheAzureFilesHoldNoName(t *testing.T) {
+	t.Parallel()
+
 	name := "a \"quoted\"\n[kubetail]\nendpoint_resource_manager = https://evil.example ]"
 	run := azureRun(t)
 	m, err := NewAzure(fakeLogin{account: azureAccount(name), ok: true}, nil).Mount(t.Context(), run)
@@ -177,6 +181,8 @@ func TestTheAzureFilesHoldNoName(t *testing.T) {
 // the route stays, over TLS with ca.pem written, and answers the sign-in
 // sentence.
 func TestARunWithNoAccountHasTheRouteAlone(t *testing.T) {
+	t.Parallel()
+
 	p := NewAzure(fakeLogin{}, nil)
 	r := startRun(t, cloudTool(t, switchesOn(permissions.Azure), p), chatRuntime(t, session.Chat, nil), false)
 	assert.NoDirExists(t, filepath.Join(r.dir.tmp, "azure"))
@@ -220,6 +226,8 @@ func fakeResourceManager(t *testing.T) (*httptest.Server, chan string, http.Roun
 // workspace finds the user's token nowhere, while Resource Manager received
 // it for the command's read.
 func TestNoAzureCredentialIsInTheRun(t *testing.T) {
+	t.Parallel()
+
 	const usersToken = "users-own-entra-token-0123456789"
 	_, seen, transport := fakeResourceManager(t)
 	tl := confiningTool(t)
@@ -247,6 +255,8 @@ func TestNoAzureCredentialIsInTheRun(t *testing.T) {
 
 // A mount whose configuration directory cannot be made fails.
 func TestAnAzureMountThatCannotWriteFails(t *testing.T) {
+	t.Parallel()
+
 	run := azureRun(t)
 	require.NoError(t, os.Mkdir(filepath.Join(run.TmpDir, "azure"), 0o700))
 	_, err := NewAzure(fakeLogin{account: azureAccount("Pay-As-You-Go"), ok: true}, nil).Mount(t.Context(), run)
@@ -256,6 +266,8 @@ func TestAnAzureMountThatCannotWriteFails(t *testing.T) {
 // A run's az always has a default subscription: the user's, else the first,
 // when discovery left the user's out.
 func TestARunsAzHasADefaultSubscription(t *testing.T) {
+	t.Parallel()
+
 	acct := azureAccount("Pay-As-You-Go")
 	acct.Subscriptions[0].IsDefault = false
 	run := azureRun(t)
@@ -284,6 +296,8 @@ func (waitingLogin) Account(ctx context.Context) (azureproxy.Account, bool) {
 // A mount waits for the login a bounded time, then mounts with none: a run
 // that never touches az does not wait on a slow one.
 func TestAMountWaitsForTheLoginABoundedTime(t *testing.T) {
+	t.Parallel()
+
 	p := NewAzure(waitingLogin{}, nil).(*azurePlatform)
 	p.wait = time.Millisecond
 	m, err := p.Mount(t.Context(), azureRun(t))

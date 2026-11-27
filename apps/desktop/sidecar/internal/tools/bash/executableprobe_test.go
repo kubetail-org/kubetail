@@ -25,6 +25,8 @@ import (
 // The list is the curated tools in their order, then the registered ones,
 // each not probed yet.
 func TestTheExecutableListIsTheCuratedThenTheRegistered(t *testing.T) {
+	t.Parallel()
+
 	k9s := settings.Executable{Name: "k9s", Invocation: "k9s version"}
 
 	got := executableList([]settings.Executable{k9s})
@@ -39,6 +41,8 @@ func TestTheExecutableListIsTheCuratedThenTheRegistered(t *testing.T) {
 // own. A curated entry is never checked, so kubectl stays curated beside a
 // registered kubectl.
 func TestTheExecutableListChecksTheRegistered(t *testing.T) {
+	t.Parallel()
+
 	registeredKubectl := settings.Executable{Name: "kubectl", Invocation: "kubectl version"}
 	malformed := settings.Executable{Name: "stern", Invocation: "other --version"}
 	marked := settings.Executable{Name: "k9s", Invocation: "k9s info", Refusal: "Its own reason."}
@@ -58,6 +62,8 @@ func TestTheExecutableListChecksTheRegistered(t *testing.T) {
 
 // cut counts characters, not bytes, so it never splits one.
 func TestCutKeepsWholeCharacters(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, "héé", cut("hééllo", 3))
 	assert.Equal(t, "hé", cut("hé", 3))
 }

@@ -26,6 +26,8 @@ import (
 
 // The build's cloud platforms, in Settings' order.
 func TestTheBuildsCloudPlatforms(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, []permissions.Target{
 		permissions.AWS, permissions.GitHub, permissions.GCP, permissions.Azure,
 	}, cloudTargets(builtCloudPlatforms(nil, nil)))
@@ -33,5 +35,7 @@ func TestTheBuildsCloudPlatforms(t *testing.T) {
 
 // Each AWS login made is its own, so no two profiles share one.
 func TestEachAWSLoginIsItsOwn(t *testing.T) {
+	t.Parallel()
+
 	assert.NotSame(t, newAWSLogin("prod"), newAWSLogin("dev"))
 }

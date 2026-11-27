@@ -85,6 +85,8 @@ var badInputs = []string{
 // A bash input is a command, an optional description and an optional timeout,
 // each key spelled exactly and once.
 func TestBashReadsItsInput(t *testing.T) {
+	t.Parallel()
+
 	in, err := parse(json.RawMessage(`{"command":"ls -la > out && cat out","description":"List files","timeout":1000}`))
 	require.NoError(t, err)
 	assert.Equal(t, input{Command: "ls -la > out && cat out", Description: "List files", Timeout: time.Second}, in)
@@ -102,6 +104,8 @@ func TestBashReadsItsInput(t *testing.T) {
 // dangerouslyDisableSandbox is a key like any unknown one, on every machine: the
 // model has no way out of the sandbox.
 func TestTheFlagIsBadInput(t *testing.T) {
+	t.Parallel()
+
 	raw := json.RawMessage(`{"command":"ls","dangerouslyDisableSandbox":true}`)
 	_, err := parse(raw)
 	assert.ErrorIs(t, err, errInput)
@@ -124,11 +128,15 @@ func TestTheFlagIsBadInput(t *testing.T) {
 // sandbox, one through a sandbox that does not confine, and one on a machine
 // with no sandbox ask.
 func TestASandboxedCallAsksNoOne(t *testing.T) {
+	t.Parallel()
+
 	assertSandboxedCallsAskNoOne(t, `{"command":"ls"}`)
 }
 
 // A background call is gated as a foreground one is.
 func TestASandboxedBackgroundCallAsksNoOne(t *testing.T) {
+	t.Parallel()
+
 	assertSandboxedCallsAskNoOne(t, `{"command":"sleep 1","run_in_background":true}`)
 }
 
@@ -169,6 +177,8 @@ func sessionNetwork(network session.Network) func(context.Context) session.Netwo
 // switch and the turn's toggle, and a call that asks for it alone asks the
 // user. Outside the sandbox the argument changes nothing.
 func TestTheApprovalNamesTheNetwork(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	ws := tools.WorkspacePath(rt.Dir)
 	skip := func(network session.Network) tools.Approval {
@@ -220,6 +230,8 @@ func TestTheApprovalNamesTheNetwork(t *testing.T) {
 // A workdir is a string of up to 4,096 bytes with no control character: each
 // would make the line on the approval request harder to read.
 func TestWorkdirIsParsed(t *testing.T) {
+	t.Parallel()
+
 	in, err := parse(json.RawMessage(`{"command":"ls","workdir":"~/src"}`))
 	require.NoError(t, err)
 	assert.Equal(t, "~/src", in.Workdir)
@@ -248,6 +260,8 @@ func TestWorkdirIsParsed(t *testing.T) {
 // run_in_background is a boolean, spelled exactly and once, and the action
 // says the command will keep running.
 func TestBashReadsRunInBackground(t *testing.T) {
+	t.Parallel()
+
 	in, err := parse(json.RawMessage(`{"command":"make serve","run_in_background":true}`))
 	require.NoError(t, err)
 	assert.True(t, in.Background)
@@ -275,6 +289,8 @@ func TestBashReadsRunInBackground(t *testing.T) {
 // network is a boolean, spelled exactly and once, and the action says the
 // call asked for the internet.
 func TestBashReadsNetwork(t *testing.T) {
+	t.Parallel()
+
 	in, err := parse(json.RawMessage(`{"command":"helm repo update","network":true}`))
 	require.NoError(t, err)
 	assert.True(t, in.Network)
@@ -302,6 +318,8 @@ func TestBashReadsNetwork(t *testing.T) {
 // that names no workdir, and a relative workdir joined to it. The row keeps it,
 // since the home can change between runs.
 func TestApprovalKeepsTheCwd(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	ws := tools.WorkspacePath(rt.Dir)
 	tl := Tool{home: t.TempDir()}
@@ -319,6 +337,8 @@ func TestApprovalKeepsTheCwd(t *testing.T) {
 // carries none. Variables that cannot be read refuse the call before any
 // request is shown.
 func TestApprovalOutsideCarriesTheUsersVariables(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	rt.ClusterID = "prod"
 	ws := tools.WorkspacePath(rt.Dir)
@@ -349,6 +369,7 @@ func TestApprovalOutsideCarriesTheUsersVariables(t *testing.T) {
 // from nowhere again: one replaces the process's own of its name, and none
 // replaces Kubetail's.
 func TestAnApprovedCommandGetsTheVariablesItWasShownWith(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	t.Setenv("BASH_ENV", "")
 	t.Setenv("KUBETAIL_TEST_MARK", "inherited")
 	tl := tool(t)
@@ -366,6 +387,8 @@ func TestAnApprovedCommandGetsTheVariablesItWasShownWith(t *testing.T) {
 // ActionOf is the command byte for byte, what the model said of it beside it
 // and never in it, and the cwd it is given, never resolved again.
 func TestActionOfReadsTheCommand(t *testing.T) {
+	t.Parallel()
+
 	got, err := ActionOf(json.RawMessage(`{"command":"ls -la \u202e","description":"List files","timeout":5000,"workdir":"src"}`), "/srv/app", false)
 	require.NoError(t, err)
 	assert.Equal(t, tools.Action{
@@ -381,6 +404,8 @@ func TestActionOfReadsTheCommand(t *testing.T) {
 // A workdir resolveWorkdir refuses is an input the approval cannot read: the call
 // is refused before the user sees anything, and Run answers it bad-input.
 func TestARefusedWorkdirIsNotShown(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := Tool{home: t.TempDir()}
 	raw := json.RawMessage(`{"command":"ls","workdir":"~bob"}`)
@@ -398,6 +423,8 @@ func TestARefusedWorkdirIsNotShown(t *testing.T) {
 // A timeout is capped rather than refused, before any conversion so a huge value
 // cannot overflow, and rounded up to a whole millisecond.
 func TestATimeoutIsDefaultedCappedAndRounded(t *testing.T) {
+	t.Parallel()
+
 	for raw, want := range map[string]time.Duration{
 		`{"command":"ls"}`:                  120 * time.Second,
 		`{"command":"ls","timeout":600001}`: 600 * time.Second,
@@ -414,6 +441,8 @@ func TestATimeoutIsDefaultedCappedAndRounded(t *testing.T) {
 
 // An empty command would still start bash, which sources BASH_ENV first.
 func TestAnEmptyCommandIsBadInput(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	var tl Tool
 	_, err := tl.Approval(t.Context(), rt, json.RawMessage(`{"command":""}`))
@@ -428,6 +457,8 @@ func TestAnEmptyCommandIsBadInput(t *testing.T) {
 // Output up to the inline limit, header included, comes back whole; a byte past
 // it does not.
 func TestOutputUpToTheInlineLimitIsWhole(t *testing.T) {
+	t.Parallel()
+
 	const header = "Exit code 2\n"
 	fits := result{Output: strings.Repeat("x", tools.InlineLimit-len(header)), ExitCode: 2}
 	assert.Equal(t, header+fits.Output, resultText(fits, time.Minute, nil, unconfined))
@@ -442,6 +473,8 @@ func TestOutputUpToTheInlineLimitIsWhole(t *testing.T) {
 // The output is redacted whole and then cut, so a token across the cut is whole
 // when the pattern sees it.
 func TestACommandResultIsRedactedThenCut(t *testing.T) {
+	t.Parallel()
+
 	token := "Authorization: Bearer " + strings.Repeat("a", 40)
 	res := result{Output: strings.Repeat("x", tools.InlineLimit-20) + token}
 	got := resultText(res, time.Minute, failedSave, unconfined)
@@ -452,6 +485,8 @@ func TestACommandResultIsRedactedThenCut(t *testing.T) {
 // A command stopped at its timeout keeps what it printed, under a first line
 // that says so and names the exit it made after the signal.
 func TestATimeoutIsAResult(t *testing.T) {
+	t.Parallel()
+
 	r := result{Output: "partial\n", ExitCode: 143, Stop: stopTimeout}
 	assert.Equal(t, "Command timed out after 120s (exit code 143)\npartial\n", resultText(r, 2*time.Minute, nil, unconfined))
 	assert.True(t, r.failed())
@@ -461,6 +496,8 @@ func TestATimeoutIsAResult(t *testing.T) {
 
 // A cancelled command keeps what it printed, under a first line that says so.
 func TestACancelIsAResult(t *testing.T) {
+	t.Parallel()
+
 	r := result{Output: "partial\n", ExitCode: 137, Stop: stopCancel}
 	assert.Equal(t, "Command cancelled (exit code 137)\npartial\n", resultText(r, time.Minute, nil, unconfined))
 }
@@ -468,6 +505,8 @@ func TestACancelIsAResult(t *testing.T) {
 // Once bash is reaped a stop is refused and recorded nowhere, so a reaped exit
 // is never relabelled.
 func TestAStopAfterTheReapIsRefused(t *testing.T) {
+	t.Parallel()
+
 	var seen []stop
 	g := newGuard(hooks{onStop: func(s stop) { seen = append(seen, s) }})
 	assert.Equal(t, stopNone, g.reap())
@@ -478,6 +517,8 @@ func TestAStopAfterTheReapIsRefused(t *testing.T) {
 // A timeout that is not a whole number of seconds reads in milliseconds, so a
 // subsecond one never reads 0s.
 func TestASubsecondTimeoutReadsInMilliseconds(t *testing.T) {
+	t.Parallel()
+
 	r := result{ExitCode: 137, Stop: stopTimeout}
 	assert.Equal(t, "Command timed out after 300ms (exit code 137)\n", resultText(r, 300*time.Millisecond, nil, unconfined))
 	assert.Equal(t, "Command timed out after 1500ms (exit code 137)\n", resultText(r, 1500*time.Millisecond, nil, unconfined))
@@ -487,6 +528,8 @@ func TestASubsecondTimeoutReadsInMilliseconds(t *testing.T) {
 // A bash whose end could not be read did start, and may have changed things, so
 // it never reads as could not start.
 func TestAnUnreadExitIsNotCouldNotStart(t *testing.T) {
+	t.Parallel()
+
 	r := result{Output: "partial\n", CodeUnknown: true}
 	assert.Equal(t, "Command ended; its exit code could not be read\npartial\n", resultText(r, time.Minute, nil, unconfined))
 	assert.True(t, r.failed())
@@ -495,6 +538,8 @@ func TestAnUnreadExitIsNotCouldNotStart(t *testing.T) {
 // A failed command's first line is the sidecar's, naming the exit code, and the
 // output follows it.
 func TestAFailedCommandLeadsWithItsExitCode(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := tool(t)
 	text, isError := tl.Run(t.Context(), rt, command("echo out; echo err >&2; exit 3"))
@@ -507,15 +552,19 @@ func TestAFailedCommandLeadsWithItsExitCode(t *testing.T) {
 }
 
 // tool is a Tool over the machine's bash, whose commands start in a directory of
-// the test's own rather than the user's home. $SHELL is cleared, so the tool is
-// bash whatever login shell the machine running the tests has. A machine with no
+// the test's own rather than the user's home. It is bash whatever login shell
+// the machine running the tests has, named without reading $SHELL, so a test
+// using it can run in parallel. A machine with no
 // bash, a Windows runner without Git for Windows, skips: the tool is
 // deliberately absent there, not broken.
 func tool(t *testing.T) *Tool {
 	t.Helper()
-	t.Setenv("SHELL", "")
 	k := kubetailDirs(t)
-	tl, ok := New(Paths{ShellDir: filepath.Join(k.runtime, "shell")}, 0, nil, nil, nil, nil, Cloud{})
+	shell, found := testBash()
+	if !found {
+		t.Skip("no bash found on this machine")
+	}
+	tl, ok := newTool(shell, "bash", Paths{ShellDir: filepath.Join(k.runtime, "shell")}, 0, nil, nil, nil, nil, Cloud{})
 	if !ok {
 		t.Skip("no bash found on this machine")
 	}
@@ -681,6 +730,7 @@ func (f *fakeSandboxer) seen() []sandbox.Run {
 // A nil *sandbox.Sandbox is no sandbox, not a sandbox the tool would call
 // through a nil pointer: Bash is offered as it is on a machine with none.
 func TestNewTakesNoSandboxAsNone(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	t.Setenv("SHELL", "")
 	none, ok := New(Paths{ShellDir: t.TempDir()}, 0, nil, nil, nil, nil, Cloud{})
 	if !ok {
@@ -727,6 +777,7 @@ func commandIn(line, workdir string) json.RawMessage {
 
 // The tool's home is the user's: what ~ names outside the sandbox.
 func TestTheToolsHomeIsTheUsers(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
@@ -739,6 +790,8 @@ func TestTheToolsHomeIsTheUsers(t *testing.T) {
 
 // A script a crash left behind is swept when the tool is built again.
 func TestNewSweepsWhatACrashLeft(t *testing.T) {
+	t.Parallel()
+
 	shell := filepath.Join(t.TempDir(), "shell")
 	left := filepath.Join(shell, "cmd-left-behind")
 	require.NoError(t, os.MkdirAll(shell, 0o700))
@@ -752,6 +805,8 @@ func TestNewSweepsWhatACrashLeft(t *testing.T) {
 
 // stdout and stderr are one stream, and the exit is bash's own.
 func TestRunCapturesOutputAndExit(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	r := run(t.Context(), tl.spec("echo out; echo err >&2; exit 3", 1024))
 	assert.Equal(t, "out\nerr\n", r.Output)
@@ -761,6 +816,8 @@ func TestRunCapturesOutputAndExit(t *testing.T) {
 }
 
 func TestRunKeepsTheCaptureAndCountsTheRest(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	r := run(t.Context(), tl.spec("yes | head -c 100000", 1000))
 	assert.Len(t, r.Output, 1000)
@@ -771,6 +828,8 @@ func TestRunKeepsTheCaptureAndCountsTheRest(t *testing.T) {
 // A context that ended before Run starts nothing: the database write ahead of a
 // command can take a while, and a cancel can land during it.
 func TestRunDoesNotStartPastACancelledContext(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := tool(t)
 	ctx, cancel := context.WithCancel(t.Context())
@@ -785,6 +844,8 @@ func TestRunDoesNotStartPastACancelledContext(t *testing.T) {
 // there, and a directory to start in that is gone. The reason is the OS's, so
 // only the shape is pinned.
 func TestRunReportsAShellThatWillNotStart(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := &Tool{shell: filepath.Join(t.TempDir(), "no-such-bash"), home: t.TempDir(), scripts: t.TempDir(), statDir: os.Stat}
 	text, isError := tl.Run(t.Context(), rt, command("true"))
@@ -800,6 +861,8 @@ func TestRunReportsAShellThatWillNotStart(t *testing.T) {
 // A workdir that is not a directory is answered before anything starts, the
 // snapshot wait included: the shell never runs, so the marker is never made.
 func TestAMissingWorkdirIsNotStarted(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := tool(t)
 	ready := make(chan struct{})
@@ -825,6 +888,8 @@ func TestAMissingWorkdirIsNotStarted(t *testing.T) {
 // block in the kernel, does not hold the call: the cancel answers it, and the
 // shell never starts.
 func TestAStuckDirectoryCheckHonoursTheCancel(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := tool(t)
 	asked, stuck := make(chan struct{}), make(chan struct{})
@@ -858,6 +923,8 @@ func TestAStuckDirectoryCheckHonoursTheCancel(t *testing.T) {
 // Run reads its input as Approval and ActionOf do: what they refuse, Run
 // answers bad-input and starts nothing.
 func TestTheApprovalAndRunReadTheInputTheSameWay(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	tl := tool(t)
 	for _, raw := range append(badInputs, `{"command":"touch mark","Command":"touch mark"}`, `{"command":"touch mark","workdir":"~bob"}`) {
@@ -886,6 +953,8 @@ func TestTheApprovalAndRunReadTheInputTheSameWay(t *testing.T) {
 // the user reads the description above the command on the approval request: it
 // names what the command changes and never vouches for it.
 func TestTheDefinitionIsTheReferences(t *testing.T) {
+	t.Parallel()
+
 	tl := Tool{sandboxer: &fakeSandboxer{}}
 	def := tl.Definition()
 	assert.Equal(t, "Bash", def.Name)
@@ -936,6 +1005,8 @@ func TestTheDefinitionIsTheReferences(t *testing.T) {
 // Without a sandbox, network would change nothing, so it is not offered; the
 // rest of the offer is the sandboxed one's.
 func TestTheDefinitionWithoutASandboxOffersNoNetwork(t *testing.T) {
+	t.Parallel()
+
 	var tl Tool
 	def := tl.Definition()
 	sandboxed := (&Tool{sandboxer: &fakeSandboxer{}}).Definition()
@@ -963,6 +1034,8 @@ const workdirDescription = "The directory to run the command in: absolute, `~`-p
 // margin and the longest a call can wait on the snapshot, so a command stopped at
 // its timeout answers with its output and header, not the loop's refusal.
 func TestCallTimeoutFollowsTheInput(t *testing.T) {
+	t.Parallel()
+
 	tl := Tool{snapTimeout: time.Second}
 	var _ tools.Bounded = &tl
 	assert.Equal(t, 1500*time.Millisecond+killGrace+callMargin+time.Second, tl.CallTimeout(json.RawMessage(`{"command":"ls","timeout":1500}`)))
@@ -973,6 +1046,8 @@ func TestCallTimeoutFollowsTheInput(t *testing.T) {
 // every bash the tool can find: macOS's own, Homebrew's, Linux's, Git for
 // Windows'. Anything else is no version at all.
 func TestParseVersion(t *testing.T) {
+	t.Parallel()
+
 	for out, want := range map[string]string{
 		"GNU bash, version 3.2.57(1)-release (arm64-apple-darwin23)\nCopyright (C) 2007 Free Software Foundation, Inc.\n": "3.2",
 		"GNU bash, version 5.2.37(1)-release (aarch64-apple-darwin24.0.0)\n":                                              "5.2",
@@ -992,6 +1067,8 @@ func TestParseVersion(t *testing.T) {
 // the command. On one older than 4 it says what that lacks, since a model writes
 // bash 4 or later by default; on Windows, whose paths Git Bash translates.
 func TestTheToolSectionNamesPlatformAndShell(t *testing.T) {
+	t.Parallel()
+
 	modern := (&Tool{platform: "darwin", kind: "bash", version: "5.2"}).Prompt()
 	assert.True(t, strings.HasPrefix(modern, "## Bash\n"), "the section carries its own heading")
 	for _, want := range []string{"approve", "`kubectl`", "`mktemp`", "`could not start`", "kubectl --context <context>", "last resort"} {
@@ -1053,6 +1130,8 @@ func (d chatDir) Root(create bool) (*os.Root, error) {
 
 // The tool is gated and bounded, since the loop finds both by assertion.
 func TestTheToolIsGatedAndBounded(t *testing.T) {
+	t.Parallel()
+
 	var got tools.Tool = tool(t)
 
 	_, gated := got.(tools.Gated)
@@ -1065,6 +1144,8 @@ func TestTheToolIsGatedAndBounded(t *testing.T) {
 // own, and the result is the header, then the block naming the file with the
 // first 2 KB.
 func TestLargeOutputIsSavedWithAPreview(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	dir := filepath.Join(t.TempDir(), "c1")
 	output := strings.Repeat("line\n", 8000)
@@ -1099,6 +1180,8 @@ func (k *keep) save(output string) (string, bool) {
 // The output is redacted whole before the save, so a key spanning the preview's
 // edge is redacted in the preview and in the file alike.
 func TestTheSavedFileIsRedactedWhole(t *testing.T) {
+	t.Parallel()
+
 	body := strings.Repeat("MIIEowIBAAKCAQEA", 40) + "\n"
 	pem := "-----BEGIN RSA PRIVATE KEY-----\n" + body + "-----END RSA PRIVATE KEY-----\n"
 	r := result{Output: strings.Repeat("x", tools.PreviewLen-40) + pem + strings.Repeat("y", tools.InlineLimit)}
@@ -1115,6 +1198,8 @@ func TestTheSavedFileIsRedactedWhole(t *testing.T) {
 // Output the command wrote past the file limit is named in the block. Fit's own
 // test checks the cut at the limit.
 func TestOutputPastTheFileLimitSaysWhatWasNotKept(t *testing.T) {
+	t.Parallel()
+
 	r := result{Output: strings.Repeat("x", tools.InlineLimit+100), Discarded: 100}
 	var k keep
 
@@ -1126,6 +1211,8 @@ func TestOutputPastTheFileLimitSaysWhatWasNotKept(t *testing.T) {
 // A save that failed falls back to the cut, with a note in words of the
 // sidecar's own and never a Go error.
 func TestAFailedSaveFallsBackToACut(t *testing.T) {
+	t.Parallel()
+
 	r := result{Output: strings.Repeat("x", tools.InlineLimit+100)}
 	got := resultText(r, time.Minute, failedSave, unconfined)
 	assert.LessOrEqual(t, len(got), tools.InlineLimit)
@@ -1134,6 +1221,8 @@ func TestAFailedSaveFallsBackToACut(t *testing.T) {
 
 // The tool section says where large output goes and how to read it.
 func TestTheToolSectionExplainsSavedOutput(t *testing.T) {
+	t.Parallel()
+
 	got := (&Tool{kind: "bash", platform: "linux"}).Prompt()
 	assert.Contains(t, got, "Output over 30,000 bytes is saved to a file")
 	assert.Contains(t, got, "Every call, `Read` included, counts toward the turn's calls.")
@@ -1144,6 +1233,8 @@ func TestTheToolSectionExplainsSavedOutput(t *testing.T) {
 // first paragraph, which says every command waits; without one it is bash.md
 // alone.
 func TestThePromptOpensWithTheSandboxWhenThereIsOne(t *testing.T) {
+	t.Parallel()
+
 	plain := (&Tool{kind: "bash", platform: "linux"}).Prompt()
 	assert.True(t, strings.HasPrefix(plain, prompt), "bash.md whole")
 	assert.NotContains(t, plain, "sandbox")
@@ -1190,6 +1281,8 @@ func TestThePromptOpensWithTheSandboxWhenThereIsOne(t *testing.T) {
 // Each cloud platform's line says only what is its own, after what holds for
 // every platform.
 func TestTheSandboxPromptSaysWhatIsEachCloudPlatformsOwn(t *testing.T) {
+	t.Parallel()
+
 	shared := strings.Index(sandboxPrompt, "Where `cloud` names a platform, its tools reach it as the user through a proxy.")
 	require.NotEqual(t, -1, shared)
 	assert.Contains(t, sandboxPrompt, "a change asks each time; a background command changes nothing; a credential is never returned.")
@@ -1208,6 +1301,8 @@ func TestTheSandboxPromptSaysWhatIsEachCloudPlatformsOwn(t *testing.T) {
 // in it, so the model runs one outside rather than read the failure as the
 // cluster's. Without a sandbox there is no section to add to.
 func TestTheLinuxPromptSaysASnapRunsOutside(t *testing.T) {
+	t.Parallel()
+
 	got := (&Tool{kind: "bash", platform: "linux", sandboxer: &fakeSandboxer{}}).Prompt()
 
 	assert.True(t, strings.HasPrefix(got, "## Bash\n\n"+sandboxPrompt+sandboxLinuxPrompt), got)
@@ -1218,6 +1313,8 @@ func TestTheLinuxPromptSaysASnapRunsOutside(t *testing.T) {
 
 // The model has no way out of the sandbox, so nothing it reads names one.
 func TestNoPromptNamesTheFlag(t *testing.T) {
+	t.Parallel()
+
 	for _, tl := range []*Tool{
 		{kind: "bash", platform: "linux"},
 		{kind: "bash", platform: "linux", sandboxer: &fakeSandboxer{}},
@@ -1232,6 +1329,8 @@ func TestNoPromptNamesTheFlag(t *testing.T) {
 
 // Both variants say what the workspace is for.
 func TestThePromptNamesTheWorkspace(t *testing.T) {
+	t.Parallel()
+
 	for _, tl := range []*Tool{{kind: "bash", platform: "linux"}, {kind: "bash", platform: "linux", sandboxer: &fakeSandboxer{}}} {
 		got := tl.Prompt()
 		assert.Contains(t, got, "Keep a file you need again in the chat's workspace; put one you need for a moment under `mktemp`.")
@@ -1243,6 +1342,8 @@ func TestThePromptNamesTheWorkspace(t *testing.T) {
 // approved command from its row on every read. A case here is never edited;
 // changing what an input means is a new tool name.
 func TestActionOfReadsOldRowsTheSame(t *testing.T) {
+	t.Parallel()
+
 	for raw, want := range map[string]tools.Action{
 		`{"command":"ls"}`: {Command: &tools.CommandAction{Text: "ls", Cwd: "/home/ana"}},
 		`{"command":"kubectl get pods -A | grep -v Running","description":"List pods that are not running"}`: {
@@ -1265,6 +1366,8 @@ func TestActionOfReadsOldRowsTheSame(t *testing.T) {
 
 // Whether a sandbox confined the call is the row's, never the arguments'.
 func TestActionOfCarriesTheRowsSandbox(t *testing.T) {
+	t.Parallel()
+
 	raw := json.RawMessage(`{"command":"ls"}`)
 	for _, sandboxed := range []bool{true, false} {
 		got, err := ActionOf(raw, "/srv", sandboxed)
@@ -1276,6 +1379,8 @@ func TestActionOfCarriesTheRowsSandbox(t *testing.T) {
 // The tool and the reader of its rows both name it and read a call as ActionOf
 // does, and every action they read is a command.
 func TestBashNamesItsKind(t *testing.T) {
+	t.Parallel()
+
 	raw := json.RawMessage(`{"command":"ls","description":"List files"}`)
 	want, err := ActionOf(raw, "/srv", true)
 	require.NoError(t, err)
@@ -1293,6 +1398,8 @@ func TestBashNamesItsKind(t *testing.T) {
 // failed never tells the model it had none, and never says every cluster
 // change is approved: the user's permissions decide.
 func TestTheTrailerSaysTheRunsNetwork(t *testing.T) {
+	t.Parallel()
+
 	r := result{Output: "boom\n", ExitCode: 6}
 
 	offline := resultText(r, time.Minute, nil, confined)
@@ -1308,6 +1415,8 @@ func TestTheTrailerSaysTheRunsNetwork(t *testing.T) {
 // A confined run that ran, was not stopped, and failed ends with one line saying
 // where it ran, saved output included; nothing else carries it.
 func TestAFailedConfinedRunSaysWhereItRan(t *testing.T) {
+	t.Parallel()
+
 	rt := testRuntime(t)
 	const line = "\n(Ran in the sandbox: no network, no files outside the workspace and the system; cluster changes go as the user's permissions decide.)"
 	for want, r := range map[string]result{
@@ -1347,6 +1456,8 @@ func TestAFailedConfinedRunSaysWhereItRan(t *testing.T) {
 // The sandbox prompt says sudo does not work, and what a process killed at a
 // limit looks like.
 func TestThePromptSaysSudoDoesNotWork(t *testing.T) {
+	t.Parallel()
+
 	assert.Contains(t, sandboxPrompt, "`sudo` does not work.")
 	assert.Contains(t, sandboxPrompt, "Exit 152 is the CPU time limit")
 	assert.Contains(t, sandboxPrompt, "a thread that cannot start is the process limit")

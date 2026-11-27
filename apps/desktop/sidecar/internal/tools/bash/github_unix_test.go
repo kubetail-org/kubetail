@@ -62,6 +62,8 @@ func githubTool(t *testing.T, srv *httptest.Server, name string) *Tool {
 // A sandboxed run with network off clones a github.com repository through
 // the proxy, unasked, by its HTTPS and its SSH name.
 func TestASandboxedCloneReachesGitHub(t *testing.T) {
+	t.Parallel()
+
 	origin, _ := testutil.GitOrigin(t)
 	a := newAnsweringAsker()
 	text, isError := githubTool(t, origin, "git").Run(t.Context(), chatRuntime(t, session.Chat, a),
@@ -103,6 +105,8 @@ func runAsked(t *testing.T, tl *Tool, line string, approved bool) (summary, text
 }
 
 func TestASandboxedPushAsksAndRuns(t *testing.T) {
+	t.Parallel()
+
 	origin, repo := testutil.GitOrigin(t)
 	summary, text := runAsked(t, githubTool(t, origin, "git"), pushLine, true)
 	assert.Equal(t, "GitHub: push to o/r", summary)
@@ -111,6 +115,8 @@ func TestASandboxedPushAsksAndRuns(t *testing.T) {
 }
 
 func TestASandboxedPushDeniedIsForbidden(t *testing.T) {
+	t.Parallel()
+
 	origin, repo := testutil.GitOrigin(t)
 	_, text := runAsked(t, githubTool(t, origin, "git"), pushLine, false)
 	assert.NotEqual(t, "exit 0\n", text)
@@ -119,6 +125,8 @@ func TestASandboxedPushDeniedIsForbidden(t *testing.T) {
 
 // gh reads the API as the user, and its own login is the placeholder.
 func TestASandboxedGhReadsTheAPI(t *testing.T) {
+	t.Parallel()
+
 	seen := make(chan string, 16)
 	api := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		seen <- r.Method + " " + r.URL.Path + " " + r.Header.Get("Authorization")
@@ -179,6 +187,8 @@ func githubRun(t *testing.T, others ...CloudPlatform) (*sandboxedRun, tools.Runt
 // run's directory or its tool home: the run holds the grant's token and a
 // placeholder alone.
 func TestNoGitHubTokenIsInTheRun(t *testing.T) {
+	t.Parallel()
+
 	r, rt := githubRun(t)
 	assert.Contains(t, r.run.Env, "GH_HOST=github.localhost")
 	for _, kv := range r.run.Env {
@@ -198,6 +208,8 @@ func TestNoGitHubTokenIsInTheRun(t *testing.T) {
 }
 
 func TestARunWithoutGitHubHasNoneOfIt(t *testing.T) {
+	t.Parallel()
+
 	r := startRun(t, cloudTool(t, switchesOn(), newTestGitHub(githubproxy.GitHub())), chatRuntime(t, session.Chat, nil), false)
 	for _, kv := range r.run.Env {
 		name, _, _ := strings.Cut(kv, "=")
@@ -215,6 +227,8 @@ func TestARunWithoutGitHubHasNoneOfIt(t *testing.T) {
 // so a request carrying GitHub's proxy credentials still reaches Google's
 // route.
 func TestGitHubsProxyVariableLeavesTheLoopbackDirect(t *testing.T) {
+	t.Parallel()
+
 	google := newFakeGoogle(t)
 	r, _ := githubRun(t,
 		awsAs(fakeAWSLogin{"eu-west-1"}, nil),

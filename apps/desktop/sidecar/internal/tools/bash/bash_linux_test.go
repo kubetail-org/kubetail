@@ -33,6 +33,8 @@ import (
 // node reserves about 10 GiB of address space for a WebAssembly memory, which
 // fits under the memory limit.
 func TestNodeRunsUnderTheMemoryLimit(t *testing.T) {
+	t.Parallel()
+
 	tl := proxyTool(t, &fakeLease{})
 	tl.sandboxer = confining(t)
 	withTool(t, tl, "node")
@@ -46,6 +48,8 @@ func TestNodeRunsUnderTheMemoryLimit(t *testing.T) {
 // reads the resolver its run wrote at /etc/resolv.conf, holds no capability,
 // and answers as any call does.
 func TestANetworkCallRunsUnderPasta(t *testing.T) {
+	t.Parallel()
+
 	tl := proxyTool(t, &fakeLease{})
 	s := confining(t)
 	if available, reason := s.NetworkStatus(); !available {
@@ -64,6 +68,8 @@ func TestANetworkCallRunsUnderPasta(t *testing.T) {
 // run's own paths there are inside a fixed mount no grant may name, and the
 // run, with a grant beside them, still starts.
 func TestARunStartsWithItsRuntimeDirUnderTmp(t *testing.T) {
+	t.Parallel()
+
 	tl := confiningTool(t)
 	runtime, err := os.MkdirTemp("/tmp", "kubetail-"+strconv.Itoa(os.Getuid())+"-")
 	require.NoError(t, err)

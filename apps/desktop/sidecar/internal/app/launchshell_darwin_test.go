@@ -25,6 +25,7 @@ import (
 )
 
 func TestSetShellEnvSetsWhatItIsHanded(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	t.Setenv("PATH", "/usr/bin:/bin")
 	t.Setenv("AWS_PROFILE", "")
 

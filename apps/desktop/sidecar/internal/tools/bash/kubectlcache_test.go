@@ -32,6 +32,8 @@ import (
 // A new server identity gets a directory of its own under the cluster's, and
 // a record with none yet is unknown.
 func TestEachServerIdentityHasItsOwnCache(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 
 	a, err := makeKubectlCache(dir, "7", "uid-a")
@@ -52,6 +54,8 @@ func TestEachServerIdentityHasItsOwnCache(t *testing.T) {
 // The OS or the user may clear the cache directory while Kubetail runs, and the
 // next call makes the kubectl cache again.
 func TestAClearedKubectlCacheIsMadeAgain(t *testing.T) {
+	t.Parallel()
+
 	dir := filepath.Join(t.TempDir(), "kubectl")
 	_, err := makeKubectlCache(dir, "7", "uid")
 	require.NoError(t, err)
@@ -66,6 +70,8 @@ func TestAClearedKubectlCacheIsMadeAgain(t *testing.T) {
 // An id that is not one plain name would reach another directory than the
 // cluster's, so it is refused before anything is made.
 func TestABadClusterIDHasNoKubectlCache(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	for _, id := range []apimeta.ClusterID{"", ".", "..", "a/b"} {
 		_, err := makeKubectlCache(dir, id, "uid")
@@ -79,6 +85,8 @@ func TestABadClusterIDHasNoKubectlCache(t *testing.T) {
 // A file where the cluster's directory or its server's should be is refused,
 // not replaced.
 func TestAKubectlCacheThatCannotBeMadeIsAnError(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	cluster := filepath.Join(dir, "7")
 
@@ -96,6 +104,8 @@ func TestAKubectlCacheThatCannotBeMadeIsAnError(t *testing.T) {
 // The UID is the cluster's text, so it names the directory only through its
 // hash: 32 hex digits whatever it holds.
 func TestTheServerKeyIsAHash(t *testing.T) {
+	t.Parallel()
+
 	for _, uid := range []string{"../../etc", "a/b", "x"} {
 		assert.Regexp(t, `^[0-9a-f]{32}$`, serverKey(uid), "%q", uid)
 	}
@@ -104,6 +114,8 @@ func TestTheServerKeyIsAHash(t *testing.T) {
 // The sweep removes every entry that names no cluster the service holds, and
 // keeps a marked cluster's, since its chats may still be running commands.
 func TestTheSweepRemovesTheCacheOfAGoneCluster(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	marked := kubeCluster("staging", "uid")
 	at := time.Now()
@@ -123,6 +135,7 @@ func TestTheSweepRemovesTheCacheOfAGoneCluster(t *testing.T) {
 // A sweep that cannot read the clusters removes nothing, and one with no
 // cache to sweep does nothing.
 func TestTheSweepRemovesNothingItCannotCheck(t *testing.T) {
+	// CaptureLogs swaps the process's default logger, so this test stays serial.
 	dir := t.TempDir()
 	_, err := makeKubectlCache(dir, "7", "uid")
 	require.NoError(t, err)
@@ -138,6 +151,7 @@ func TestTheSweepRemovesNothingItCannotCheck(t *testing.T) {
 // A cache that is not a folder is left as it is, and the clusters are never
 // read.
 func TestTheSweepLeavesACacheItCannotOpen(t *testing.T) {
+	// CaptureLogs swaps the process's default logger, so this test stays serial.
 	file := filepath.Join(t.TempDir(), "kubectl")
 	require.NoError(t, os.WriteFile(file, nil, 0o600))
 	logs := testutil.CaptureLogs(t)
@@ -151,6 +165,7 @@ func TestTheSweepLeavesACacheItCannotOpen(t *testing.T) {
 
 // New sweeps the kubectl cache as it starts, on a goroutine of its own.
 func TestNewSweepsTheKubectlCache(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	t.Setenv("SHELL", "")
 	dir := t.TempDir()
 	_, err := makeKubectlCache(dir, "9", "uid")

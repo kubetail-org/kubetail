@@ -23,6 +23,8 @@ import (
 // A Go program starts a thread per CPU and a few more, and Linux counts each,
 // so the margin grows with the CPUs from a floor of 1024.
 func TestTheProcessMarginGrowsWithTheCPUs(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, 1024, processMargin(1))
 	assert.Equal(t, 1024, processMargin(8))
 	assert.Equal(t, 4096, processMargin(32))

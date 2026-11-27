@@ -23,6 +23,8 @@ import (
 // A rule on a mount every Linux run has makes Command refuse the run, so such
 // a folder is never one a run searches.
 func TestSearchFolderRefusesAFixedMount(t *testing.T) {
+	t.Parallel()
+
 	for _, dir := range []string{"/dev", "/proc/self"} {
 		_, _, reason := SearchFolder(dir, nil, nil)
 		assert.Equal(t, "fixed", reason, dir)

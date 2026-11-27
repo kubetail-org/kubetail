@@ -58,6 +58,8 @@ func (l *fakeLease) Release() { l.released.Add(1) }
 // A claim is the lease the cluster service hands out for the target's UID,
 // and Close releases it.
 func TestAClaimIsTheLeaseForTheTargetsUID(t *testing.T) {
+	t.Parallel()
+
 	lease := &fakeLease{serverUID: "uid-1"}
 	tl := &Tool{clusterSvc: fakeService{lease: lease}}
 
@@ -74,6 +76,8 @@ func TestAClaimIsTheLeaseForTheTargetsUID(t *testing.T) {
 // A claim whose record cannot be watched is not made, and its lease is
 // released.
 func TestAClaimWhoseRecordCannotBeWatched(t *testing.T) {
+	t.Parallel()
+
 	lease := &fakeLease{serverUID: "uid-1"}
 	tl := &Tool{clusterSvc: fakeService{lease: lease, watchErr: errDisk}}
 
@@ -86,6 +90,8 @@ func TestAClaimWhoseRecordCannotBeWatched(t *testing.T) {
 // A claim is revoked by a record Kubetail no longer connects to, and by a watch
 // that fails, since then nothing would tell it.
 func TestAClaimIsRevoked(t *testing.T) {
+	t.Parallel()
+
 	enabled := kubeCluster("ctx", "uid-1")
 	enabled.Spec.Enabled = true
 	disabled := kubeCluster("ctx", "uid-1")
@@ -121,6 +127,8 @@ func TestAClaimIsRevoked(t *testing.T) {
 
 // A record Kubetail connects to leaves the claim alone.
 func TestAConnectableRecordKeepsTheClaim(t *testing.T) {
+	t.Parallel()
+
 	enabled := kubeCluster("ctx", "uid-1")
 	enabled.Spec.Enabled = true
 	ctx, cancel := context.WithCancel(t.Context())
@@ -152,6 +160,8 @@ func TestAConnectableRecordKeepsTheClaim(t *testing.T) {
 // one Kubetail does not connect to. A cluster gone since the target read it is
 // gone, and any other failure is the run's.
 func TestAClaimThatCannotBeMade(t *testing.T) {
+	t.Parallel()
+
 	for name, c := range map[string]struct {
 		uid        string
 		acquireErr error
@@ -187,6 +197,8 @@ var errDisk = errors.New("disk")
 // client for it, a mismatch for a lease re-pointed at another server, and any
 // other error as it is.
 func TestUpstreamIsTheTargetsCluster(t *testing.T) {
+	t.Parallel()
+
 	base, _ := url.Parse("https://api.example")
 	conn := &cluster.Connection{BaseURL: base, HTTPClient: &http.Client{}}
 	lease := &fakeLease{serverUID: "uid-1", conn: conn}
@@ -207,6 +219,8 @@ func TestUpstreamIsTheTargetsCluster(t *testing.T) {
 // A connection handed out is done once the claim is revoked, so a watch open
 // through it ends.
 func TestARevokedClaimEndsWhatIsOpen(t *testing.T) {
+	t.Parallel()
+
 	conn := &cluster.Connection{HTTPClient: &http.Client{}}
 	revoked := make(chan struct{})
 	u := upstream{lease: &fakeLease{serverUID: "uid-1", conn: conn}, serverUID: "uid-1", revoked: revoked}

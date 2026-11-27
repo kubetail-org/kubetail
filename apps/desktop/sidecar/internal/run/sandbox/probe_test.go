@@ -29,6 +29,7 @@ import (
 // waiting caller whose context ends is answered its error, and one still
 // waiting enters once a call ends.
 func TestBoundedRunsAtMostItsCapAtOnce(t *testing.T) {
+	// It takes every one of the package's boundedSlots, which every probe shares, so this test stays serial.
 	var releases []chan struct{}
 	var held sync.WaitGroup
 	// Registered first, so a failure below still releases every held call.
@@ -76,6 +77,7 @@ func TestBoundedRunsAtMostItsCapAtOnce(t *testing.T) {
 // A call whose context has ended starts nothing, even with a slot free, so
 // calls nobody waits for cannot fill the slots.
 func TestBoundedStartsNothingForAnEndedContext(t *testing.T) {
+	// It checks the package's boundedSlots are empty, which every probe shares, so this test stays serial.
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	entered := make(chan struct{}, 100)

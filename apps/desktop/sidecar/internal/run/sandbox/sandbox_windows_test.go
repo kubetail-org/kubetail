@@ -22,6 +22,8 @@ import (
 )
 
 func TestWindowsHasNoSandbox(t *testing.T) {
+	t.Parallel()
+
 	s, v, err := Probe(context.Background())
 	assert.NoError(t, err)
 	assert.Nil(t, s)
@@ -43,6 +45,8 @@ func TestWindowsHasNoSandbox(t *testing.T) {
 
 // Command answers errNone and no command, so nothing runs unconfined.
 func TestCommandAnswersErrNone(t *testing.T) {
+	t.Parallel()
+
 	var none *Sandbox
 
 	cmd, err := none.Command(context.Background(), Run{Shell: `C:\Windows\System32\cmd.exe`, Args: []string{"/c", "exit"}})
@@ -52,5 +56,7 @@ func TestCommandAnswersErrNone(t *testing.T) {
 }
 
 func TestFixedMountIsNothing(t *testing.T) {
+	t.Parallel()
+
 	assert.False(t, FixedMount(`C:\`))
 }

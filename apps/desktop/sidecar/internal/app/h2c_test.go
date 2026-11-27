@@ -56,6 +56,8 @@ func serveApp(t *testing.T, a *App) *httptest.Server {
 // incrementally over HTTP/1.1 on the server that also speaks h2c (the
 // ResponseWriter stays Flusher-backed). Guards against a buffering regression.
 func TestH2C_SSEStillStreams(t *testing.T) {
+	t.Parallel()
+
 	a, _ := newTestApp(t)
 	ts := serveApp(t, a)
 
@@ -86,6 +88,8 @@ func TestH2C_SSEStillStreams(t *testing.T) {
 // listener: AuthStateWatch yields a snapshot (signed-out in a standalone/test
 // run), proving server-streaming gRPC rides the same socket as GraphQL.
 func TestH2C_GRPCAuthState(t *testing.T) {
+	t.Parallel()
+
 	a, _ := newTestApp(t)
 	ts := serveApp(t, a)
 	client := h2cGRPCClient(t, ts)

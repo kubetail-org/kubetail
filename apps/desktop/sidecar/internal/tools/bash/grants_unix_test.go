@@ -64,6 +64,8 @@ func folders(t *testing.T, rels ...string) (string, []string) {
 }
 
 func TestAGrantIsAFilesRule(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	_, p := folders(t, "code", "svc")
 	without := grantedRun(t, tool(t), nil)
@@ -78,12 +80,16 @@ func TestAGrantIsAFilesRule(t *testing.T) {
 }
 
 func TestASessionWithNoFoldersGetsNone(t *testing.T) {
+	t.Parallel()
+
 	got := grantedRun(t, tool(t), nil)
 	assert.Empty(t, got.Files.Write)
 	assert.Equal(t, grantedRun(t, tool(t), []session.Folder{}).Files, got.Files)
 }
 
 func TestNestedGrantsResolveToTheWider(t *testing.T) {
+	t.Parallel()
+
 	_, p := folders(t, "code", "code/svc", "code/svc/deep", "other")
 	code, svc, deep, other := p[0], p[1], p[2], p[3]
 	got := grantedRun(t, tool(t), []session.Folder{
@@ -103,6 +109,7 @@ func TestNestedGrantsResolveToTheWider(t *testing.T) {
 }
 
 func TestAGrantThatFailsTheCheckIsLeftOut(t *testing.T) {
+	// CaptureLogs swaps the process's default logger, so this test stays serial.
 	tl := tool(t)
 	base, p := folders(t, "ssh", "code/svc", "code/home")
 	ssh, svc, homeLink := p[0], p[1], p[2]
@@ -161,6 +168,8 @@ func runIn(t *testing.T, tl *Tool, line string, folders ...session.Folder) (stri
 // The note's first invariant, over a grant: a granted home opens, and the
 // denied-always list and Kubetail's directories stay shut inside it.
 func TestADeniedAlwaysPathStaysHiddenUnderAGrantedHome(t *testing.T) {
+	t.Parallel()
+
 	tl := confiningTool(t)
 	home, data := grantedHome(t, tl)
 	granted := session.Folder{Path: home}
@@ -187,6 +196,8 @@ func TestADeniedAlwaysPathStaysHiddenUnderAGrantedHome(t *testing.T) {
 }
 
 func TestAReadWriteGrantIsWritten(t *testing.T) {
+	t.Parallel()
+
 	tl := confiningTool(t)
 	home, _ := grantedHome(t, tl)
 	rw, ro := filepath.Join(home, "rw"), filepath.Join(home, "ro")
@@ -208,6 +219,8 @@ func TestAReadWriteGrantIsWritten(t *testing.T) {
 // read-write grant of one is left out of it: a command that can write one
 // could repoint the link.
 func TestAReadWriteGrantOfALinkParentIsLeftOut(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	_, p := folders(t, "cache", "big/kubetail")
 	cache, target := p[0], p[1]
@@ -225,6 +238,8 @@ func TestAReadWriteGrantOfALinkParentIsLeftOut(t *testing.T) {
 // A read of the granted folders that fails fails the run before anything
 // starts: it never runs with no grant.
 func TestAFoldersReadThatFailsFailsTheRun(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	fake := &fakeSandboxer{}
 	tl.sandboxer = fake
@@ -240,6 +255,8 @@ func TestAFoldersReadThatFailsFailsTheRun(t *testing.T) {
 // start is still one its grant check refuses a write grant on, as the run
 // still searches it.
 func TestARunKeepsItsNoWriteAfterTheSettingChanges(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	_, p := folders(t, "tools")
 	reads := 0

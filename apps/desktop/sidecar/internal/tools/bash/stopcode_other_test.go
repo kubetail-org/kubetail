@@ -25,6 +25,8 @@ import (
 
 // A stopped run with the internet keeps its exit code, which is the command's.
 func TestAStoppedNetworkRunsHeaderKeepsItsExitCode(t *testing.T) {
+	t.Parallel()
+
 	timedOut := result{Output: "partial\n", ExitCode: 143, Stop: stopTimeout}
 	cancelled := result{Output: "partial\n", ExitCode: 130, Stop: stopCancel}
 

@@ -46,6 +46,8 @@ var kubetailVars = []string{"KUBETAIL=1", "KUBETAIL_SIDECAR_PID=10", "KUBETAIL_D
 
 // A run with no cluster has no kubeconfig and no kubectl cache to name.
 func TestWithNoClusterTheEnvironmentNamesNoKubeconfig(t *testing.T) {
+	t.Parallel()
+
 	got := sandboxedRunEnv(processEnv, kubetailVars, "/usr/bin", "/data/ws", "/data/ws", &runDir{path: "/tmp/r"}, nil, "/th", nil, nil, nil)
 
 	for _, kv := range got {
@@ -55,6 +57,8 @@ func TestWithNoClusterTheEnvironmentNamesNoKubeconfig(t *testing.T) {
 
 // The run's PATH is the one it is handed, never the process's.
 func TestThePathIsTheRunsOwn(t *testing.T) {
+	t.Parallel()
+
 	rd := &runDir{path: "/run/r", tmp: "/cache/t"}
 	got := sandboxedRunEnv([]string{"PATH=/sidecar/bin", "LANG=C"}, nil, "/opt/bin:/usr/bin", "/ws", "/ws", rd, nil, "/th", nil, nil, nil)
 
@@ -65,6 +69,8 @@ func TestThePathIsTheRunsOwn(t *testing.T) {
 // A run outside the sandbox keeps the process's environment whole, then what
 // Kubetail adds, then PWD.
 func TestAnOutsideRunKeepsItsEnvironment(t *testing.T) {
+	t.Parallel()
+
 	got := outsideEnv(processEnv, kubetailVars, "/data/ws")
 
 	assert.Equal(t, append(append(append([]string{}, processEnv...), kubetailVars...), "PWD=/data/ws"), got)
@@ -73,6 +79,8 @@ func TestAnOutsideRunKeepsItsEnvironment(t *testing.T) {
 // The sidecar's LANG passes; with none, the platform's default: on macOS
 // en_US.UTF-8, on Linux C.UTF-8 where the system has that locale, else C.
 func TestTheLocale(t *testing.T) {
+	t.Parallel()
+
 	rd := &runDir{path: "/run/r", tmp: "/cache/t"}
 	assert.Contains(t, sandboxedRunEnv([]string{"LANG=de_DE.UTF-8"}, nil, "/usr/bin", "/ws", "/ws", rd, nil, "/th", nil, nil, nil), "LANG=de_DE.UTF-8")
 	assert.Contains(t, sandboxedRunEnv(nil, nil, "/usr/bin", "/ws", "/ws", rd, nil, "/th", nil, nil, nil), "LANG="+defaultLang(runtime.GOOS, fileExists))
@@ -87,6 +95,8 @@ func TestTheLocale(t *testing.T) {
 
 // The toolchain's variables follow the fixed ones, before Kubetail's own.
 func TestTheToolchainsVariablesRideTheEnvironment(t *testing.T) {
+	t.Parallel()
+
 	rd := &runDir{path: "/run/r", tmp: "/cache/t"}
 	toolchain := []string{"NVM_DIR=/home/ana/.nvm", "ASDF_NODEJS_VERSION=20.1.0"}
 
@@ -100,6 +110,8 @@ func TestTheToolchainsVariablesRideTheEnvironment(t *testing.T) {
 
 // The cloud platforms' variables follow the toolchain's, before Kubetail's own.
 func TestTheCloudPlatformsVariablesRideTheEnvironment(t *testing.T) {
+	t.Parallel()
+
 	rd := &runDir{path: "/run/r", tmp: "/cache/t"}
 	toolchain, cloud := []string{"NVM_DIR=/home/ana/.nvm"}, []string{"GH_HOST=github.localhost"}
 
@@ -114,6 +126,8 @@ func TestTheCloudPlatformsVariablesRideTheEnvironment(t *testing.T) {
 // becomes ASDF_<TOOL>_VERSION, spelled as asdf spells it; any other line is
 // skipped.
 func TestAsdfVersionsComeFromToolVersions(t *testing.T) {
+	t.Parallel()
+
 	text := "nodejs 20.1.0 18.0.0\n" +
 		"golang  1.22.3 # pinned\n" +
 		"kube-linter v0.6.8\n" +
@@ -134,6 +148,8 @@ func TestAsdfVersionsComeFromToolVersions(t *testing.T) {
 // The versions are read from the user's home, a plain file alone; with none,
 // or with something other than a plain file, there are none.
 func TestAsdfVersionsAreReadFromTheHome(t *testing.T) {
+	t.Parallel()
+
 	home := t.TempDir()
 	assert.Empty(t, toolVersions(home))
 
@@ -146,6 +162,8 @@ func TestAsdfVersionsAreReadFromTheHome(t *testing.T) {
 }
 
 func TestLastOfEachNameKeepsTheLaterEntryInOrder(t *testing.T) {
+	t.Parallel()
+
 	name := func(e string) string { return strings.ToUpper(strings.SplitN(e, "=", 2)[0]) }
 	got := lastOfEachName([]string{"Path=a", "HOME=/h", "EDITOR=vi", "PATH=b", "EDITOR=nvim"}, name)
 	assert.Equal(t, []string{"HOME=/h", "PATH=b", "EDITOR=nvim"}, got)

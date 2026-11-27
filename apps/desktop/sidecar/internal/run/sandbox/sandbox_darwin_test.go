@@ -132,6 +132,7 @@ const (
 // Every path reaches the profile as a parameter, and its text holds only names
 // Kubetail made: a path holding a quote or a parenthesis is data, never code.
 func TestTheProfileWritesNoPathIntoItsText(t *testing.T) {
+	// profileRun changes the package's lists, so this test stays serial.
 	s := &Sandbox{self: "/bin/sh"}
 	r, base := profileRun(t, s)
 	odd := mkdirs(t, base, "data/we\"ird)\n(allow default)")[0]
@@ -155,6 +156,7 @@ func TestTheProfileWritesNoPathIntoItsText(t *testing.T) {
 // executable are read and not written; the workspace and the TMPDIR are read
 // and written, the run's directory read.
 func TestTheProfileNamesWhatARunReads(t *testing.T) {
+	// profileRun changes the package's lists, so this test stays serial.
 	s := &Sandbox{self: "/bin/sh"}
 	r, base := profileRun(t, s)
 
@@ -180,6 +182,7 @@ func TestTheProfileNamesWhatARunReads(t *testing.T) {
 // Seatbelt checks a file's real path, so every path is resolved, but for the
 // socket, which is named both as given and as resolved.
 func TestAProfilePathIsResolved(t *testing.T) {
+	// profileRun changes the package's lists, so this test stays serial.
 	s := &Sandbox{self: "/bin/sh"}
 	r, base := profileRun(t, s)
 	runDir := r.Policy.Always.Read[0]
@@ -206,6 +209,7 @@ func TestAProfilePathIsResolved(t *testing.T) {
 // Kubetail's directories and the other homes, which no read takes in, are left
 // out.
 func TestTheProfileDeniesBetweenTheReadsAndTheRunsOwn(t *testing.T) {
+	// profileRun changes the package's lists, so this test stays serial.
 	s := &Sandbox{self: "/bin/sh"}
 	r, base := profileRun(t, s)
 	brew := mkdirs(t, base, "tools/bin/var")[0]
@@ -239,6 +243,7 @@ func TestTheProfileDeniesBetweenTheReadsAndTheRunsOwn(t *testing.T) {
 // Each of the run's own Write paths is followed by a denial of its root's own
 // entry, so the allow cannot outrank it; a Files Write rule gets none.
 func TestTheProfileKeepsARunsOwnRootsInPlace(t *testing.T) {
+	// profileRun changes the package's lists, so this test stays serial.
 	s := &Sandbox{self: "/bin/sh"}
 	r, base := profileRun(t, s)
 	extra := mkdirs(t, base, "extra")[0]
@@ -259,6 +264,7 @@ func TestTheProfileKeepsARunsOwnRootsInPlace(t *testing.T) {
 // A credential path is compared at its target against every read, the System
 // folders among them: ~/.aws linked under /usr is denied there.
 func TestTheProfileDeniesALinkedCredentialPathUnderARoot(t *testing.T) {
+	// profileRun changes the package's lists, so this test stays serial.
 	s := &Sandbox{self: "/bin/sh"}
 	r, base := profileRun(t, s)
 	require.NoError(t, os.Symlink("/usr/share", filepath.Join(base, "home", ".aws")))
@@ -272,6 +278,7 @@ func TestTheProfileDeniesALinkedCredentialPathUnderARoot(t *testing.T) {
 // fixed rules, so the workspace's own resolves though the data directory
 // holding it is denied.
 func TestTheProfileLetsEveryAncestorBeStattedAfterTheDenials(t *testing.T) {
+	// profileRun changes the package's lists, so this test stays serial.
 	s := &Sandbox{self: "/bin/sh"}
 	r, base := profileRun(t, s)
 
@@ -291,6 +298,7 @@ func TestTheProfileLetsEveryAncestorBeStattedAfterTheDenials(t *testing.T) {
 // A run with no relay has no network rule at all; one with a relay may bind
 // and reach its port and reach its socket, and nothing else.
 func TestOnlyARunWithASocketHasNetwork(t *testing.T) {
+	// profileRun changes the package's lists, so this test stays serial.
 	s := &Sandbox{self: "/bin/sh"}
 	r, _ := profileRun(t, s)
 
@@ -308,6 +316,8 @@ func TestOnlyARunWithASocketHasNetwork(t *testing.T) {
 }
 
 func TestARefusedServiceMatchesByNameOrPrefix(t *testing.T) {
+	t.Parallel()
+
 	assert.True(t, refused("com.apple.dnssd.service"))
 	assert.True(t, refused("com.apple.lsd.mapdb"))
 	assert.True(t, refused("com.apple.pasteboard.1"))
@@ -318,6 +328,8 @@ func TestARefusedServiceMatchesByNameOrPrefix(t *testing.T) {
 // The profile's Mach allowlist names no refused service, and no rule lets
 // cfprefsd serve another app's preferences to the run.
 func TestTheProfileNamesNoRefusedService(t *testing.T) {
+	t.Parallel()
+
 	names := regexp.MustCompile(`global-name "([^"]+)"`).FindAllStringSubmatch(profileText, -1)
 	require.NotEmpty(t, names)
 	for _, n := range names {
@@ -354,6 +366,8 @@ exec "$@"
 `
 
 func TestWithoutSandboxExecThereIsNoSandbox(t *testing.T) {
+	t.Parallel()
+
 	s, v := probe(t.Context(), filepath.Join(t.TempDir(), "sandbox-exec"), testutil.Timeout)
 
 	assert.Nil(t, s)
@@ -363,6 +377,7 @@ func TestWithoutSandboxExecThereIsNoSandbox(t *testing.T) {
 // A probe with no home to read or no directory to probe in has no sandbox, and
 // says which.
 func TestAProbeWithoutItsDirectoriesSaysWhich(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	path := launcher(t, passThrough)
 
 	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
@@ -404,6 +419,8 @@ func TestAProbeWithNoDescriptorFreeHasNoSandbox(t *testing.T) {
 
 // A profile the launcher refuses fails the probe with its stderr's first line.
 func TestAProbeThatFailsSaysWhy(t *testing.T) {
+	t.Parallel()
+
 	path := launcher(t, "echo 'sandbox_apply: Operation not permitted' >&2\necho more >&2\nexit 71\n")
 
 	s, v := probe(t.Context(), path, testutil.Timeout)
@@ -415,6 +432,8 @@ func TestAProbeThatFailsSaysWhy(t *testing.T) {
 // A launcher that runs true under the profile is a sandbox that confines,
 // and gives a run the internet wherever it is.
 func TestAProbeThatRunsIsASandbox(t *testing.T) {
+	t.Parallel()
+
 	s, v := probe(t.Context(), launcher(t, passThrough), testutil.Timeout)
 
 	require.NotNil(t, s)
@@ -431,6 +450,7 @@ func TestAProbeThatRunsIsASandbox(t *testing.T) {
 // command unconfined. The launcher hangs on purpose: the probe's own timeout
 // ends it.
 func TestAProbeThatTimesOutKeepsTheSandbox(t *testing.T) {
+	// It waits on the package's boundedCalls, which every probe adds to, so this test stays serial.
 	t.Cleanup(boundedCalls.Wait)
 	s, v := probe(t.Context(), launcher(t, "exec sleep 60\n"), 10*time.Millisecond)
 
@@ -443,6 +463,7 @@ func TestAProbeThatTimesOutKeepsTheSandbox(t *testing.T) {
 // The command is sandbox-exec with the run's profile, then the run's argv: the
 // forwarder, with sandbox-shell its child, which execs the shell.
 func TestTheCommandIsSandboxExecOverTheProfile(t *testing.T) {
+	// profileRun changes the package's lists, so this test stays serial.
 	s := &Sandbox{self: "/bin/kubetail-sidecar", launcher: "/usr/bin/sandbox-exec"}
 	r, _ := profileRun(t, s)
 	r.Args = []string{"-c", "exit 0"}
@@ -466,6 +487,8 @@ func TestTheCommandIsSandboxExecOverTheProfile(t *testing.T) {
 // sandbox-shell its child: a run with a socket carries it, and one with
 // limits carries them to sandbox-shell.
 func TestEveryRunStartsAsTheForwarder(t *testing.T) {
+	t.Parallel()
+
 	s := &Sandbox{self: "/bin/kubetail-sidecar"}
 	r := Run{Shell: "/bin/sh", Args: []string{"-c", "--port 1"}}
 
@@ -490,6 +513,8 @@ func TestEveryRunStartsAsTheForwarder(t *testing.T) {
 // macOS has no memory limit to set, so a run asking for one is refused rather
 // than run without it.
 func TestAMemoryLimitIsRefused(t *testing.T) {
+	t.Parallel()
+
 	r := Run{Shell: "/bin/sh", Policy: Policy{Limits: Limits{MemoryBytes: 1 << 34, OpenFiles: 64}}}
 
 	cmd, err := (&Sandbox{self: "/bin/sh", launcher: "/usr/bin/true"}).Command(t.Context(), r)
@@ -501,6 +526,7 @@ func TestAMemoryLimitIsRefused(t *testing.T) {
 // A profile that hangs, as one resolving a path on a stalled network mount
 // does, holds the command only until its context ends.
 func TestACommandWhoseProfileHangsIsRefusedWhenItsContextEnds(t *testing.T) {
+	// It waits on the package's boundedCalls, which every probe adds to, so this test stays serial.
 	release, started := make(chan struct{}), make(chan struct{})
 	// Cleanups run last first, so the build is released before it is waited on.
 	t.Cleanup(boundedCalls.Wait)
@@ -533,6 +559,8 @@ func TestACommandWhoseProfileHangsIsRefusedWhenItsContextEnds(t *testing.T) {
 // The port a run's kubeconfig dials is a free loopback one, which the
 // forwarder can take.
 func TestThePortIsAFreeLoopbackOne(t *testing.T) {
+	t.Parallel()
+
 	port, err := (&Sandbox{}).Port()
 	require.NoError(t, err)
 
@@ -779,6 +807,8 @@ func write(t *testing.T, dir, name string) string {
 // to. A Go binary is among them: a run with a cluster starts the test binary
 // as its forwarder.
 func TestTheListedProgramsRun(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	hasTools := exec.Command("xcode-select", "-p").Run() == nil
 	for _, p := range []struct{ name, script string }{
@@ -826,6 +856,8 @@ func TestTheListedProgramsRun(t *testing.T) {
 }
 
 func TestTheHomeIsUnreadable(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	file := write(t, m.home, "secret")
@@ -837,6 +869,7 @@ func TestTheHomeIsUnreadable(t *testing.T) {
 }
 
 func TestACredentialPathInsideAReadableTreeIsUnreadable(t *testing.T) {
+	// addToolchain changes the package's lists, so this test stays serial.
 	s := confining(t)
 	m := standIn(t)
 	bin := mkdirs(t, m.home, ".cargo/bin")[0]
@@ -855,6 +888,7 @@ func TestACredentialPathInsideAReadableTreeIsUnreadable(t *testing.T) {
 // ~/.aws linked into ~/tools is unreadable at its target, which the ~/tools
 // toolchain folder takes in.
 func TestALinkedCredentialPathIsUnreadable(t *testing.T) {
+	// addToolchain changes the package's lists, so this test stays serial.
 	s := confining(t)
 	m := standIn(t)
 	bin := mkdirs(t, m.home, "tools/bin")[0]
@@ -870,6 +904,7 @@ func TestALinkedCredentialPathIsUnreadable(t *testing.T) {
 
 // Homebrew's var is denied inside a tree that takes it in; a stand-in plays it.
 func TestHomebrewsVarIsDenied(t *testing.T) {
+	// It changes the package's lists, so this test stays serial.
 	s := confining(t)
 	m := standIn(t)
 	brew := mkdirs(t, m.base, "brew")[0]
@@ -888,6 +923,7 @@ func TestHomebrewsVarIsDenied(t *testing.T) {
 // /etc is read whole and its secret files are not, whatever their mode: a
 // stand-in plays it, and the real /etc/hosts still reads.
 func TestEtcSecretsStayHidden(t *testing.T) {
+	// addRoot changes the package's lists, so this test stays serial.
 	s := confining(t)
 	m := standIn(t)
 	etc := filepath.Join(realpath.Resolved(m.base), "etc")
@@ -918,6 +954,8 @@ func TestEtcSecretsStayHidden(t *testing.T) {
 // A folder on the sidecar's PATH opens nothing: only the lists decide what a
 // run reads.
 func TestAFolderOnThePathIsNotRead(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	bin := mkdirs(t, m.home, "notes/bin")[0]
@@ -936,6 +974,8 @@ func TestAFolderOnThePathIsNotRead(t *testing.T) {
 // A Read of the home leaves the Closed folders shut, and a Read of a folder
 // inside one opens that folder.
 func TestAGrantOfTheHomeLeavesClosedFoldersShut(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	notes := write(t, m.home, "notes")
@@ -961,6 +1001,8 @@ func TestAGrantOfTheHomeLeavesClosedFoldersShut(t *testing.T) {
 // Each Toolchain location runs a program from its first folder, with its
 // variables set and pointing into the home.
 func TestEachToolchainLocationRunsAProgram(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	for _, l := range sharedLists.Toolchain {
 		t.Run(l.Name, func(t *testing.T) {
@@ -993,6 +1035,7 @@ func TestEachToolchainLocationRunsAProgram(t *testing.T) {
 }
 
 func TestKubetailsDirectoriesAreUnreadable(t *testing.T) {
+	// newKubetailRun changes the package's lists, so this test stays serial.
 	s := confining(t)
 	m := standIn(t)
 	assert.True(t, strings.HasPrefix(m.base, "/var/"), "the run's paths are passed unresolved: %s", m.base)
@@ -1010,6 +1053,7 @@ func TestKubetailsDirectoriesAreUnreadable(t *testing.T) {
 }
 
 func TestASiblingRunsKubeconfigIsUnreadable(t *testing.T) {
+	// newKubetailRun changes the package's lists, so this test stays serial.
 	s := confining(t)
 	m := standIn(t)
 	m.withCluster(t)
@@ -1025,6 +1069,8 @@ func TestASiblingRunsKubeconfigIsUnreadable(t *testing.T) {
 }
 
 func TestTheTempDirectoriesAreDenied(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	for _, base := range []string{"", "/tmp"} {
@@ -1042,6 +1088,7 @@ func TestTheTempDirectoriesAreDenied(t *testing.T) {
 }
 
 func TestOnlyTheWorkspaceAndTheCacheAreWritten(t *testing.T) {
+	// newKubetailRun changes the package's lists, so this test stays serial.
 	s := confining(t)
 	m := standIn(t)
 	for _, dir := range []string{m.ws, m.tmp, m.kubectl} {
@@ -1059,6 +1106,7 @@ func TestOnlyTheWorkspaceAndTheCacheAreWritten(t *testing.T) {
 // cannot leave a link there for the next run's profile to resolve. What lies
 // inside stays its own.
 func TestARunCannotReplaceItsWorkspace(t *testing.T) {
+	// newKubetailRun changes the package's lists, so this test stays serial.
 	s := confining(t)
 	for _, script := range []string{
 		`cd /; rm -rf "$W" && ln -s "$D" "$W"`,
@@ -1086,6 +1134,8 @@ func TestARunCannotReplaceItsWorkspace(t *testing.T) {
 }
 
 func TestAnAncestorCanBeStatted(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	parent := filepath.Dir(m.ws)
@@ -1097,6 +1147,8 @@ func TestAnAncestorCanBeStatted(t *testing.T) {
 }
 
 func TestTheEnvironmentIsExactlyGiven(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	m.Shell = "/usr/bin/env"
@@ -1110,6 +1162,8 @@ func TestTheEnvironmentIsExactlyGiven(t *testing.T) {
 // The keychain file is readable inside, so a lookup that fails is the Mach
 // denial's.
 func TestTheKeychainIsDenied(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	keychain := filepath.Join(m.ws, "k.keychain")
@@ -1136,6 +1190,8 @@ func TestTheKeychainIsDenied(t *testing.T) {
 }
 
 func TestNoAppIsOpenedOrDriven(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	pasteboard := func(stdin string) (string, error) {
@@ -1187,6 +1243,8 @@ func TestNoAppIsOpenedOrDriven(t *testing.T) {
 // cfprefsd reads another app's preferences for its caller unless the profile
 // refuses user-preference-read.
 func TestNoServiceReadsForTheRun(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	domain := "org.kubetail.kubetail.test." + strings.ToLower(rand.Text())
@@ -1208,6 +1266,8 @@ func TestNoServiceReadsForTheRun(t *testing.T) {
 // session of its own. The target is this binary, since macOS 27 withholds an
 // Apple binary's environment whatever the profile says.
 func TestAnotherProcessesLaunchStringsAreRefused(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	arg := "kubetail-arg-" + rand.Text()
@@ -1242,6 +1302,8 @@ func TestAnotherProcessesLaunchStringsAreRefused(t *testing.T) {
 var setuidPrograms = []string{"/usr/bin/sudo", "/usr/bin/su", "/usr/bin/login", "/usr/libexec/security_authtrampoline"}
 
 func TestTheProfileRefusesSetuidPrograms(t *testing.T) {
+	t.Parallel()
+
 	text, _ := (&Sandbox{self: "/bin/kubetail-sidecar"}).profile(Run{}, nil)
 	allow, deny := strings.Index(text, "(allow process-exec)\n"), strings.Index(text, "(deny process-exec\n")
 	require.NotEqual(t, -1, deny, text)
@@ -1265,6 +1327,8 @@ func TestTheProfileRefusesSetuidPrograms(t *testing.T) {
 // macOS refuses to start a setuid program under any profile, so ps and top,
 // setuid root and off the profile's list, are refused as well.
 func TestEverySetuidProgramIsRefused(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 
@@ -1279,6 +1343,8 @@ func TestEverySetuidProgramIsRefused(t *testing.T) {
 // refuses: inside it fails with the line it prints when the port is refused,
 // so a sample that cannot start or read a file does not pass.
 func TestATaskPortIsRefused(t *testing.T) {
+	t.Parallel()
+
 	other := exec.Command("sleep", "60")
 	require.NoError(t, other.Start())
 	t.Cleanup(func() { _ = other.Process.Kill(); _ = other.Wait() })
@@ -1296,6 +1362,8 @@ func TestATaskPortIsRefused(t *testing.T) {
 }
 
 func TestAPublicNameDoesNotResolve(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	if _, err := net.LookupHost("example.com"); err != nil {
@@ -1311,6 +1379,8 @@ func TestAPublicNameDoesNotResolve(t *testing.T) {
 }
 
 func TestOnlyTheRunsPortAndSocketAreReached(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	m.withCluster(t)
@@ -1336,6 +1406,8 @@ func TestOnlyTheRunsPortAndSocketAreReached(t *testing.T) {
 // The port is reached over TCP on 127.0.0.1 alone, the endpoint the forwarder
 // holds: UDP or IPv6 at that number could be another service's.
 func TestThePortIsReachedOverIPv4TCPAlone(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	m.withCluster(t)
@@ -1351,6 +1423,8 @@ func TestThePortIsReachedOverIPv4TCPAlone(t *testing.T) {
 }
 
 func TestARunWithoutAClusterHasNoNetwork(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	addr := serveHTTP(t, "tcp", "127.0.0.1:0", "reached")
@@ -1361,6 +1435,8 @@ func TestARunWithoutAClusterHasNoNetwork(t *testing.T) {
 }
 
 func TestAPathIsAParameter(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	ws := mkdirs(t, m.data, "chats/we\"ird)\n(allow default)/workspace")[0]
@@ -1375,6 +1451,8 @@ func TestAPathIsAParameter(t *testing.T) {
 }
 
 func TestATakenPortFailsTheRun(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	m.withCluster(t)
@@ -1395,6 +1473,8 @@ func TestATakenPortFailsTheRun(t *testing.T) {
 // The profile refuses setsid and setpgid, so a process cannot take itself out
 // of the run's group.
 func TestAProcessCannotLeaveItsGroup(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	for _, call := range []string{"setsid", "setpgid"} {
@@ -1413,6 +1493,8 @@ func TestAProcessCannotLeaveItsGroup(t *testing.T) {
 // POSIX_SPAWN_SETSID: a process spawned that way outlives the group's kill,
 // and stays under the run's profile.
 func TestAProcessThatLeavesTheGroupStaysConfined(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	if exec.Command("xcode-select", "-p").Run() != nil {
 		t.Skip("no Command Line Tools: /usr/bin/python3 only offers to install them")
@@ -1464,6 +1546,8 @@ open("pid", "w").write(str(pid))' "$BIN"`}
 // A run started with a controlling terminal still cannot open it. script(1)
 // gives its command a terminal of its own, as a sidecar started from one has.
 func TestATerminalIsUnreachable(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	opened := `: < /dev/tty && echo opened || echo refused`
@@ -1494,6 +1578,7 @@ func (f fixture) inlined(t *testing.T, text string, args []string) []string {
 
 // The profile over the fixture is the golden's, with a cluster and without.
 func TestTheCompiledProfileMatchesTheGolden(t *testing.T) {
+	// It changes the package's lists, so this test stays serial.
 	f := newFixture(t)
 	keepLists(t)
 	brewVar = f.brewVar
@@ -1511,6 +1596,7 @@ func TestTheCompiledProfileMatchesTheGolden(t *testing.T) {
 // A macOS run resolves through mDNSResponder, so one naming a resolv.conf is
 // refused.
 func TestAMacOSRunNamesNoResolver(t *testing.T) {
+	// newFixture changes the package's lists, so this test stays serial.
 	f := newFixture(t)
 	s := &Sandbox{self: f.self, launcher: "/usr/bin/sandbox-exec"}
 	r := f.withInternet(s, f.run(s, false))
@@ -1527,6 +1613,8 @@ func TestAMacOSRunNamesNoResolver(t *testing.T) {
 
 // A policy that fails Check answers its error and no command.
 func TestAPolicyThatFailsCheckStartsNothing(t *testing.T) {
+	t.Parallel()
+
 	s := &Sandbox{self: "/bin/sh", launcher: "/usr/bin/sandbox-exec"}
 	r := Run{Shell: "/bin/sh", Dir: "/w", Policy: Policy{Files: FilePolicy{Read: []string{"relative"}}}}
 
@@ -1540,6 +1628,8 @@ func TestAPolicyThatFailsCheckStartsNothing(t *testing.T) {
 // file made there afterwards cannot be read. The home is under /var, a link,
 // so the Deny is resolved through the deepest folder that exists.
 func TestADenyHoldsForAPathMadeLater(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	r := m.on(s)
@@ -1558,6 +1648,8 @@ func TestADenyHoldsForAPathMadeLater(t *testing.T) {
 // A Read and a Write rule whose paths are missing are skipped: the run
 // starts, and it cannot make either path.
 func TestAMissingReadOrWritePathIsSkipped(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	read, written := filepath.Join(m.base, "read"), filepath.Join(m.base, "written")
@@ -1575,6 +1667,8 @@ func TestAMissingReadOrWritePathIsSkipped(t *testing.T) {
 // The probe's run writes its own folder and reads its shell: the profile it
 // hands the launcher names both.
 func TestTheProbeHandsTheLauncherItsPolicy(t *testing.T) {
+	t.Parallel()
+
 	check := `printf '%s\n' "$@" | grep -q '^RULE_[0-9]*=.*kubetail-probe-' || { echo 'no probe folder' >&2; exit 1; }
 printf '%s\n' "$@" | grep -q '^RULE_[0-9]*=/usr$' || { echo 'no /usr' >&2; exit 1; }
 `
@@ -1587,6 +1681,8 @@ printf '%s\n' "$@" | grep -q '^RULE_[0-9]*=/usr$' || { echo 'no /usr' >&2; exit 
 
 // Command refuses a run holding a variable no run may hold.
 func TestARunWithAnUnpassableVariableIsRefused(t *testing.T) {
+	t.Parallel()
+
 	s := &Sandbox{self: "/bin/sh", launcher: "/usr/bin/sandbox-exec"}
 	for _, kv := range []string{"LD_PRELOAD=/x.so", "AWS_SESSION_TOKEN=t"} {
 		cmd, err := s.Command(t.Context(), Run{Shell: "/bin/sh", Dir: "/", Env: []string{kv}})
@@ -1599,6 +1695,7 @@ func TestARunWithAnUnpassableVariableIsRefused(t *testing.T) {
 // A probe whose context ended before it answered is the context's error, not
 // a verdict: read as one it would say there is no sandbox.
 func TestAProbeCutShortIsAnError(t *testing.T) {
+	// It waits on the package's boundedCalls, which every probe adds to, so this test stays serial.
 	t.Cleanup(boundedCalls.Wait)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -1651,6 +1748,8 @@ func sandboxRefused(out string) bool {
 // Without the internet a run reaches neither an address of the host's nor a
 // public one.
 func TestWithoutTheInternetNothingIsReached(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	addr := serveHTTP(t, "tcp", net.JoinHostPort(hostAddress(t), "0"), "reached")
@@ -1665,6 +1764,8 @@ func TestWithoutTheInternetNothingIsReached(t *testing.T) {
 // address (RFC 5737), so the connect fails either way, but only the run
 // without the internet is refused by the sandbox.
 func TestTheInternetReachesOut(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	connect := `curl -sS -v --connect-timeout 2 "http://$A/"`
@@ -1682,6 +1783,8 @@ func TestTheInternetReachesOut(t *testing.T) {
 // With the internet the host's own addresses stay shut, as its loopback does,
 // IPv4-mapped included.
 func TestTheInternetReachesNoHostAddress(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	m.internet = true
@@ -1700,6 +1803,8 @@ func TestTheInternetReachesNoHostAddress(t *testing.T) {
 // With the internet a run still has no IPv6: the sandbox refuses a public
 // address (RFC 3849) as it does the host's loopback.
 func TestTheInternetIsIPv4Only(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	m.internet = true
@@ -1714,6 +1819,8 @@ func TestTheInternetIsIPv4Only(t *testing.T) {
 // address the kernel connects to it, while the run's relay port still reaches
 // the forwarder.
 func TestTheInternetReachesNoHostLoopback(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	m.withCluster(t)
@@ -1750,6 +1857,8 @@ func TestTheInternetReachesNoHostLoopback(t *testing.T) {
 // A failed lookup says nothing of why: libSystem reports a resolver it cannot
 // reach as a name that does not exist.
 func TestTheInternetResolves(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	name, addr := mdnsName(t)
@@ -1900,6 +2009,8 @@ func aiaLeaf(t *testing.T, dir, base string) string {
 // URLs name see no request. With the internet a chain verifies, the daemon's
 // own work.
 func TestTrustFetchesNothingWithoutTheInternet(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	fetched := make(chan string, 8)
@@ -1939,6 +2050,8 @@ func TestTrustFetchesNothingWithoutTheInternet(t *testing.T) {
 }
 
 func TestFixedMountIsEveryRunsOwnMount(t *testing.T) {
+	t.Parallel()
+
 	for _, p := range []string{"/dev", "/dev/fd"} {
 		assert.True(t, FixedMount(p), p)
 	}
@@ -1951,6 +2064,8 @@ func TestFixedMountIsEveryRunsOwnMount(t *testing.T) {
 // Seatbelt has nothing that ends a run with its parent, and the run leads a
 // session of its own, so no signal to the sidecar's group reaches it.
 func TestARunEndsWithTheLifeline(t *testing.T) {
+	t.Parallel()
+
 	s := confining(t)
 	m := standIn(t)
 	r := m.on(s)
@@ -1964,6 +2079,7 @@ func TestARunEndsWithTheLifeline(t *testing.T) {
 
 // A closed Sandbox makes no command, so no run starts without the lifeline.
 func TestAClosedSandboxMakesNoCommand(t *testing.T) {
+	// profileRun changes the package's lists, so this test stays serial.
 	s := lifeline(t)
 	s.self, s.launcher = "/bin/kubetail-sidecar", "/usr/bin/sandbox-exec"
 	r, _ := profileRun(t, s)
@@ -1976,6 +2092,7 @@ func TestAClosedSandboxMakesNoCommand(t *testing.T) {
 
 // A probed sandbox hands every run the lifeline, and its forwarder watches it.
 func TestTheForwarderIsToldOfTheLifeline(t *testing.T) {
+	// profileRun changes the package's lists, so this test stays serial.
 	s := lifeline(t)
 	s.self, s.launcher = "/bin/kubetail-sidecar", "/usr/bin/sandbox-exec"
 	r, _ := profileRun(t, s)

@@ -31,6 +31,8 @@ import (
 // script as it goes and closing the job's handle kills the tree; the reap
 // releases both.
 func TestATaskKeepsItsScriptAndJob(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	tk, err := startTask(t.Context(), tl.spec("sleep 60", 1024), taskOut(t))
 	require.NoError(t, err)
@@ -45,6 +47,8 @@ func TestATaskKeepsItsScriptAndJob(t *testing.T) {
 
 // A stop without now still ends the job at once: there is no SIGTERM to give.
 func TestAStopEndsTheJobAtOnce(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	tk, err := startTask(t.Context(), tl.spec("sleep 60", 1024), taskOut(t))
 	require.NoError(t, err)
@@ -54,6 +58,8 @@ func TestAStopEndsTheJobAtOnce(t *testing.T) {
 
 // A scripts directory that cannot be made, or written in, starts no task.
 func TestATaskWithoutItsScriptsDirectoryDoesNotStart(t *testing.T) {
+	t.Parallel()
+
 	for _, dir := range []string{notADir(t), unwritableDir(t)} {
 		_, err := startTask(t.Context(), spec{scripts: dir, command: "echo ran"}, taskOut(t))
 		assert.Error(t, err, dir)
@@ -62,6 +68,8 @@ func TestATaskWithoutItsScriptsDirectoryDoesNotStart(t *testing.T) {
 
 // A stop once the reap has begun records nothing and sends nothing.
 func TestAStopAfterTheReapIsIgnored(t *testing.T) {
+	t.Parallel()
+
 	tk := &task{g: newGuard(hooks{})}
 	tk.g.reap()
 	tk.Stop(true)
@@ -70,6 +78,8 @@ func TestAStopAfterTheReapIsIgnored(t *testing.T) {
 
 // A task whose bash cannot be resumed does not start, and leaves no script.
 func TestATaskThatCannotResumeDoesNotStart(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	s := tl.spec("echo ran", 1024)
 	s.hooks = failing(failResume)

@@ -22,6 +22,8 @@ import (
 )
 
 func TestInitArgsAreTheSocketThePortAndTheCommand(t *testing.T) {
+	t.Parallel()
+
 	got, err := parseInitArgs([]string{"--socket", "/run/p.sock", "--port", "6443", "--", "/bin/sh", "-c", "--port 1"})
 	require.NoError(t, err)
 	assert.Equal(t, initArgs{socket: "/run/p.sock", port: 6443, lifeline: -1, argv: []string{"/bin/sh", "-c", "--port 1"}}, got)
@@ -33,6 +35,8 @@ func TestInitArgsAreTheSocketThePortAndTheCommand(t *testing.T) {
 
 // Under sandbox-pasta the forwarder takes the run's stderr from stdin.
 func TestInitArgsTakeTheStderrOnStdin(t *testing.T) {
+	t.Parallel()
+
 	got, err := parseInitArgs([]string{stderrOnStdinFlag, "--", "/bin/sh"})
 	require.NoError(t, err)
 	assert.Equal(t, initArgs{stderrOnStdin: true, lifeline: -1, argv: []string{"/bin/sh"}}, got)
@@ -41,6 +45,8 @@ func TestInitArgsTakeTheStderrOnStdin(t *testing.T) {
 // A run with no cluster names neither flag, and its forwarder listens on
 // nothing.
 func TestInitArgsTakeNeitherFlag(t *testing.T) {
+	t.Parallel()
+
 	got, err := parseInitArgs([]string{"--", "/bin/sh", "-c", "true"})
 	require.NoError(t, err)
 	assert.Equal(t, initArgs{lifeline: -1, argv: []string{"/bin/sh", "-c", "true"}}, got)
@@ -48,12 +54,16 @@ func TestInitArgsTakeNeitherFlag(t *testing.T) {
 
 // A run the sidecar's lifeline reaches names its descriptor.
 func TestInitArgsTakeTheLifeline(t *testing.T) {
+	t.Parallel()
+
 	got, err := parseInitArgs([]string{lifelineFlag, "3", "--", "/bin/sh"})
 	require.NoError(t, err)
 	assert.Equal(t, initArgs{lifeline: 3, argv: []string{"/bin/sh"}}, got)
 }
 
 func TestInitArgsRefuseWhatIsMissing(t *testing.T) {
+	t.Parallel()
+
 	for name, args := range map[string][]string{
 		"no socket":           {"--port", "1", "--", "x"},
 		"no port":             {"--socket", "s", "--", "x"},
@@ -73,6 +83,8 @@ func TestInitArgsRefuseWhatIsMissing(t *testing.T) {
 // The forwarder's command line parses back to the run it was written for,
 // with or without a socket.
 func TestForwarderArgsRoundTrip(t *testing.T) {
+	t.Parallel()
+
 	relay := Relay{Port: 6443, Socket: "/run/p.sock"}
 	args := ForwarderArgs(relay)
 	require.Equal(t, InitCommand, args[0])

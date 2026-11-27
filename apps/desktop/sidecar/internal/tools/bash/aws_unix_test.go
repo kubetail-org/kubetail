@@ -32,6 +32,8 @@ import (
 
 // The config file is owner-only.
 func TestTheAWSConfigFileIsOwnerOnly(t *testing.T) {
+	t.Parallel()
+
 	_, run := awsMount(t, "eu-west-1")
 	info, err := os.Stat(filepath.Join(run.Dir, "aws", "config"))
 	require.NoError(t, err)
@@ -42,6 +44,8 @@ func TestTheAWSConfigFileIsOwnerOnly(t *testing.T) {
 // mount's placeholders, and holds none of the user's credentials: not in its
 // environment, its run directory, its TMPDIR or its tool home.
 func TestNoRealCredentialIsInTheRun(t *testing.T) {
+	t.Parallel()
+
 	tl := tool(t)
 	tl.sandboxer = sandboxed(t)
 	tl.cloud = Cloud{Platforms: []CloudPlatform{awsAs(fakeAWSLogin{"eu-west-1"}, nil)}, Switches: switchesOn(permissions.AWS).read}

@@ -23,5 +23,7 @@ import (
 // The forwarder is never a PID namespace's first process on macOS, so there is
 // no memory to guard.
 func TestGuardMemoryIsNothing(t *testing.T) {
+	t.Parallel()
+
 	assert.NoError(t, guardMemory())
 }

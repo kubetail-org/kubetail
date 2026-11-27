@@ -27,6 +27,8 @@ import (
 // The tool home is made with every folder its variables name, under the
 // chat's directory.
 func TestTheToolHomeIsMadeWithItsFolders(t *testing.T) {
+	t.Parallel()
+
 	dir := testChatDir(t)
 
 	require.NoError(t, makeToolHome(dir))
@@ -39,6 +41,8 @@ func TestTheToolHomeIsMadeWithItsFolders(t *testing.T) {
 
 // Two chats get two tool homes, though they share a cluster.
 func TestTheToolHomeIsPerChat(t *testing.T) {
+	t.Parallel()
+
 	a, b := testRuntime(t), testRuntime(t)
 	a.ClusterID, b.ClusterID = "c", "c"
 
@@ -48,5 +52,7 @@ func TestTheToolHomeIsPerChat(t *testing.T) {
 // gcloud keeps its configuration and logs in the tool home, not the
 // workspace.
 func TestCloudSDKConfigIsUnderTheToolHome(t *testing.T) {
+	t.Parallel()
+
 	assert.Contains(t, toolHomeEnv("/home/t"), "CLOUDSDK_CONFIG=/home/t/gcloud")
 }

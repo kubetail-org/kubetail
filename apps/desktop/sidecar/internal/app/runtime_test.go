@@ -51,6 +51,8 @@ import (
 // The app keeps every service it built, so a caller reaches one through the
 // runtime rather than through a constructor's arguments.
 func TestNewKeepsTheRuntime(t *testing.T) {
+	t.Parallel()
+
 	a, err := New(t.Context(), withDirs(t, Config{}))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, a.Close()) })
@@ -71,6 +73,8 @@ func TestNewKeepsTheRuntime(t *testing.T) {
 // on its own. SQLite deletes the -wal beside a database when its last connection
 // closes, so the sibling's absence shows app.db was released.
 func TestARuntimeClosesWhatItBuilt(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	rt, err := build(t.Context(), withDirs(t, Config{Folders: Folders{Data: dir}}))
 	require.NoError(t, err)
@@ -83,6 +87,8 @@ func TestARuntimeClosesWhatItBuilt(t *testing.T) {
 
 // An app.db that cannot open fails the build, saying so.
 func TestAnAppDBThatCannotOpenFailsTheBuild(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	require.NoError(t, os.Mkdir(filepath.Join(dir, "app.db"), 0o700))
 
@@ -94,6 +100,8 @@ func TestAnAppDBThatCannotOpenFailsTheBuild(t *testing.T) {
 // An app.db a newer build migrated fails the build with the text the start screen
 // shows: the file and both versions.
 func TestANewerAppDBFailsTheBuildNamingTheVersions(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	path := filepath.Join(dir, "app.db")
 	db, err := appdb.Open(path, 0)
@@ -112,6 +120,8 @@ func TestANewerAppDBFailsTheBuildNamingTheVersions(t *testing.T) {
 // interface: a nil *bash.Tool stored in one is not nil, and the resolver would
 // call through it.
 func TestTheResolverHasNoProberWithoutAShell(t *testing.T) {
+	t.Parallel()
+
 	rt := &Runtime{SandboxState: sandbox.State{Available: true}}
 
 	assert.True(t, rt.resolver().Executables == nil)
@@ -120,6 +130,8 @@ func TestTheResolverHasNoProberWithoutAShell(t *testing.T) {
 // Settings lists the catalog's tools that this machine's box holds, in the
 // catalog's order, each on until the user turns it off.
 func TestToolSettingsListTheToolsTheBoxHolds(t *testing.T) {
+	t.Parallel()
+
 	rt, err := build(t.Context(), withDirs(t, Config{}))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, rt.Close()) })
@@ -138,6 +150,8 @@ func TestToolSettingsListTheToolsTheBoxHolds(t *testing.T) {
 // The resolver and the chat service list the build's cloud platforms in its
 // order.
 func TestCloudTargetsKeepTheBuildsOrder(t *testing.T) {
+	t.Parallel()
+
 	got := cloudTargets([]bash.CloudPlatform{targetOnly(permissions.GCP), targetOnly(permissions.AWS)})
 	assert.Equal(t, []permissions.Target{permissions.GCP, permissions.AWS}, got)
 	assert.Empty(t, cloudTargets(nil))
@@ -146,6 +160,8 @@ func TestCloudTargetsKeepTheBuildsOrder(t *testing.T) {
 // With a sandbox the cloud platforms are the build's, or a test's in their
 // place; without one there are none.
 func TestCloudPlatformsNeedASandbox(t *testing.T) {
+	t.Parallel()
+
 	sandboxed := sandbox.State{Available: true}
 	configured := []bash.CloudPlatform{targetOnly(permissions.AWS)}
 	assert.Equal(t, cloudTargets(builtCloudPlatforms(nil, nil)), cloudTargets(cloudPlatformsFor(sandboxed, nil, nil, nil)))
@@ -167,6 +183,8 @@ func (targetOnly) Mount(context.Context, bash.CloudRun) (bash.CloudMount, error)
 // no model, a save lists its written catalog on modelsStateWatch and a delete
 // empties it.
 func TestAKeyedRowListsItsModelsWhileItHasACredential(t *testing.T) {
+	t.Parallel()
+
 	rt, err := build(t.Context(), withDirs(t, Config{}))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, rt.Close()) })
@@ -199,6 +217,8 @@ func TestAKeyedRowListsItsModelsWhileItHasACredential(t *testing.T) {
 // With OPENROUTER_API_KEY set the connector still connects and disconnects,
 // and the provider signs with the saved key, then the environment key.
 func TestOpenRouterFallsBackAfterADisconnect(t *testing.T) {
+	t.Parallel()
+
 	const envKey, savedKey = "sk-or-env-0123456789abcdef", "sk-or-saved-0123456789abcdef"
 	rt, err := build(t.Context(), withDirs(t, Config{LLMKeys: map[string]string{openrouter.ID: envKey}}))
 	require.NoError(t, err)
@@ -231,6 +251,8 @@ func TestOpenRouterFallsBackAfterADisconnect(t *testing.T) {
 // The service signs the google row at the project's Vertex AI endpoint
 // whenever the launch found a project, a Gemini key or not.
 func TestTheGoogleRowFollowsTheProject(t *testing.T) {
+	t.Parallel()
+
 	vertexBase := google.BaseURL("my-project", "global")
 	rows := func(cfg Config) (*Runtime, llm.Provider, bool) {
 		t.Helper()
@@ -258,6 +280,8 @@ func TestTheGoogleRowFollowsTheProject(t *testing.T) {
 // and without a project, and the service signs each one. One part syncs every
 // provider's catalog.
 func TestTheStateWatchListsEveryProviderTheCatalogHolds(t *testing.T) {
+	t.Parallel()
+
 	for _, getenv := range []func(string) string{nil, googleEnv("my-project")} {
 		a, err := New(t.Context(), withDirs(t, Config{Getenv: getenv, AddFake: true}))
 		require.NoError(t, err)
@@ -286,6 +310,8 @@ func TestTheStateWatchListsEveryProviderTheCatalogHolds(t *testing.T) {
 
 // A debug build's OpenRouter base that does not parse fails the build.
 func TestABadOpenRouterBaseFailsTheBuild(t *testing.T) {
+	t.Parallel()
+
 	_, err := build(t.Context(), withDirs(t, Config{LLMBaseURLs: map[string]string{openrouter.ID: "http://[::1"}}))
 
 	assert.ErrorContains(t, err, "http://[::1")
@@ -293,6 +319,8 @@ func TestABadOpenRouterBaseFailsTheBuild(t *testing.T) {
 
 // A debug build's AWS sign-in URL that does not parse fails the build.
 func TestABadAWSSigninURLFailsTheBuild(t *testing.T) {
+	t.Parallel()
+
 	_, err := build(t.Context(), withDirs(t, Config{ConnectorAuthURLs: map[string]string{aws.ID: "http://[::1"}}))
 
 	assert.ErrorContains(t, err, "http://[::1")
@@ -300,6 +328,8 @@ func TestABadAWSSigninURLFailsTheBuild(t *testing.T) {
 
 // A debug build's GitHub origin that does not parse fails the build.
 func TestABadGitHubAuthURLFailsTheBuild(t *testing.T) {
+	t.Parallel()
+
 	_, err := build(t.Context(), withDirs(t, Config{ConnectorAuthURLs: map[string]string{github.ID: "http://[::1"}}))
 
 	assert.ErrorContains(t, err, "http://[::1")
@@ -308,6 +338,8 @@ func TestABadGitHubAuthURLFailsTheBuild(t *testing.T) {
 // The wire reaches the app's OpenRouter connector, whatever key the
 // environment holds, and the provider keys service, once the keyring is read.
 func TestTheWireReachesTheOpenRouterConnector(t *testing.T) {
+	t.Parallel()
+
 	a, err := New(t.Context(), withDirs(t, Config{LLMKeys: map[string]string{openrouter.ID: "sk-or-env-0123456789abcdef"}}))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, a.Close()) })
@@ -320,6 +352,8 @@ func TestTheWireReachesTheOpenRouterConnector(t *testing.T) {
 
 // The wire reaches the app's AWS connector, once the keyring is read.
 func TestTheWireReachesTheAWSConnector(t *testing.T) {
+	t.Parallel()
+
 	a, err := New(t.Context(), withDirs(t, Config{}))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, a.Close()) })
@@ -331,6 +365,8 @@ func TestTheWireReachesTheAWSConnector(t *testing.T) {
 
 // The wire reaches the app's GitHub connector, once the keyring is read.
 func TestTheWireReachesTheGitHubConnector(t *testing.T) {
+	t.Parallel()
+
 	a, err := New(t.Context(), withDirs(t, Config{}))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, a.Close()) })
@@ -342,6 +378,8 @@ func TestTheWireReachesTheGitHubConnector(t *testing.T) {
 
 // The wire reaches the app's Google connector, once the keyring is read.
 func TestTheWireReachesTheGoogleConnector(t *testing.T) {
+	t.Parallel()
+
 	a, err := New(t.Context(), withDirs(t, Config{Getenv: googleEnv("my-project")}))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, a.Close()) })
@@ -365,6 +403,8 @@ func googleEnv(project string) func(string) string {
 // The project is read through Getenv as Google's own tools read it, and one
 // that builds no endpoint is none, so the row says to set one.
 func TestFindGoogleProject(t *testing.T) {
+	t.Parallel()
+
 	env := map[string]string{"GOOGLE_CLOUD_PROJECT": "my-project", "GOOGLE_CLOUD_LOCATION": "us-east5"}
 	project, base := findGoogleProject(func(name string) string { return env[name] })
 	assert.Equal(t, "my-project", project)
@@ -381,6 +421,8 @@ func TestFindGoogleProject(t *testing.T) {
 
 // A debug build's keyed base with no host fails the build, naming the provider.
 func TestABadKeyedBaseFailsTheBuild(t *testing.T) {
+	t.Parallel()
+
 	_, err := build(t.Context(), withDirs(t, Config{LLMBaseURLs: map[string]string{"groq": "localhost:8080"}}))
 
 	assert.ErrorContains(t, err, "groq")
@@ -388,6 +430,8 @@ func TestABadKeyedBaseFailsTheBuild(t *testing.T) {
 
 // Every service reads its restored entry from the one keyring build makes.
 func TestEveryServiceReadsTheOneKeyring(t *testing.T) {
+	t.Parallel()
+
 	k := oskeyringtest.New()
 	a, err := New(t.Context(), withDirs(t, Config{Keyring: k}))
 	require.NoError(t, err)
@@ -442,6 +486,8 @@ const savedEntry = `{"v":1,"key":"sk-saved-0123456789abcdef"}`
 // New returns while the keyring holds every call, with every connector and
 // every keyed provider Restoring, and closes with the reads still held.
 func TestTheLaunchDoesNotWaitForTheKeyring(t *testing.T) {
+	t.Parallel()
+
 	k := oskeyringtest.New()
 	release := k.Hold()
 	t.Cleanup(release)
@@ -462,6 +508,8 @@ func TestTheLaunchDoesNotWaitForTheKeyring(t *testing.T) {
 // A provider with an environment key lists its models before the keyring
 // answers; one with a saved key alone lists them once it does.
 func TestAnEnvironmentKeyListsItsModelsAtOnce(t *testing.T) {
+	t.Parallel()
+
 	k := oskeyringtest.New()
 	require.NoError(t, k.Set("anthropic-api-key", savedEntry))
 	release := k.Hold(oskeyringtest.Get)
@@ -484,6 +532,8 @@ func TestAnEnvironmentKeyListsItsModelsAtOnce(t *testing.T) {
 
 // One entry the keyring fails to read signs out its own service alone.
 func TestABadEntrySignsOutItsOwnServiceAlone(t *testing.T) {
+	t.Parallel()
+
 	k := oskeyringtest.New()
 	require.NoError(t, k.Set("openrouter-api-key", `{"v":1,"key":"sk-or-0123456789abcdef"}`))
 	require.NoError(t, k.Set("github-token", `{"v":1,"token":"ghs_0123456789abcdef","login":"octocat"}`))
@@ -502,6 +552,8 @@ func TestABadEntrySignsOutItsOwnServiceAlone(t *testing.T) {
 // no second probe, every connector is signed out, nothing is deleted, and a
 // save afterwards still reaches the keyring.
 func TestADismissedPromptIsAskedOnce(t *testing.T) {
+	t.Parallel()
+
 	k := oskeyringtest.New()
 	require.NoError(t, k.Set("anthropic-api-key", savedEntry))
 	seeded := len(k.Calls())

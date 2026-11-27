@@ -23,6 +23,8 @@ import (
 // A rule matches its name exactly, or every name its prefix starts but those
 // it excepts.
 func TestUnpassableMatchesNamesAndPrefixes(t *testing.T) {
+	t.Parallel()
+
 	rules := []EnvRule{{Name: "SECRET"}, {Prefix: "CLOUD_", Except: []string{"CLOUD_DIR"}}}
 	for name, want := range map[string]bool{
 		"SECRET": true, "SECRETS": false, "MY_SECRET": false,
@@ -38,6 +40,8 @@ func TestUnpassableMatchesNamesAndPrefixes(t *testing.T) {
 // program loads, every AWS variable, and every Azure variable but
 // AZURE_CONFIG_DIR.
 func TestNeverEnvHoldsTheRules(t *testing.T) {
+	t.Parallel()
+
 	for _, name := range []string{
 		"SSH_AUTH_SOCK", "GITHUB_TOKEN", "GH_TOKEN", "GITHUB_ENTERPRISE_TOKEN", "GH_ENTERPRISE_TOKEN", "DOCKER_HOST", "DYLD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES",
 		"DYLD_FRAMEWORK_PATH", "LD_LIBRARY_PATH", "LD_PRELOAD", "LD_AUDIT", "BASH_ENV", "ENV", "PROMPT_COMMAND",
@@ -54,6 +58,8 @@ func TestNeverEnvHoldsTheRules(t *testing.T) {
 
 // NeverEnv hands out a copy, so no caller changes the rules.
 func TestNeverEnvIsACopy(t *testing.T) {
+	t.Parallel()
+
 	rules := NeverEnv()
 	rules[0].Name = "PATH"
 
@@ -63,6 +69,8 @@ func TestNeverEnvIsACopy(t *testing.T) {
 // What the run's table sets is refused by name, and the prefixes take every
 // variable of their tool's config.
 func TestKubetailSetsNamesTheTablesVariables(t *testing.T) {
+	t.Parallel()
+
 	for _, name := range []string{
 		"PATH", "HOME", "PWD", "TMPDIR", "ZDOTDIR", "KUBECONFIG", "KUBECACHEDIR", "TERM",
 		"KUBETAIL", "KUBETAIL_SIDECAR_PID", "KUBETAIL_DESKTOP_PID", "ASDF_KUBECTL_VERSION", "CLOUDSDK_CORE_PROJECT",
@@ -77,6 +85,8 @@ func TestKubetailSetsNamesTheTablesVariables(t *testing.T) {
 
 // Every variable a toolchain location sets is one the table sets.
 func TestKubetailSetsEveryToolchainVariable(t *testing.T) {
+	t.Parallel()
+
 	for _, l := range sharedLists.Toolchain {
 		for name := range l.Env {
 			assert.True(t, KubetailSets(name), "%s's %s", l.Name, name)

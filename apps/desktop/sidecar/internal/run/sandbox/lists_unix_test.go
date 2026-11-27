@@ -45,6 +45,8 @@ func listPaths() [][]string {
 }
 
 func TestNoPathIsInTwoLists(t *testing.T) {
+	t.Parallel()
+
 	lists := listPaths()
 	seen := map[string]bool{}
 	for _, list := range lists {
@@ -56,6 +58,8 @@ func TestNoPathIsInTwoLists(t *testing.T) {
 }
 
 func TestEveryListPathIsAbsoluteOrInTheHome(t *testing.T) {
+	t.Parallel()
+
 	for _, p := range slices.Concat(listPaths()...) {
 		assert.True(t, strings.HasPrefix(p, "/") || strings.HasPrefix(p, "~/"), p)
 	}
@@ -85,6 +89,7 @@ func keepLists(t *testing.T) {
 // Never is the Never paths with ~/ under the home, and with no home the
 // absolute ones alone, since a ~/ path would be relative.
 func TestNeverWithNoHomeIsTheAbsolutePaths(t *testing.T) {
+	// otherHomesIn changes the package's lists, so this test stays serial.
 	otherHomesIn(t, t.TempDir())
 	keepLists(t)
 	platformLists.Never = append(slices.Clone(platformLists.Never), "/etc/kubetail-secret")
@@ -102,6 +107,7 @@ func TestNeverWithNoHomeIsTheAbsolutePaths(t *testing.T) {
 // Every other folder where the users' homes sit is Never, read at call time,
 // but for the user's own and the one that is no user's. System reads none.
 func TestTheOtherHomesAreNever(t *testing.T) {
+	// otherHomesIn changes the package's lists, so this test stays serial.
 	parent := realpath.Resolved(t.TempDir())
 	d := mkdirs(t, parent, "a", "b", notHomes[0], "ana")
 	otherHomesIn(t, parent)
@@ -121,6 +127,7 @@ func TestTheOtherHomesAreNever(t *testing.T) {
 // A home nested in a folder of the homes parent keeps its own reads: that
 // folder holds it, so it is not another user's home.
 func TestANestedHomeIsNotAnotherUsersHome(t *testing.T) {
+	// otherHomesIn changes the package's lists, so this test stays serial.
 	parent := realpath.Resolved(t.TempDir())
 	d := mkdirs(t, parent, "company/alice/.nvm", "bo")
 	home := filepath.Dir(d[0])
@@ -139,6 +146,7 @@ func TestANestedHomeIsNotAnotherUsersHome(t *testing.T) {
 // A Never path on or above the home is dropped, so a home of /root or one
 // inside a denied folder does not deny itself. The home need not exist.
 func TestANeverPathAboveTheHomeIsDropped(t *testing.T) {
+	// otherHomesIn changes the package's lists, so this test stays serial.
 	otherHomesIn(t, t.TempDir())
 	base := realpath.Resolved(t.TempDir())
 	keepLists(t)
@@ -177,6 +185,7 @@ func withLists(t *testing.T, l Lists) {
 // Homebrew's var and the Closed folders. Its Env is each found location's,
 // and Asdf says whether asdf's was found. A missing location adds nothing.
 func TestSystemReadsTheZones(t *testing.T) {
+	// It changes the package's lists, so this test stays serial.
 	base := realpath.Resolved(t.TempDir())
 	home := filepath.Join(base, "home")
 	d := mkdirs(t, home, "bins", ".asdf", "shells", "late")
@@ -216,6 +225,7 @@ func TestSystemReadsTheZones(t *testing.T) {
 // folder of every app's data under it, is not read: it would read all of it.
 // A link to another folder under the home is read.
 func TestAToolchainLinkToABroadFolderIsNotRead(t *testing.T) {
+	// withLists changes the package's lists, so this test stays serial.
 	base := realpath.Resolved(t.TempDir())
 	home := filepath.Join(base, "home")
 	d := mkdirs(t, home, ".config/x", ".local/share/x", "Library", "dotfiles/bin")
@@ -249,6 +259,8 @@ func TestAToolchainLinkToABroadFolderIsNotRead(t *testing.T) {
 // With no home, System holds no Toolchain or Closed rule and no Env, and a
 // probe's policy over it passes Check.
 func TestWithNoHomeSystemHoldsNoHomeRule(t *testing.T) {
+	t.Parallel()
+
 	s := &Sandbox{self: "/usr/bin/true"}
 
 	got := s.System("", "/bin/sh")
@@ -264,6 +276,7 @@ func TestWithNoHomeSystemHoldsNoHomeRule(t *testing.T) {
 // reaches its own share. Under the home, or where the prefix holds the home
 // or is /, its folder is read alone. One in another user's home adds nothing.
 func TestTheShellsPrefixIsReadButNeverTheHome(t *testing.T) {
+	// otherHomesIn changes the package's lists, so this test stays serial.
 	base := realpath.Resolved(t.TempDir())
 	homes := mkdirs(t, base, "users")[0]
 	home := mkdirs(t, homes, "ana")[0]
@@ -288,6 +301,7 @@ func TestTheShellsPrefixIsReadButNeverTheHome(t *testing.T) {
 // A shell whose folder is broad — the home, a folder of every app's data
 // under it, or / — reads the program alone, never the folder.
 func TestAShellInABroadFolderReadsOnlyItself(t *testing.T) {
+	// otherHomesIn changes the package's lists, so this test stays serial.
 	base := realpath.Resolved(t.TempDir())
 	home := mkdirs(t, base, "home/.config")[0]
 	home = filepath.Dir(home)
@@ -305,6 +319,7 @@ func TestAShellInABroadFolderReadsOnlyItself(t *testing.T) {
 // A shell that is a link reads where each link on its way leads, so the
 // program it names runs, and nothing wider than shellFolder would read.
 func TestAShellLinkReadsWhereItLeads(t *testing.T) {
+	// otherHomesIn changes the package's lists, so this test stays serial.
 	base := realpath.Resolved(t.TempDir())
 	home := filepath.Join(base, "home")
 	d := mkdirs(t, home, ".local/bin", "links", "shell-install/bin")
@@ -323,6 +338,7 @@ func TestAShellLinkReadsWhereItLeads(t *testing.T) {
 // A Toolchain folder inside a Never path makes no rule, so a policy of
 // System and Never passes Check.
 func TestSystemLeavesOutTheNeverPaths(t *testing.T) {
+	// withLists changes the package's lists, so this test stays serial.
 	base := realpath.Resolved(t.TempDir())
 	home := filepath.Join(base, "home")
 	d := mkdirs(t, home, ".docker/bin", "apps")
@@ -340,6 +356,8 @@ func TestSystemLeavesOutTheNeverPaths(t *testing.T) {
 }
 
 func TestNoWriteIsUnderTheHome(t *testing.T) {
+	t.Parallel()
+
 	got := NoWrite("/home/me")
 	for _, p := range []string{
 		"/home/me/.zshrc", "/home/me/.bashrc", "/home/me/.profile", "/home/me/.zshenv", "/home/me/.oh-my-zsh",

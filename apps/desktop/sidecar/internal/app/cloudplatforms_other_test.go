@@ -23,5 +23,7 @@ import (
 )
 
 func TestABuildWithNoSandboxHasNoCloudPlatform(t *testing.T) {
+	t.Parallel()
+
 	assert.Empty(t, builtCloudPlatforms(nil, nil))
 }

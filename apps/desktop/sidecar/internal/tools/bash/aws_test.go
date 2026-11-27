@@ -66,6 +66,8 @@ func awsMount(t *testing.T, region string) (CloudMount, CloudRun) {
 // The mount sets its variables and no other, every value its own, and leaves
 // the region out when the sandbox would refuse it.
 func TestTheAWSMountSetsExactlyItsVariables(t *testing.T) {
+	t.Parallel()
+
 	m, run := awsMount(t, "eu-west-1")
 	assert.Equal(t, []string{
 		"AWS_ENDPOINT_URL=http://127.0.0.1:4100",
@@ -90,6 +92,8 @@ func TestTheAWSMountSetsExactlyItsVariables(t *testing.T) {
 // With no profile, the config file is the default section's settings alone,
 // under the run directory.
 func TestTheAWSConfigFileIsTheDefaultSection(t *testing.T) {
+	t.Parallel()
+
 	_, run := awsMount(t, "eu-west-1")
 	text, err := os.ReadFile(filepath.Join(run.Dir, "aws", "config"))
 	require.NoError(t, err)
@@ -100,6 +104,8 @@ func TestTheAWSConfigFileIsTheDefaultSection(t *testing.T) {
 // in place of the environment's; the default profile's keys join its one
 // section.
 func TestTheAWSConfigFileDeclaresTheProfile(t *testing.T) {
+	t.Parallel()
+
 	keys := "aws_access_key_id = KUBETAILAB\naws_secret_access_key = " + sandbox.AWSSecretPlaceholder + "\n"
 	assert.Equal(t, "[default]\ndisable_request_compression = true\n[profile prod]\n"+keys+
 		"disable_request_compression = true\n", awsConfig("prod", "KUBETAILAB"))
@@ -111,6 +117,8 @@ func TestTheAWSConfigFileDeclaresTheProfile(t *testing.T) {
 // naming none, or a name the file cannot hold reaches AWS as the default
 // chain. Each profile's login is made once.
 func TestTheAWSMountFollowsTheClustersProfile(t *testing.T) {
+	t.Parallel()
+
 	profiles := map[string]string{"eks-prod": "prod", "eks-odd": "a]\n[x"}
 	regions := map[string]string{"prod": "eu-west-1"}
 	var made []string
@@ -145,6 +153,8 @@ func TestTheAWSMountFollowsTheClustersProfile(t *testing.T) {
 
 // Each profile keeps one login and one bucket list, which its runs share.
 func TestEachProfileHasItsOwnLoginAndBuckets(t *testing.T) {
+	t.Parallel()
+
 	p := NewAWS(
 		func(kubeContext string) string { return kubeContext },
 		func(profile string) AWSLogin { return fakeAWSLogin{profile} }, nil).(*awsPlatform)
@@ -162,6 +172,8 @@ func TestEachProfileHasItsOwnLoginAndBuckets(t *testing.T) {
 
 // A run directory that already holds an aws folder fails the mount.
 func TestAnAWSFolderAlreadyThereFailsTheMount(t *testing.T) {
+	t.Parallel()
+
 	run := CloudRun{On: switchedOn, Port: 4100, Dir: t.TempDir()}
 	require.NoError(t, os.Mkdir(filepath.Join(run.Dir, "aws"), 0o700))
 	_, err := awsAs(fakeAWSLogin{"eu-west-1"}, nil).Mount(t.Context(), run)
@@ -183,6 +195,8 @@ func (l hungLogin) Region() string {
 // A mount whose region read hangs gives up when its context ends, having
 // written nothing.
 func TestAMountAbandonsAHungRegionRead(t *testing.T) {
+	t.Parallel()
+
 	login := hungLogin{release: make(chan struct{})}
 	t.Cleanup(func() { close(login.release) })
 	run := CloudRun{On: switchedOn, Port: 4100, Dir: t.TempDir()}
@@ -200,6 +214,8 @@ func TestAMountAbandonsAHungRegionRead(t *testing.T) {
 // The client AWS is reached through waits for an answer's headers no longer
 // than awsAnswerTimeout, and leaves a stored encoding as stored.
 func TestTheAWSClientBoundsAnAnswersWait(t *testing.T) {
+	t.Parallel()
+
 	transport := awsAs(fakeAWSLogin{}, nil).(*awsPlatform).client.Transport.(*http.Transport)
 	assert.Equal(t, awsAnswerTimeout, transport.ResponseHeaderTimeout)
 	assert.True(t, transport.DisableCompression)

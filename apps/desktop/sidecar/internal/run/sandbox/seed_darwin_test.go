@@ -24,6 +24,7 @@ import (
 )
 
 func TestSeedTmpDirCopiesTheXcrunCache(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	src, dst := t.TempDir(), t.TempDir()
 	t.Setenv("TMPDIR", src)
 	require.NoError(t, os.WriteFile(filepath.Join(src, xcrunCache), []byte("cache"), 0o600))
@@ -36,6 +37,7 @@ func TestSeedTmpDirCopiesTheXcrunCache(t *testing.T) {
 }
 
 func TestSeedTmpDirWithNoCacheCopiesNothing(t *testing.T) {
+	// t.Setenv sets the process's environment, so this test stays serial.
 	dst := t.TempDir()
 	t.Setenv("TMPDIR", t.TempDir())
 

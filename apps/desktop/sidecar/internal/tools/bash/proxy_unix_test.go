@@ -251,6 +251,8 @@ func watchLine() string {
 // end: a watch open then is closed, though its client is still running, and
 // the socket is gone.
 func TestTheGrantDiesWithTheRun(t *testing.T) {
+	t.Parallel()
+
 	t.Run("call", func(t *testing.T) {
 		api := newFakeAPI(t)
 		lease := &fakeLease{serverUID: "uid-1", conn: api.connection()}
@@ -288,6 +290,8 @@ func TestTheGrantDiesWithTheRun(t *testing.T) {
 // A run's grant answers the session of the runtime it was made for, which is
 // how its token maps to that session.
 func TestTheGrantKeepsTheSession(t *testing.T) {
+	t.Parallel()
+
 	api := newFakeAPI(t)
 	tl := proxyTool(t, &fakeLease{serverUID: "uid-1", conn: api.connection()})
 	rt := clusterRuntime(t)
@@ -302,6 +306,8 @@ func TestTheGrantKeepsTheSession(t *testing.T) {
 
 // A door that cannot listen on its socket answers why.
 func TestAProxyThatCannotListenFails(t *testing.T) {
+	t.Parallel()
+
 	p := &runProxy{grant: newClusterGrant(refused{}, session.Session{}, "7", "prod", nil, refusedNoAsker)}
 	t.Cleanup(p.end)
 	assert.Error(t, p.serve(filepath.Join(t.TempDir(), "missing", socketName), nil))
@@ -309,6 +315,8 @@ func TestAProxyThatCannotListenFails(t *testing.T) {
 
 // A run whose directory cannot be made releases its claim, and runs nothing.
 func TestARunThatCannotBeMadeReleasesItsClaim(t *testing.T) {
+	t.Parallel()
+
 	lease := &fakeLease{serverUID: "uid-1"}
 	tl := proxyTool(t, lease)
 	tl.runsDir = "/" + strings.Repeat("t", maxSocketPath)
@@ -323,6 +331,8 @@ func TestARunThatCannotBeMadeReleasesItsClaim(t *testing.T) {
 // A run whose directory cannot take its resolver, its proxy's socket or its
 // kubeconfig fails, releases its claim and removes the directory.
 func TestARunThatCannotBeSetUpEndsIt(t *testing.T) {
+	t.Parallel()
+
 	for _, name := range []string{"resolv.conf", socketName, "kubeconfig"} {
 		t.Run(name, func(t *testing.T) {
 			lease := &fakeLease{serverUID: "uid-1"}
@@ -348,6 +358,8 @@ func TestARunThatCannotBeSetUpEndsIt(t *testing.T) {
 // the run's directory goes. It cannot start when its shell is missing, or
 // when the sandbox refuses its policy, whose reason the model reads.
 func TestASandboxedTaskThatCannotStartEndsItsRun(t *testing.T) {
+	t.Parallel()
+
 	for name, boxer := range map[string]*fakeSandboxer{
 		"no shell": {},
 		"refused":  {cmdErr: errors.New("a rule over a fixed mount")},
@@ -383,6 +395,8 @@ func TestASandboxedTaskThatCannotStartEndsItsRun(t *testing.T) {
 // A cluster the proxy cannot reach costs the cluster commands alone: the
 // command runs, and a request answers why.
 func TestAClusterThatCannotBeClaimedStillRunsTheCommand(t *testing.T) {
+	t.Parallel()
+
 	for name, c := range map[string]struct {
 		uid        string
 		acquireErr error
@@ -416,6 +430,8 @@ func TestAClusterThatCannotBeClaimedStillRunsTheCommand(t *testing.T) {
 // because the cluster is gone since the target read it fails as a gone cluster
 // does; nothing runs.
 func TestAClaimThatFailsCouldNotStart(t *testing.T) {
+	t.Parallel()
+
 	for name, acquireErr := range map[string]error{
 		"another": errDisk,
 		"gone":    cluster.ErrNotFound,
@@ -445,6 +461,8 @@ func TestAClaimThatFailsCouldNotStart(t *testing.T) {
 // A client reading the run's KUBECONFIG lists pods through the forwarder and
 // the proxy, and the API server sees the connection's credential.
 func TestARunReachesTheClusterThroughTheProxy(t *testing.T) {
+	t.Parallel()
+
 	api := newFakeAPI(t)
 	lease := &fakeLease{serverUID: "uid-1", conn: api.connection()}
 	tl := proxyTool(t, lease)
@@ -462,6 +480,8 @@ func TestARunReachesTheClusterThroughTheProxy(t *testing.T) {
 // API server saw, never on the output: the child's GOCOVERDIR is outside the
 // sandbox, so under coverage its exit warning lands there.
 func TestASandboxedRunReachesTheClusterThroughTheProxy(t *testing.T) {
+	t.Parallel()
+
 	api := newFakeAPI(t)
 	lease := &fakeLease{serverUID: "uid-1", conn: api.connection()}
 	tl := proxyTool(t, lease)
@@ -478,6 +498,8 @@ func TestASandboxedRunReachesTheClusterThroughTheProxy(t *testing.T) {
 // record the read, unredacted under a rule allowing it, and redacted again in
 // the background, where nobody sees the read.
 func TestASandboxedRunReadsASecretRedacted(t *testing.T) {
+	t.Parallel()
+
 	api := newFakeAPI(t)
 	tl := proxyTool(t, &fakeLease{serverUID: "uid-1", conn: api.connection()})
 
@@ -537,6 +559,8 @@ func (f *fakeActionAsker) Record(_ context.Context, r tools.ActionRequest, _ per
 // writes in the context the record names, whatever the run's kubeconfig calls
 // it.
 func TestTheGrantDecidesByTheRecordsCluster(t *testing.T) {
+	t.Parallel()
+
 	api := newFakeAPI(t)
 	tl := proxyTool(t, &fakeLease{serverUID: "uid-1", conn: api.connection()})
 	rt := clusterRuntime(t)
@@ -560,6 +584,8 @@ func TestTheGrantDecidesByTheRecordsCluster(t *testing.T) {
 // A foreground call's write is put to the user through its runtime, and
 // reaches the cluster once approved; with no one to ask it is refused.
 func TestAForegroundGrantAsksThroughTheRuntime(t *testing.T) {
+	t.Parallel()
+
 	api := newFakeAPI(t)
 	tl := proxyTool(t, &fakeLease{serverUID: "uid-1", conn: api.connection()})
 	rt := clusterRuntime(t)
@@ -582,6 +608,8 @@ func TestAForegroundGrantAsksThroughTheRuntime(t *testing.T) {
 
 // A background command's write is refused, whoever could be asked.
 func TestABackgroundGrantRefusesWrites(t *testing.T) {
+	t.Parallel()
+
 	api := newFakeAPI(t)
 	tl := proxyTool(t, &fakeLease{serverUID: "uid-1", conn: api.connection()})
 	rt := clusterRuntime(t)
@@ -606,6 +634,8 @@ func TestABackgroundGrantRefusesWrites(t *testing.T) {
 // waits for the handlers. The handler is known to be reading once the server
 // answers 100 Continue, which Go's server sends on the handler's first read.
 func TestTheProxyClosesBeforeItWaits(t *testing.T) {
+	t.Parallel()
+
 	socket := filepath.Join(shortTemp(t), socketName)
 	p := &runProxy{grant: newClusterGrant(refused{}, session.Session{}, "7", "prod", runtimeAsker{&fakeActionAsker{approve: true}}, "")}
 	require.NoError(t, p.serve(socket, nil))

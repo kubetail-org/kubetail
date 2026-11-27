@@ -37,6 +37,8 @@ import (
 // name-uniqueness enforces, so a UID migration must yield a second, distinct name
 // rather than colliding with the cache it supersedes.
 func TestClusterCacheName(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, "7/uid-1", ClusterCacheName("7", "uid-1"))
 	assert.NotEqual(t, ClusterCacheName("7", "uid-1"), ClusterCacheName("7", "uid-2"))
 	assert.NotEqual(t, ClusterCacheName("7", "uid-1"), ClusterCacheName("8", "uid-1"))
@@ -46,6 +48,8 @@ func TestClusterCacheName(t *testing.T) {
 // cache mirrors the identity the cluster is currently probed at. An inactive cache is
 // the trap — a UID migration leaves one behind, and it must not keep syncing.
 func TestCacheSyncEnabled(t *testing.T) {
+	t.Parallel()
+
 	cluster := func(enabled, sync bool, uid string) *beehive.Object[ClusterRuntimeSpec, ClusterStatus] {
 		return &beehive.Object[ClusterRuntimeSpec, ClusterStatus]{
 			Spec:   ClusterRuntimeSpec{Enabled: enabled, SyncEnabled: sync},
@@ -87,6 +91,8 @@ func uidsOf(caches []*ClusterCache) []string {
 // The rows are trusted once listed, under no cache-wide failure — stale, paused
 // or partly behind included.
 func TestClusterCacheHealthTrusted(t *testing.T) {
+	t.Parallel()
+
 	for reason, trusted := range map[string]bool{
 		"":                              false,
 		ReasonConnecting:                false,
@@ -113,6 +119,8 @@ func TestClusterCacheHealthTrusted(t *testing.T) {
 }
 
 func TestCachesGet(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
 	obj := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -129,6 +137,8 @@ func TestCachesGet(t *testing.T) {
 // An unknown id is not an error: a caller holds ids from watch frames, and a cache
 // collected in between is an ordinary race rather than a bad request.
 func TestCachesGetUnknownIsNotAnError(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 
 	got, err := serviceOver(t, d).Caches().Get(context.Background(), 404)
@@ -154,6 +164,8 @@ func twoClustersThreeCaches(t *testing.T) (deps, ClusterID) {
 // One cluster's caches, in the same order — what Cluster.caches serves, and what a
 // migration turns into a two-element list.
 func TestCachesListByCluster(t *testing.T) {
+	t.Parallel()
+
 	d, one := twoClustersThreeCaches(t)
 
 	got, err := serviceOver(t, d).Caches().ListByCluster(context.Background(), one)
@@ -164,6 +176,8 @@ func TestCachesListByCluster(t *testing.T) {
 
 // A cluster that has never been probed owns none, which is empty rather than an error.
 func TestCachesListByClusterWithNone(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
 
@@ -176,6 +190,8 @@ func TestCachesListByClusterWithNone(t *testing.T) {
 // An id naming no cluster owns nothing, and answers empty rather than as an error: a
 // caller holds ids from watch frames, so a record removed in between is a race.
 func TestCachesListByClusterOfAnUnknownClusterIsEmpty(t *testing.T) {
+	t.Parallel()
+
 	got, err := serviceOver(t, newTestDeps(t)).Caches().ListByCluster(context.Background(), ClusterID("404"))
 
 	require.NoError(t, err)
@@ -209,6 +225,8 @@ func awaitCacheBookmark(t *testing.T, stream *Stream[ClusterCacheCollectionWatch
 // consumer renders its empty state on, and never before. Each frame carries the owner
 // edge the client joins onto its cluster.
 func TestCachesWatchCollectionEmitsTheSnapshotThenABookmark(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	cluster := createCluster(t, d, "prod")
 	createCache(t, d.cacheClient, cluster, "uid-1")
@@ -235,6 +253,8 @@ func TestCachesWatchCollectionEmitsTheSnapshotThenABookmark(t *testing.T) {
 // An empty collection is definitively empty rather than pending, so the bookmark
 // still lands: without it a populated table and an empty one look alike.
 func TestCachesWatchCollectionBookmarksAnEmptyCollection(t *testing.T) {
+	t.Parallel()
+
 	stream := watchCaches(t, newRunningDeps(t))
 
 	assert.Equal(t, CollectionWatchFrameBookmark, testutil.Recv(t, stream.Frames, "the bookmark").Type)
@@ -243,6 +263,8 @@ func TestCachesWatchCollectionBookmarksAnEmptyCollection(t *testing.T) {
 // A cache created after the snapshot — how a client learns of the identity a probe
 // just recorded.
 func TestCachesWatchCollectionReportsACreate(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	cluster := createCluster(t, d, "prod")
 	stream := watchCaches(t, d)
@@ -261,6 +283,8 @@ func TestCachesWatchCollectionReportsACreate(t *testing.T) {
 // later in the log mentions the id. The frame still has to name it: a consumer drops a
 // change with no entity, so the record would sit in its map until the subscription ends.
 func TestCachesWatchCollectionReportsAnUndecodableDeparture(t *testing.T) {
+	t.Parallel()
+
 	frames := pumpFrames(t, cacheWatch, nil,
 		beehive.ObjectChange[ClusterCacheSpec, ClusterCacheStatus]{Type: beehive.Deleted, ID: 7, Object: nil},
 	)
@@ -279,6 +303,8 @@ func TestCachesWatchCollectionReportsAnUndecodableDeparture(t *testing.T) {
 // The GC interval is shrunk rather than waited out: a cache is client-only here (no
 // controller is registered), so its removal costs one sweep.
 func TestCachesWatchCollectionReportsADeparture(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t, beehive.WithGCInterval(time.Millisecond))
 	cluster := createCluster(t, d, "prod")
 	obj := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -313,6 +339,8 @@ func watchCache(t *testing.T, d deps, id ClusterCacheID) *Stream[ClusterCacheCol
 }
 
 func TestCachesWatchCollectionByIDEmitsTheRecordThenABookmark(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	cluster := createCluster(t, d, "prod")
 	obj := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -331,12 +359,16 @@ func TestCachesWatchCollectionByIDEmitsTheRecordThenABookmark(t *testing.T) {
 // An id naming nothing is bookmark-only rather than an error: the record may not
 // exist yet, and the same subscription reports it arriving.
 func TestCachesWatchCollectionByIDBookmarksAnUnknownID(t *testing.T) {
+	t.Parallel()
+
 	stream := watchCache(t, newRunningDeps(t), 404)
 
 	assert.Equal(t, CollectionWatchFrameBookmark, testutil.Recv(t, stream.Frames, "the bookmark").Type)
 }
 
 func TestCachesWatchCollectionByIDReportsChangesToItsRecord(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	cluster := createCluster(t, d, "prod")
 	obj := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -355,6 +387,8 @@ func TestCachesWatchCollectionByIDReportsChangesToItsRecord(t *testing.T) {
 // Cancellation is an ordinary teardown, so Frames closes with nothing to report: a
 // consumer reads Err on close, and a reason there is rendered as a dead watch.
 func TestCachesWatchCollectionCancellationIsQuiet(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -442,6 +476,8 @@ func reconcileCache(t *testing.T, d deps, obj *beehive.Object[ClusterCacheSpec, 
 // it converged. Unsettled, the store keeps every cache owed and beehive's pass re-runs
 // this reconcile, store reads and all, every interval forever.
 func TestCacheReconcileSettlesTheGeneration(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -454,6 +490,8 @@ func TestCacheReconcileSettlesTheGeneration(t *testing.T) {
 // The cache's file is named for an id that dies with the record, so nothing could
 // find it afterwards: the teardown pass is where it is deleted.
 func TestCacheReconcileDeletesTheStoreForADyingCache(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -468,6 +506,8 @@ func TestCacheReconcileDeletesTheStoreForADyingCache(t *testing.T) {
 
 // The log file goes with the cache, in the same pass as the mirror's and after it.
 func TestCacheReconcileRemovesTheLogFileAfterTheMirrors(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -488,6 +528,8 @@ func TestCacheReconcileRemovesTheLogFileAfterTheMirrors(t *testing.T) {
 // A log file that will not go fails the pass as the mirror's does, with the finalizer
 // intact, so the pass runs again rather than leaving a file nothing names any more.
 func TestCacheReconcileKeepsTheFinalizerWhenTheLogFileWillNotGo(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -504,6 +546,8 @@ func TestCacheReconcileKeepsTheFinalizerWhenTheLogFileWillNotGo(t *testing.T) {
 }
 
 func TestCacheReconcileLeavesTheStoreAloneForALiveCache(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -516,6 +560,8 @@ func TestCacheReconcileLeavesTheStoreAloneForALiveCache(t *testing.T) {
 // A store that will not delete fails the pass: the file is the pass's whole job here,
 // and settling would leave it on disk with nothing left to name it.
 func TestCacheReconcileFailsWhenTheStoreWillNotDelete(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -532,6 +578,8 @@ func TestCacheReconcileFailsWhenTheStoreWillNotDelete(t *testing.T) {
 // Scoped to one cluster: another cluster's cache must not reach this stream, or a
 // per-cluster view would fold a record it never asked for.
 func TestCachesWatchCollectionByClusterIsScopedToItsCluster(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	mine := createCluster(t, d, "prod")
 	theirs := createCluster(t, d, "staging")
@@ -554,6 +602,8 @@ func TestCachesWatchCollectionByClusterIsScopedToItsCluster(t *testing.T) {
 // A UID migration leaves the superseded cache in place, so the scoped watch carries
 // both — which is what makes "the set, never the cache" true on this stream too.
 func TestCachesWatchCollectionByClusterCarriesEveryIdentity(t *testing.T) {
+	t.Parallel()
+
 	d := newRunningDeps(t)
 	cluster := createCluster(t, d, "prod")
 	createCache(t, d.cacheClient, cluster, "uid-1")
@@ -578,6 +628,8 @@ func TestCachesWatchCollectionByClusterCarriesEveryIdentity(t *testing.T) {
 // A cluster owning none bookmarks an empty collection, and so does an id naming no
 // cluster: either may still gain a cache this stream reports.
 func TestCachesWatchCollectionByClusterBookmarksAClusterWithNone(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
@@ -590,6 +642,8 @@ func TestCachesWatchCollectionByClusterBookmarksAClusterWithNone(t *testing.T) {
 // A watch opened on a cluster that does not exist yet reports the caches that arrive
 // under it once it does — and none of another cluster's.
 func TestCachesWatchCollectionByClusterFollowsAClusterThatArrivesLater(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	d := newRunningDeps(t)
@@ -616,6 +670,8 @@ func TestCachesWatchCollectionByClusterFollowsAClusterThatArrivesLater(t *testin
 // A state watch is current-on-subscribe and emits nothing before its first measurement, so
 // the first frame is what the cache holds now.
 func TestCachesWatchStatsStateEmitsTheCurrentMeasurement(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -641,6 +697,8 @@ func TestCachesWatchStatsStateEmitsTheCurrentMeasurement(t *testing.T) {
 // a list of twenty caches would otherwise pin twenty idle files open — and the measurement
 // needs no open file anyway, since Manager.Stats reads a closed one directly.
 func TestCachesWatchStatsStateDoesNotHoldAnIdleCacheOpen(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
@@ -663,6 +721,8 @@ func TestCachesWatchStatsStateDoesNotHoldAnIdleCacheOpen(t *testing.T) {
 // no cache, and nothing after it. A caller holding such a pair got it from a frame that has
 // since moved on, and drops the subscription itself.
 func TestCachesWatchStatsStateSendsOneAbsentReadingForAMismatchedPair(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
 	other := createCluster(t, d, "staging")
@@ -680,6 +740,8 @@ func TestCachesWatchStatsStateSendsOneAbsentReadingForAMismatchedPair(t *testing
 // The state watch re-emits only when the measurement moved: it is re-read on a cadence, and
 // a cache at rest must not push a frame per tick to every watcher.
 func TestCachesWatchStatsStateEmitsOnlyOnAChange(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -703,6 +765,8 @@ func TestCachesWatchStatsStateEmitsOnlyOnAChange(t *testing.T) {
 // --- the clears ---
 
 func TestCachesClearOfAnUnknownCacheIsNotAnError(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 
 	got, err := serviceOver(t, d).Caches().Clear(context.Background(), 999)
@@ -714,6 +778,8 @@ func TestCachesClearOfAnUnknownCacheIsNotAnError(t *testing.T) {
 // A subscriber that arrives after a cache was paused has to hear about it: a verdict
 // this subscription never witnessed the transition into is still the verdict.
 func TestCachesWatchHealthKeyedStateReportsACacheThatWasAlreadyPaused(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -731,6 +797,8 @@ func TestCachesWatchHealthKeyedStateReportsACacheThatWasAlreadyPaused(t *testing
 // A cache being collected is not a cache that stopped syncing: its record says it is
 // going, and a verdict for it would be noise a consumer has to unpick.
 func TestCachesWatchHealthKeyedStateSkipsACacheOnItsWayOut(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -749,6 +817,8 @@ func TestCachesWatchHealthKeyedStateSkipsACacheOnItsWayOut(t *testing.T) {
 // has none until its discovery pass has run, and one that serves no kinds never will.
 // Calling that Paused would show a user their own enabled cluster as switched off.
 func TestCachesWatchHealthKeyedStateTellsAnInitializingCacheFromAPausedOne(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]struct {
 		syncEnabled bool
 		want        string
@@ -812,6 +882,8 @@ func recordedKinds(t *testing.T, d deps, cacheID ClusterCacheID) []string {
 // Arming is the cache pass's, off the switch it already computes. Nothing a reader does starts
 // a sync, and the params are what every worker under the cache dials over.
 func TestCachePassArmsTheSyncWhileTheSwitchHolds(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -826,6 +898,8 @@ func TestCachePassArmsTheSyncWhileTheSwitchHolds(t *testing.T) {
 // Pausing is one call and no record written: the kinds stay registered under kubesync, so a
 // resume starts every one of them again with nothing requeued.
 func TestCachePassDisarmsTheSyncWhenTheSwitchIsOff(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -843,6 +917,8 @@ func TestCachePassDisarmsTheSyncWhenTheSwitchIsOff(t *testing.T) {
 // A cache whose identity the cluster has moved off is not the one being probed, so nothing
 // under it may write.
 func TestCachePassDisarmsACacheTheClusterNoLongerAnswersAs(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -859,6 +935,8 @@ func TestCachePassDisarmsACacheTheClusterNoLongerAnswersAs(t *testing.T) {
 // Forgetting returns only once nothing can still write through the cache's store, which is
 // exactly what the file being deleted needs.
 func TestCachePassForgetsTheSyncBeforeItRemovesTheStore(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -882,6 +960,8 @@ func TestCachePassForgetsTheSyncBeforeItRemovesTheStore(t *testing.T) {
 // file. The deleting arm clears it only once the file is gone, and a removal that
 // fails keeps it — and fails the pass, so beehive retries under backoff.
 func TestCacheIsCreatedWithItsFinalizer(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 
@@ -891,6 +971,8 @@ func TestCacheIsCreatedWithItsFinalizer(t *testing.T) {
 }
 
 func TestCachePassClearsTheFinalizerOnceTheFileIsGone(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -909,6 +991,8 @@ func TestCachePassClearsTheFinalizerOnceTheFileIsGone(t *testing.T) {
 // The clear is a store write of its own; one that fails fails the pass, and the next
 // pass finds the file already gone and clears it then.
 func TestCachePassReportsAFinalizerThatWillNotClear(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -923,6 +1007,8 @@ func TestCachePassReportsAFinalizerThatWillNotClear(t *testing.T) {
 }
 
 func TestCachePassKeepsTheFinalizerWhenTheRemovalFails(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -941,6 +1027,8 @@ func TestCachePassKeepsTheFinalizerWhenTheRemovalFails(t *testing.T) {
 // A cache on its way out is deleted, not paused. Pausing keeps every kind registered so a
 // resume is one call; a teardown that kept them would leak a cache's worth on every delete.
 func TestCachePassForgetsTheKindsWithTheCache(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -961,6 +1049,8 @@ func TestCachePassForgetsTheKindsWithTheCache(t *testing.T) {
 // The desired set is what the cluster serves, read back off disk; a record is what turns one
 // of those into a kind that is actually mirrored.
 func TestCachePassMirrorsTheCatalogIntoRecords(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -980,6 +1070,8 @@ func TestCachePassMirrorsTheCatalogIntoRecords(t *testing.T) {
 // so a renamed or re-scoped kind converges in place rather than being recreated under a name
 // it already holds.
 func TestCachePassConvergesARenamedKindInPlace(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -999,6 +1091,8 @@ func TestCachePassConvergesARenamedKindInPlace(t *testing.T) {
 // a pass that wrote the whole desired spec would un-pause a kind within one discovery
 // interval — and silently, since nothing else moves.
 func TestCachePassLeavesAPausedKindPaused(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1016,6 +1110,8 @@ func TestCachePassLeavesAPausedKindPaused(t *testing.T) {
 // The other half of the ownership split: a catalog change is the sweep's to converge, and
 // it converges the four fields it owns WITHOUT taking the fifth back.
 func TestCachePassCarriesAPauseThroughACatalogChange(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1040,6 +1136,8 @@ func TestCachePassCarriesAPauseThroughACatalogChange(t *testing.T) {
 // Driven through upsertKinds directly, with the snapshot taken before the pause: that is
 // the race's outcome, without a race to reproduce.
 func TestCachePassCarriesAPauseItsSnapshotMissed(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1086,6 +1184,8 @@ func storedKind(t *testing.T, d deps, cacheID beehive.ObjectID, apiVersion, reso
 // A record with no row is a kind the cluster has stopped serving. Marked, not collected: the
 // record's own pass is what clears the rows behind it.
 func TestCachePassMarksARecordWithNoRow(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1104,6 +1204,8 @@ func TestCachePassMarksARecordWithNoRow(t *testing.T) {
 // answer written to it, and only the first of those may delete records — otherwise a cluster
 // that is merely unreachable loses its whole record set for the length of the outage.
 func TestCachePassPrunesNothingBeforeAnySweep(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1122,6 +1224,8 @@ func TestCachePassPrunesNothingBeforeAnySweep(t *testing.T) {
 // A pass that runs before any sweep finds no file rather than a fresh empty one, so it reads
 // no rows and prunes nothing — and creates nothing the cache's teardown would have to undo.
 func TestCachePassReadsNoCatalogWhenThereIsNoFile(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1138,6 +1242,8 @@ func TestCachePassReadsNoCatalogWhenThereIsNoFile(t *testing.T) {
 // (Category, Type, Reason) extends that run rather than appending, so a flapping sweep costs
 // one row per transition.
 func TestCachePassLogsTheDiscoveryVerdict(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1157,6 +1263,8 @@ func TestCachePassLogsTheDiscoveryVerdict(t *testing.T) {
 // NoConnection and IdentityMismatch and lands on the timeline. A guard rather than a red test:
 // logDiscoveryVerdict needs no change for it, and this is what keeps it that way.
 func TestCachePassLogsAStoreFailure(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1174,6 +1282,8 @@ func TestCachePassLogsAStoreFailure(t *testing.T) {
 // A suspended session is the CLUSTER's fact, already on its own timeline; logging it per cache
 // is the same news twice.
 func TestCachePassLogsNoDiscoveryEventForALostConnection(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1186,6 +1296,8 @@ func TestCachePassLogsNoDiscoveryEventForALostConnection(t *testing.T) {
 
 // Nothing has answered for a cache whose sweep has not run, and that is not a verdict to log.
 func TestCachePassLogsNothingBeforeASweepAnswers(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1198,6 +1310,8 @@ func TestCachePassLogsNothingBeforeASweepAnswers(t *testing.T) {
 // A clear swaps the file under whoever holds it open, so the workers writing through it must
 // be down for the whole swap. Only kubesync can stop them, so the clear runs inside its hold.
 func TestCachesClearRunsInsideTheSyncsHold(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1216,6 +1330,8 @@ func TestCachesClearRunsInsideTheSyncsHold(t *testing.T) {
 // than object bodies do. The log file needs no sync stopped, so its clear runs before the
 // hold the mirror's runs in.
 func TestCachesClearClearsTheLogFileFirstOutsideTheSyncsHold(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1239,6 +1355,8 @@ func TestCachesClearClearsTheLogFileFirstOutsideTheSyncsHold(t *testing.T) {
 // A log file that will not clear fails the mutation before the mirror is touched, so the
 // error is the whole truth and the user runs it again.
 func TestCachesClearReportsALogFileThatWillNotClear(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1287,6 +1405,8 @@ func setKindReason(d deps, cacheID ClusterCacheID, spec ClusterCachedKindSpec, s
 // healthy kinds and one forbidden CRD is not healthy, which is why no single child can serve
 // this and why the fold happens here.
 func TestCachesWatchHealthKeyedStateFoldsEveryKindsVerdict(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	now := time.Now()
 	setKindReason(d, cacheID, podsSpec, kubesync.KindState{
@@ -1313,6 +1433,8 @@ func TestCachesWatchHealthKeyedStateFoldsEveryKindsVerdict(t *testing.T) {
 // Each offender carries its own reason, so a consumer can name only the kinds behind the
 // cache's verdict: a kind still on its cold list is not stale, and not failing either.
 func TestCachesWatchHealthKeyedStateGivesEachOffenderItsOwnReason(t *testing.T) {
+	t.Parallel()
+
 	for _, verdict := range []string{kubesync.ReasonStale, kubesync.ReasonSyncFailed} {
 		t.Run(verdict, func(t *testing.T) {
 			d, cacheID := syncingCacheWithKinds(t)
@@ -1334,6 +1456,8 @@ func TestCachesWatchHealthKeyedStateGivesEachOffenderItsOwnReason(t *testing.T) 
 
 // The class is part of the verdict: a failure changing class is news on its own.
 func TestCachesWatchHealthKeyedStateSendsAFailureThatChangesClass(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	setKindReason(d, cacheID, podsSpec, kubesync.KindState{Reason: kubesync.ReasonWatching, LastLiveAt: probedAt})
 	setKindReason(d, cacheID, deploymentsSpec, kubesync.KindState{Reason: kubesync.ReasonSyncFailed, Failure: kubeconn.ReasonTimeout})
@@ -1350,6 +1474,8 @@ func TestCachesWatchHealthKeyedStateSendsAFailureThatChangesClass(t *testing.T) 
 
 // Every kind watching is the one verdict a cache can report as healthy.
 func TestCachesWatchHealthKeyedStateReportsAFullySyncedCache(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	now := time.Now()
 	for _, spec := range []ClusterCachedKindSpec{podsSpec, deploymentsSpec} {
@@ -1372,6 +1498,8 @@ func TestCachesWatchHealthKeyedStateReportsAFullySyncedCache(t *testing.T) {
 // LastUpdateAt is the most recent write anywhere in the cache; LastLiveAt the OLDEST proof
 // across every kind, because a cache is only as verified as its least proven watch.
 func TestCachesWatchHealthKeyedStateTakesTheNewestUpdateAndTheOldestProof(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	now := time.Now().Truncate(time.Second)
 	older, newer := now.Add(-time.Hour), now
@@ -1395,6 +1523,8 @@ func TestCachesWatchHealthKeyedStateTakesTheNewestUpdateAndTheOldestProof(t *tes
 // A kind nothing has proven live is weaker than any stamp its neighbours carry, so the cache
 // reports no proof at all rather than one kind's.
 func TestCachesWatchHealthKeyedStateReportsNoProofWhileAKindHasNone(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	now := time.Now()
 	setKindReason(d, cacheID, podsSpec, kubesync.KindState{
@@ -1412,6 +1542,8 @@ func TestCachesWatchHealthKeyedStateReportsNoProofWhileAKindHasNone(t *testing.T
 // The same, whichever kind the list reaches first: a missing proof is a fact about the cache,
 // not a value the next kind's stamp can outrank.
 func TestCachesWatchHealthKeyedStateReportsNoProofWhenTheUnprovenKindIsFirst(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	now := time.Now()
 	setKindReason(d, cacheID, podsSpec, kubesync.KindState{Reason: kubesync.ReasonSyncing})
@@ -1429,6 +1561,8 @@ func TestCachesWatchHealthKeyedStateReportsNoProofWhenTheUnprovenKindIsFirst(t *
 // A kind that has answered nothing has proved nothing either, so it withholds the cache's
 // proof exactly as an answered-but-unproven one does.
 func TestCachesWatchHealthKeyedStateReportsNoProofWhileAKindHasNotAnswered(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	now := time.Now()
 	setKindReason(d, cacheID, podsSpec, kubesync.KindState{
@@ -1446,6 +1580,8 @@ func TestCachesWatchHealthKeyedStateReportsNoProofWhileAKindHasNotAnswered(t *te
 // in progress, a cache still starting — is not a kind that stopped syncing, so the cache
 // reads as still connecting rather than as unhealthy.
 func TestCachesWatchHealthKeyedStateReadsAKindWithNoAnswerAsConnecting(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	setKindReason(d, cacheID, podsSpec, kubesync.KindState{Reason: kubesync.ReasonWatching, Live: true})
 
@@ -1462,6 +1598,8 @@ func TestCachesWatchHealthKeyedStateReadsAKindWithNoAnswerAsConnecting(t *testin
 // the list. A tick may land between the two answers and send the list half-emptied,
 // so the test reads until it is empty: the verdict moves once both have answered.
 func TestCachesWatchHealthKeyedStateNamesEveryKindThatHasNotAnswered(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	svc := serviceOver(t, d)
 	svc.stateWatchCadence = time.Millisecond
@@ -1490,6 +1628,8 @@ func TestCachesWatchHealthKeyedStateNamesEveryKindThatHasNotAnswered(t *testing.
 // It still counts in totalKinds: that field has a documented meaning and three consumers, so
 // the paused ones are tallied separately rather than subtracted out of the census.
 func TestCachesWatchHealthKeyedStateSkipsAPausedKindWithoutLosingItFromTheCensus(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	setKindReason(d, cacheID, podsSpec, kubesync.KindState{
 		Reason: kubesync.ReasonWatching, LastLiveAt: probedAt,
@@ -1513,6 +1653,8 @@ func TestCachesWatchHealthKeyedStateSkipsAPausedKindWithoutLosingItFromTheCensus
 // offenders, and status and reason sit still. The frame would be suppressed and the count
 // would never reach a client.
 func TestCachesWatchHealthKeyedStatePublishesWhenAKindIsPaused(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	setKindReason(d, cacheID, podsSpec, kubesync.KindState{Reason: kubesync.ReasonWatching, LastLiveAt: probedAt})
 	setKindReason(d, cacheID, deploymentsSpec, kubesync.KindState{Reason: kubesync.ReasonWatching, LastLiveAt: probedAt})
@@ -1537,6 +1679,8 @@ func TestCachesWatchHealthKeyedStatePublishesWhenAKindIsPaused(t *testing.T) {
 // fully paused cache has no offenders and nothing unanswered — every later arm would call
 // it healthy, and the badge would read Watching over a cache syncing nothing.
 func TestCachesWatchHealthKeyedStateReadsAFullyPausedCacheAsPaused(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	pauseKind(t, d, beehive.ObjectID(cacheID), podsSpec.APIVersion, podsSpec.Resource)
 	pauseKind(t, d, beehive.ObjectID(cacheID), deploymentsSpec.APIVersion, deploymentsSpec.Resource)
@@ -1554,6 +1698,8 @@ func TestCachesWatchHealthKeyedStateReadsAFullyPausedCacheAsPaused(t *testing.T)
 // unanswered and the per-kind fold sits at Connecting for good — an amber badge with no
 // reason anywhere. The store's verdict is the cache's own, and it decides above the fold.
 func TestCachesWatchHealthKeyedStateReportsACacheWhoseStoreWillNotOpen(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	syncFake(d).setDiscoveryState(int64(cacheID), kubesync.DiscoveryState{
 		Reason: kubesync.ReasonStoreFailed, Message: "disk full",
@@ -1570,6 +1716,8 @@ func TestCachesWatchHealthKeyedStateReportsACacheWhoseStoreWillNotOpen(t *testin
 // A context that reaches another server is the cache's verdict before any kind's: the
 // kinds have not answered yet, and Connecting would answer from the other cluster's rows.
 func TestCachesWatchHealthKeyedStateReportsAnIdentityMismatchBeforeAnyKindAnswers(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	syncFake(d).setDiscoveryState(int64(cacheID), kubesync.DiscoveryState{Reason: kubesync.ReasonIdentityMismatch})
 
@@ -1588,6 +1736,8 @@ func TestCachesWatchHealthKeyedStateReportsAnIdentityMismatchBeforeAnyKindAnswer
 // The detail state watch is the only thing on the wire that can carry a per-kind verdict, so it
 // serves the discovery reason and a row per mirrored kind together.
 func TestCachesWatchSyncStateServesTheDiscoveryReasonAndEveryKind(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	syncFake(d).setDiscoveryState(int64(cacheID), kubesync.DiscoveryState{
 		Reason: kubesync.ReasonPartial, Message: "metrics.k8s.io/v1beta1 would not load",
@@ -1616,6 +1766,8 @@ func TestCachesWatchSyncStateServesTheDiscoveryReasonAndEveryKind(t *testing.T) 
 // reason-agnostic, and this is what stops a future narrowing from dropping the one verdict
 // that has no kind to speak through.
 func TestCachesWatchSyncStateCarriesAStoreFailure(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	syncFake(d).setDiscoveryState(int64(cacheID), kubesync.DiscoveryState{
 		Reason: kubesync.ReasonStoreFailed, Message: "disk full",
@@ -1632,6 +1784,8 @@ func TestCachesWatchSyncStateCarriesAStoreFailure(t *testing.T) {
 // worker to ask. **ObjectCount still answers**, since it comes off the store's counts and
 // not the sync seam — which is the point of keeping the rows.
 func TestCachesWatchSyncStateReadsAPausedKindOffItsRecord(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	writeCatalog(t, d, cacheID, kindRow("v1", "Pod", "pods"))
 	pauseKind(t, d, beehive.ObjectID(cacheID), "v1", "pods")
@@ -1648,6 +1802,8 @@ func TestCachesWatchSyncStateReadsAPausedKindOffItsRecord(t *testing.T) {
 // The state watch re-emits only when the detail moved: it is re-read on a cadence, and an idle
 // cache pushing a frame per tick would re-render the panel over an answer nothing changed.
 func TestCachesWatchSyncStateEmitsOnlyOnAChange(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	setKindReason(d, cacheID, podsSpec, kubesync.KindState{Reason: kubesync.ReasonWatching, Live: true})
 
@@ -1669,6 +1825,8 @@ func TestCachesWatchSyncStateEmitsOnlyOnAChange(t *testing.T) {
 }
 
 func TestCachesWatchSyncStateCountsRowsFromTheStore(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	writeCatalog(t, d, cacheID, kindRow("v1", "Pod", "pods"))
 
@@ -1683,6 +1841,8 @@ func TestCachesWatchSyncStateCountsRowsFromTheStore(t *testing.T) {
 // A pair naming no live cache gets one reading that says so, the way the stats state watch
 // does, and nothing after it.
 func TestCachesWatchSyncStateSendsOneAbsentReadingForAMismatchedPair(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 
 	stream := watchSyncState(t, serviceOver(t, d), ClusterID("999"), cacheID)
@@ -1697,6 +1857,8 @@ func TestCachesWatchSyncStateSendsOneAbsentReadingForAMismatchedPair(t *testing.
 // reads lives on the cluster, and owning a child wakes nothing — so without this a paused
 // cluster's cache keeps syncing until something unrelated wakes it.
 func TestCachePassDependsOnTheClusterWhoseSwitchItReads(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1709,6 +1871,8 @@ func TestCachePassDependsOnTheClusterWhoseSwitchItReads(t *testing.T) {
 // Two stamps are the same when both are absent or both name the same instant — a pointer
 // comparison would call two equal times different and re-send the state watch every tick.
 func TestSameTimeComparesTheInstantNotThePointer(t *testing.T) {
+	t.Parallel()
+
 	at := time.Date(2026, 8, 29, 0, 0, 0, 0, time.UTC)
 	same := at
 
@@ -1720,6 +1884,8 @@ func TestSameTimeComparesTheInstantNotThePointer(t *testing.T) {
 // Kinds are ordered by apiVersion and then resource, so a rendered list holds still
 // between ticks rather than reshuffling on whatever order the store returned.
 func TestKindRefsSortByApiVersionThenResource(t *testing.T) {
+	t.Parallel()
+
 	refs := []KindRef{
 		{APIVersion: "v1", Resource: "pods"},
 		{APIVersion: "apps/v1", Resource: "statefulsets"},
@@ -1739,6 +1905,8 @@ func TestKindRefsSortByApiVersionThenResource(t *testing.T) {
 // one would settle the generation over work that did not happen, and beehive would not
 // come back to it — the cache would sit unarmed until something else moved.
 func TestCacheReconcileFailsOnAnyStepThatDoesNot(t *testing.T) {
+	t.Parallel()
+
 	steps := map[string]func(d *deps, client *cacheControllerClient, cacheID int64){
 		"arming the sync": func(_ *deps, client *cacheControllerClient, _ int64) {
 			client.dependErr = assert.AnError
@@ -1774,6 +1942,8 @@ func TestCacheReconcileFailsOnAnyStepThatDoesNot(t *testing.T) {
 // record: silently reading it as "no cluster" would drop the cache out of the fold, and
 // the state watch would report a fleet short of one with nothing to say why.
 func TestReadingACacheOwnerThatWasNotLoadedIsReported(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
@@ -1790,6 +1960,8 @@ func TestReadingACacheOwnerThatWasNotLoadedIsReported(t *testing.T) {
 // A cache with no cluster is one beehive's GC is about to take: it drops out of the fold
 // rather than being reported, since its going is not a fault.
 func TestTheHealthFoldSkipsACacheWithNoCluster(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d := newTestDeps(t)
 	_, _, err := d.cacheClient.CreateOrUpdate(ctx, "orphan-cache", ClusterCacheSpec{ServerUID: "uid-1"})
@@ -1805,6 +1977,8 @@ func TestTheHealthFoldSkipsACacheWithNoCluster(t *testing.T) {
 // this runs on the state watch's cadence. A cluster already found is not read again, and one
 // already found to be gone is not looked for again either.
 func TestTheClusterLookupIsMemoisedAcrossTheFold(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
@@ -1829,6 +2003,8 @@ func TestTheClusterLookupIsMemoisedAcrossTheFold(t *testing.T) {
 // the fold read the cache a moment before its cluster went, and the record is on its way
 // out with it.
 func TestTheClusterLookupAnswersACollectedClusterAsNone(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	d, _ := newRunningRegisteredDeps(t, beehive.WithGCInterval(time.Millisecond))
 	// The cluster is collected only after its cache, and the cache's deletion pass waits
@@ -1857,6 +2033,8 @@ func TestTheClusterLookupAnswersACollectedClusterAsNone(t *testing.T) {
 // A cache with no cluster cannot be armed: every switch the pass reads lives on the
 // cluster, and inventing one would arm a sync against defaults the user never set.
 func TestArmingACacheWithNoClusterIsReported(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d := newTestDeps(t)
 	orphan, _, err := d.cacheClient.CreateOrUpdate(ctx, "orphan-cache", ClusterCacheSpec{})
@@ -1871,6 +2049,8 @@ func TestArmingACacheWithNoClusterIsReported(t *testing.T) {
 // the claim and the read fails the pass — carrying on would mirror an empty answer and
 // prune every kind the cache holds.
 func TestMirroringFailsWhenTheCatalogWillNotRead(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -1886,6 +2066,8 @@ func TestMirroringFailsWhenTheCatalogWillNotRead(t *testing.T) {
 // The records under a cache are read once and answer both the write and the prune, so a
 // read that fails takes the pass with it rather than pruning against an empty set.
 func TestMirroringFailsWhenTheStoredRecordsWillNotList(t *testing.T) {
+	t.Parallel()
+
 	d, cache := cacheOverABrokenStore(t)
 
 	err := (&clusterCacheController{deps: d}).mirrorKinds(context.Background(), cache)
@@ -1896,6 +2078,8 @@ func TestMirroringFailsWhenTheStoredRecordsWillNotList(t *testing.T) {
 // A record that will not write fails the pass: settling over it would leave the cache
 // mirroring a kind the cluster serves and nothing has a record for.
 func TestUpsertingKindsFailsWhenARecordWillNotWrite(t *testing.T) {
+	t.Parallel()
+
 	d, cache := cacheOverABrokenStore(t)
 	desired := map[string]ClusterCachedKindSpec{
 		ClusterCachedKindName(cache.ID, "apps/v1", "deployments"): deploymentsSpec,
@@ -1910,6 +2094,8 @@ func TestUpsertingKindsFailsWhenARecordWillNotWrite(t *testing.T) {
 // and a read that fails must stop the write — carrying on would resume a paused kind
 // because its singular was renamed.
 func TestUpsertingKindsFailsWhenThePauseWillNotRead(t *testing.T) {
+	t.Parallel()
+
 	d, cache := cacheOverABrokenStore(t)
 	name := ClusterCachedKindName(cache.ID, "apps/v1", "deployments")
 	renamed := deploymentsSpec
@@ -1927,6 +2113,8 @@ func TestUpsertingKindsFailsWhenThePauseWillNotRead(t *testing.T) {
 // A record collected since the pass listed it has no switch to carry, and the write that
 // follows creates it afresh — a race, not a failure.
 func TestUpsertingKindsTreatsACollectedRecordAsUnpaused(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
@@ -1951,6 +2139,8 @@ func TestUpsertingKindsTreatsACollectedRecordAsUnpaused(t *testing.T) {
 // A record the catalog no longer names is marked, and a mark that will not land fails the
 // pass — the kind would otherwise keep syncing with nothing left to say it should.
 func TestPruningKindsFailsWhenTheMarkWillNotLand(t *testing.T) {
+	t.Parallel()
+
 	d, cache := cacheOverABrokenStore(t)
 	stored := map[string]*beehive.Object[ClusterCachedKindSpec, ClusterCachedKindStatus]{
 		"gone": {ID: beehive.ObjectID(cache.ID) + 1, Name: "gone", Spec: deploymentsSpec},
@@ -1976,6 +2166,8 @@ func cacheOverABrokenStore(t *testing.T) (deps, *beehive.Object[ClusterCacheSpec
 // rather than a wait for the next tick. It binds late, because the file opens when a
 // worker arms — after the state watch is already running.
 func TestCachesWatchStatsStateRemeasuresOnAWrite(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
@@ -2000,6 +2192,8 @@ func TestCachesWatchStatsStateRemeasuresOnAWrite(t *testing.T) {
 // measured is not one of zero bytes, and rendering it as such would tell the user their
 // cache is empty.
 func TestCachesWatchStatsStateEndsOnAMeasurementItCannotTake(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -2017,6 +2211,8 @@ func TestCachesWatchStatsStateEndsOnAMeasurementItCannotTake(t *testing.T) {
 // the cache is still the caller's, and the fresh file's pings come through a subscription
 // the old one never carried.
 func TestCachesWatchStatsStateRebindsWhenTheStoreClosesUnderIt(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
@@ -2042,6 +2238,8 @@ func TestCachesWatchStatsStateRebindsWhenTheStoreClosesUnderIt(t *testing.T) {
 // it would hold the cache at Connecting over a kind that is on its way out, and put a row
 // in the detail for something the user has stopped syncing.
 func TestTheSyncReadsSkipARecordAlreadyGoing(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
@@ -2062,6 +2260,8 @@ func TestTheSyncReadsSkipARecordAlreadyGoing(t *testing.T) {
 // Neither fold invents a verdict over records it could not read: a cache whose kinds will
 // not list is unknown, not healthy, and the state watch above says so instead of rendering green.
 func TestTheSyncReadsReportRecordsTheyCannotList(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d, cache := cacheOverABrokenStore(t)
 	a := cachesAPI{serviceOver(t, d)}
@@ -2076,6 +2276,8 @@ func TestTheSyncReadsReportRecordsTheyCannotList(t *testing.T) {
 // The per-kind counts come off the cache's file: a cache with none has no counts, which is
 // a paused cache or one nothing has swept — while a file that will not read is a fault.
 func TestTheKindCountsAnswerAMissingFileAndReportABrokenOne(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
@@ -2097,6 +2299,8 @@ func TestTheKindCountsAnswerAMissingFileAndReportABrokenOne(t *testing.T) {
 // A clear that fails is reported: the file is still there, and answering with the record
 // would tell the user the cache had been emptied when it had not.
 func TestCacheClearReportsAStoreThatWillNotClear(t *testing.T) {
+	t.Parallel()
+
 	d := newTestDeps(t)
 	cluster := createCluster(t, d, "prod")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -2110,6 +2314,8 @@ func TestCacheClearReportsAStoreThatWillNotClear(t *testing.T) {
 // The state watch sends only what moved: it re-reads on a cadence, and a cache whose verdict
 // sits still would otherwise put a frame on the wire every tick, for every cache, forever.
 func TestCachesWatchHealthKeyedStateSaysNothingWhileTheVerdictHoldsStill(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	setKindReason(d, cacheID, podsSpec, kubesync.KindState{Reason: kubesync.ReasonWatching, LastLiveAt: probedAt})
 	setKindReason(d, cacheID, deploymentsSpec, kubesync.KindState{Reason: kubesync.ReasonWatching, LastLiveAt: probedAt})
@@ -2129,6 +2335,8 @@ func TestCachesWatchHealthKeyedStateSaysNothingWhileTheVerdictHoldsStill(t *test
 // Each is driven to a send that parks — Frames buffers one, and nothing reads it — so the
 // cancellation is the only thing that can free it.
 func TestTheCacheStateWatchesStopForAConsumerThatIsGone(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	d, cacheID := syncingCacheWithKinds(t)
@@ -2208,6 +2416,8 @@ func ownerClusterObjectOf(t *testing.T, d deps, cacheID ClusterCacheID) *beehive
 // Neither the fold nor the detail read invents an answer over a store it cannot reach: a
 // cache whose records or file will not read is unknown, not healthy and not empty.
 func TestTheCacheFoldsReportWhatTheyCannotRead(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	t.Run("the fold's cluster lookup", func(t *testing.T) {
@@ -2244,6 +2454,8 @@ func TestTheCacheFoldsReportWhatTheyCannotRead(t *testing.T) {
 // The fold orders by cache id, so a fleet's verdicts hold still between ticks rather than
 // reshuffling on whatever order the store returned.
 func TestTheHealthFoldOrdersByCacheID(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
@@ -2261,6 +2473,8 @@ func TestTheHealthFoldOrdersByCacheID(t *testing.T) {
 // A cache whose cluster cannot be read cannot be armed: every switch the pass reads lives
 // there, and arming on a guess would sync against settings the user never chose.
 func TestArmingReportsAClusterItCannotRead(t *testing.T) {
+	t.Parallel()
+
 	d, cache := cacheOverABrokenStore(t)
 
 	c := &clusterCacheController{deps: d}
@@ -2275,6 +2489,8 @@ func TestArmingReportsAClusterItCannotRead(t *testing.T) {
 // ends with ctx's own error — reported, that reaches the webview as a watch failure and
 // puts an error in front of someone who has already left the view.
 func TestTheCacheStateWatchesEndCleanlyWhenTheConsumerLeaves(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	d, cacheID := syncingCacheWithKinds(t)
 	clusterID := ownerClusterOf(t, d, cacheID)
@@ -2304,6 +2520,8 @@ func TestTheCacheStateWatchesEndCleanlyWhenTheConsumerLeaves(t *testing.T) {
 // The ceiling reaches the UI on the state watch the size is already on, so a client renders how
 // close a cache is without a second subscription — and without hardcoding our default.
 func TestMeasureCacheCarriesTheSizeCeiling(t *testing.T) {
+	t.Parallel()
+
 	deps := newTestDeps(t)
 	deps.kubestoreMgr = &fakeKubestore{stats: kubestore.Stats{
 		Exists: true, DBBytes: 100, OverSizeLimit: true, SizeLimitBytes: 512,
@@ -2330,6 +2548,8 @@ const gib = 1 << 30
 // A cache at its ceiling stops syncing, and the record is told why — the pause closes the
 // file, so the condition is the only thing that will still remember.
 func TestCachePassStopsACacheOverItsSizeLimit(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -2357,6 +2577,8 @@ func sizeStopped() []Condition {
 // read the verdict alone would restart the cache it had just stopped, refill it, and stop
 // it again. The record is what remembers.
 func TestCachePassKeepsACacheStoppedOnceItsFileIsClosed(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -2376,6 +2598,8 @@ func TestCachePassKeepsACacheStoppedOnceItsFileIsClosed(t *testing.T) {
 // file nobody has open, which cannot be growing — stopping it would stop caches nothing is
 // filling.
 func TestCachePassDoesNotStopACacheOnBytesAlone(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -2392,6 +2616,8 @@ func TestCachePassDoesNotStopACacheOnBytesAlone(t *testing.T) {
 
 // The release: a cleared or unbounded cache starts again, and the condition goes with it.
 func TestCachePassRestartsACacheBackUnderItsLimit(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]kubestore.Stats{
 		"cleared":   {},
 		"under":     {Exists: true, DBBytes: gib, SizeLimitBytes: 2 * gib},
@@ -2418,6 +2644,8 @@ func TestCachePassRestartsACacheBackUnderItsLimit(t *testing.T) {
 // Every cache that was never over its limit is this case, on every pass: a condition write
 // per pass per cache would be a transaction for a verdict nothing formed.
 func TestCachePassWritesNoConditionForAnOrdinaryCache(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -2432,6 +2660,8 @@ func TestCachePassWritesNoConditionForAnOrdinaryCache(t *testing.T) {
 // A measurement that failed decides nothing: answering under would restart a cache nobody
 // measured, and answering over would stop one over an error.
 func TestTheSizeCheckLeavesAFailedMeasurementAlone(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]struct {
 		conditions []Condition
 		want       bool
@@ -2472,6 +2702,8 @@ func sizeStoppedCache(t *testing.T) (deps, ClusterCacheID) {
 // UI looks — so the fold reads it back. Nothing else stops a cache without arming a kind
 // that could say so.
 func TestCachesWatchHealthKeyedStateReportsACacheStoppedByItsCeiling(t *testing.T) {
+	t.Parallel()
+
 	d, _ := sizeStoppedCache(t)
 
 	healths, err := cachesAPI{serviceOver(t, d)}.readAllCacheHealth(context.Background())
@@ -2486,6 +2718,8 @@ func TestCachesWatchHealthKeyedStateReportsACacheStoppedByItsCeiling(t *testing.
 // kind by kind is stopped by the ceiling, and reporting it as merely paused is the
 // confusion the two reasons exist to keep apart.
 func TestCachesWatchHealthKeyedStateReadsTheCeilingAboveAFullyPausedCache(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := sizeStoppedCache(t)
 	createKind(t, d, beehive.ObjectID(cacheID), podsSpec)
 	pauseKind(t, d, beehive.ObjectID(cacheID), podsSpec.APIVersion, podsSpec.Resource)
@@ -2502,6 +2736,8 @@ func TestCachesWatchHealthKeyedStateReadsTheCeilingAboveAFullyPausedCache(t *tes
 // empty, so the pass it buys measures the cleared file and releases the stop
 // (TestCachePassRestartsACacheBackUnderItsLimit).
 func TestClearingACacheRequeuesItsRecord(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -2537,6 +2773,7 @@ func (r requeueRecorder) Requeue(_ context.Context, id beehive.ObjectID, _ ...be
 // and a URL can carry a token. What reaches the record must carry no part of it — the host
 // forwards every sidecar line into its own log sink, so the rendering has to happen here.
 func TestCachePassLogsAFailureWithoutTheCredential(t *testing.T) {
+	// CaptureLogs swaps the process's default logger, so this test stays serial.
 	logs := testutil.CaptureLogs(t)
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
@@ -2553,6 +2790,8 @@ func TestCachePassLogsAFailureWithoutTheCredential(t *testing.T) {
 // Health and SyncState are one reading each of what the state watches stream: the card a chat
 // carries reads them once, at the send, and opens no stream.
 func TestCachesHealthIsOneReadingOfTheStateWatch(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	setKindReason(d, cacheID, podsSpec, kubesync.KindState{Reason: kubesync.ReasonWatching, Live: true})
 	setKindReason(d, cacheID, deploymentsSpec, kubesync.KindState{Reason: kubesync.ReasonSyncFailed})
@@ -2570,6 +2809,8 @@ func TestCachesHealthIsOneReadingOfTheStateWatch(t *testing.T) {
 }
 
 func TestCachesHealthAnswersNothingForACacheOfAnotherCluster(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	other := createCluster(t, d, "other")
 
@@ -2579,6 +2820,8 @@ func TestCachesHealthAnswersNothingForACacheOfAnotherCluster(t *testing.T) {
 }
 
 func TestCachesSyncStatusIsOneReadingOfTheStateWatch(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 	syncFake(d).setDiscoveryState(int64(cacheID), kubesync.DiscoveryState{Reason: kubesync.ReasonPartial})
 	setKindReason(d, cacheID, podsSpec, kubesync.KindState{Reason: kubesync.ReasonWatching, Live: true})
@@ -2600,6 +2843,8 @@ func TestCachesSyncStatusIsOneReadingOfTheStateWatch(t *testing.T) {
 }
 
 func TestCachesHealthAnswersNothingForACacheThatDoesNotExist(t *testing.T) {
+	t.Parallel()
+
 	d, cacheID := syncingCacheWithKinds(t)
 
 	_, ok, err := serviceOver(t, d).Caches().Health(context.Background(), ownerClusterOf(t, d, cacheID), cacheID+1000)
@@ -2611,6 +2856,8 @@ func TestCachesHealthAnswersNothingForACacheThatDoesNotExist(t *testing.T) {
 // the cancellation. The first reading fills the stream's buffer unread, and the second
 // read moves the verdict and ends the context, so the state watch's next send has nowhere to go.
 func TestWatchSyncStateStopsAtASendTheConsumerLeft(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	d, cacheID := syncingCacheWithKinds(t)
@@ -2661,6 +2908,8 @@ func (c failingKindLists) ListOwnedObjects(context.Context, beehive.ObjectID, ..
 // One reading of a cache's verdict or sync detail reports a record it cannot read, as
 // the state watches do, rather than answering a verdict nothing measured.
 func TestTheOneReadingsReportWhatTheyCannotRead(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	boom := errors.New("store down")
 
@@ -2699,6 +2948,8 @@ func TestTheOneReadingsReportWhatTheyCannotRead(t *testing.T) {
 // The fold over every cache fails on any one it cannot read, rather than leaving that
 // cache out of a fleet's verdicts.
 func TestTheHealthFoldReportsACacheItCannotRead(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	boom := errors.New("store down")
 
@@ -2723,6 +2974,7 @@ func TestTheHealthFoldReportsACacheItCannotRead(t *testing.T) {
 // A requeue after a clear that will not land is logged, not returned: the clear itself
 // went through, and the cache's own resync covers the wake.
 func TestCachesClearLogsARequeueThatFailed(t *testing.T) {
+	// CaptureLogs swaps the process's default logger, so this test stays serial.
 	logs := testutil.CaptureLogs(t)
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
@@ -2740,6 +2992,8 @@ func TestCachesClearLogsARequeueThatFailed(t *testing.T) {
 // The size condition is the only thing remembering why a cache stopped, so a pass that
 // cannot write it, or cannot clear it on the way out, fails rather than settling.
 func TestCachePassFailsWhenTheSizeConditionWillNotWrite(t *testing.T) {
+	t.Parallel()
+
 	boom := errors.New("store down")
 
 	t.Run("set", func(t *testing.T) {
@@ -2769,6 +3023,8 @@ func TestCachePassFailsWhenTheSizeConditionWillNotWrite(t *testing.T) {
 
 // A cache whose cluster record will not read cannot be armed, past its owner edge too.
 func TestArmingReportsAClusterRecordItCannotRead(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -2794,6 +3050,8 @@ func (c failingKindWrites) CreateOrUpdate(context.Context, string, ClusterCached
 // A kind record that will not write fails the mirroring before the prune, which would
 // otherwise answer off a set the write never reached.
 func TestMirroringFailsWhenAKindWillNotWrite(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	cache := createCache(t, d.cacheClient, cluster, "uid-1")
@@ -2811,6 +3069,8 @@ func TestMirroringFailsWhenAKindWillNotWrite(t *testing.T) {
 // since the loop last read is in its first frames. That read is everyone's: the early
 // window hears of the new cache from it, long before its own cadence would have.
 func TestCachesWatchHealthKeyedStateGivesALateSubscriberEveryVerdict(t *testing.T) {
+	t.Parallel()
+
 	d, status := newClusterStatusDeps(t)
 	cluster := storedCluster(t, d, status, true, "uid-1")
 	first := createCache(t, d.cacheClient, cluster, "uid-1")

@@ -207,6 +207,8 @@ func recvFrame(t *testing.T, s *Stream[frame]) frame {
 // The snapshot is every row as Added, then the Bookmark that closes it — never an empty
 // state before the Bookmark, which a client renders as "nothing here".
 func TestCacheWatchEmitsTheSnapshotThenTheBookmark(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.open()
@@ -222,6 +224,8 @@ func TestCacheWatchEmitsTheSnapshotThenTheBookmark(t *testing.T) {
 // The three ways a re-read differs from the snapshot before it. A departure carries its
 // last-known row, since the client keys the removal by UID and the row is gone from disk.
 func TestCacheWatchDiffsAgainstThePreviousSnapshot(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.open()
@@ -248,6 +252,8 @@ func TestCacheWatchDiffsAgainstThePreviousSnapshot(t *testing.T) {
 // A burst is one re-read. The bus coalesces only what is undelivered, so a loop that drains
 // promptly would otherwise re-read the whole collection once per write.
 func TestCacheWatchCollapsesABurstIntoOneReRead(t *testing.T) {
+	t.Parallel()
+
 	synctest.Test(t, func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -290,6 +296,8 @@ func TestCacheWatchCollapsesABurstIntoOneReRead(t *testing.T) {
 // kind nobody writes to may not ping for hours, and one transient error would otherwise
 // leave the client's table empty until it did.
 func TestCacheWatchRetriesAFailedReRead(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.open()
@@ -330,6 +338,8 @@ func (b brokenStores) ListenForCacheOpenChanges(cacheID int64) kubestore.CacheOp
 // "no file yet" would leave the stream parked on ListenForCacheOpenChanges — which only fires when a file is
 // CREATED, so a cache whose file is already there would wait for a signal that never comes.
 func TestCacheWatchReportsAStoreThatWillNotOpen(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	boom := errors.New("database disk image is malformed")
@@ -355,6 +365,8 @@ func TestCacheWatchReportsAStoreThatWillNotOpen(t *testing.T) {
 // so a watch that ended without releasing would keep every cache anyone ever looked at open
 // for the process's life.
 func TestCacheWatchReleasesItsClaimWhenItEnds(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	f := newWatchFixture(t)
 	f.open()
@@ -377,6 +389,8 @@ func TestCacheWatchReleasesItsClaimWhenItEnds(t *testing.T) {
 // reaches the client as an error toast — for a user pressing "clear cache", once per open
 // watch. The reconnect re-snapshots against the fresh file, so nothing is lost by silence.
 func TestCacheWatchEndsCleanlyWhenTheStoreIsCleared(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.open()
@@ -398,6 +412,8 @@ func TestCacheWatchEndsCleanlyWhenTheStoreIsCleared(t *testing.T) {
 // goes out on the empty snapshot, and the rows arrive as ordinary Added frames once a
 // writer opens the cache.
 func TestCacheWatchBookmarksBeforeTheStoreExists(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.set(row{UID: "a", Data: "1"})
@@ -418,6 +434,8 @@ func TestCacheWatchBookmarksBeforeTheStoreExists(t *testing.T) {
 // and the second row has nowhere to go — so the check is what frees the loop rather than
 // a race with the buffer.
 func TestCacheWatchStopsAtTheFrameTheConsumerLeftOn(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	f := newWatchFixture(t)
 	f.open()
@@ -434,6 +452,8 @@ func TestCacheWatchStopsAtTheFrameTheConsumerLeftOn(t *testing.T) {
 // it is where a departed consumer ends the loop. Cancelled once that row is built and
 // nobody is reading, so the loop is at the bookmark and not at the row before it.
 func TestCacheWatchStopsOnTheBookmarkWhenTheConsumerLeft(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	f := newWatchFixture(t)
 	f.open()
@@ -451,6 +471,8 @@ func TestCacheWatchStopsOnTheBookmarkWhenTheConsumerLeft(t *testing.T) {
 // There is no last-known data to hold here, so the client is told rather than left on an
 // empty table with nothing to say why.
 func TestCacheWatchEndsWhenTheSnapshotWillNotRead(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	boom := errors.New("read failed")
 	f := newWatchFixture(t)
@@ -467,6 +489,8 @@ func TestCacheWatchEndsWhenTheSnapshotWillNotRead(t *testing.T) {
 // because the loop's own select would race the cancellation, and what is under test is
 // that each of the three sends is checked rather than assumed.
 func TestSendDiffStopsAtAnyFrameWhenTheConsumerIsGone(t *testing.T) {
+	t.Parallel()
+
 	diffs := map[string]struct {
 		prev map[string]row
 		rows []row
@@ -501,6 +525,8 @@ func TestSendDiffStopsAtAnyFrameWhenTheConsumerIsGone(t *testing.T) {
 // A watch opened before the cache has a file waits for one, and a context that ends first
 // ends the wait — cleanly, since nothing broke.
 func TestCacheWatchStopsWaitingForAFileWhenTheContextEnds(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	f := newWatchFixture(t)
 	stream := f.start(ctx, time.Millisecond, time.Millisecond)
@@ -515,6 +541,8 @@ func TestCacheWatchStopsWaitingForAFileWhenTheContextEnds(t *testing.T) {
 // The manager shutting down under a waiting watch ends it the same way: the open feed
 // closes, and there is no file coming.
 func TestCacheWatchStopsWaitingWhenTheManagerShutsDown(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	stream := f.start(ctx, time.Millisecond, time.Millisecond)
@@ -530,6 +558,8 @@ func TestCacheWatchStopsWaitingWhenTheManagerShutsDown(t *testing.T) {
 // collection. A write to one held row is one Modified, and the full read stays at the one
 // the snapshot made.
 func TestCacheWatchReadsWhatMovedPastItsCursor(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.open()
@@ -552,6 +582,8 @@ func TestCacheWatchReadsWhatMovedPastItsCursor(t *testing.T) {
 // A delete reaches the client as the row it last held: the store logged only the uid,
 // because the row it describes is gone from disk.
 func TestCacheWatchSendsADeleteFromWhatItHeld(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.open()
@@ -572,6 +604,8 @@ func TestCacheWatchSendsADeleteFromWhatItHeld(t *testing.T) {
 // A uid that came and went between two reads is in the log and in no table, and the client
 // never held it — so it is nothing, not a Deleted for a row it would have to invent.
 func TestCacheWatchDropsADeleteForARowItNeverHeld(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.open()
@@ -598,6 +632,8 @@ func TestCacheWatchDropsADeleteForARowItNeverHeld(t *testing.T) {
 // — ClearKind logs a delete per row and the restarted sync lists the same objects above it
 // — ends as the live row rather than as a row the client dropped.
 func TestCacheWatchAppliesDeletesBeforeWrites(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.open()
@@ -623,6 +659,8 @@ func TestCacheWatchAppliesDeletesBeforeWrites(t *testing.T) {
 // past it can no longer be trusted: the loop re-reads the collection and diffs it, which is
 // what every burst cost before the cursor existed.
 func TestCacheWatchFallsBackWhenItsCursorWasTrimmed(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.open()
@@ -654,6 +692,8 @@ func TestCacheWatchFallsBackWhenItsCursorWasTrimmed(t *testing.T) {
 // drop. The changes read answers under the empty Kind — an identity change — and the full
 // read behind the fallback reads empty, which is the Deleted per held row.
 func TestCacheWatchFallsBackWhenTheKindIsGone(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.open()
@@ -679,6 +719,8 @@ func TestCacheWatchFallsBackWhenTheKindIsGone(t *testing.T) {
 // cursor stays where it was, and the retry covers the same changes — so the frames the
 // failed read would have produced arrive on it rather than being lost.
 func TestCacheWatchRetriesAFailedChangesRead(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.open()
@@ -710,6 +752,8 @@ func TestCacheWatchRetriesAFailedChangesRead(t *testing.T) {
 // first changes read covers the whole kind: every row arrives as Added, exactly what the
 // armed debounce reads in.
 func TestCacheWatchBoundLateReadsTheKindFromZero(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.push(kubestore.Changes[row]{Written: []row{{UID: "a", Data: "1"}}})
@@ -730,6 +774,8 @@ func TestCacheWatchBoundLateReadsTheKindFromZero(t *testing.T) {
 // logged are in neither — taking the empty answer would leave those rows on screen for as
 // long as the watch stayed connected.
 func TestCacheWatchFallsBackWhenTheKindBehindThePluralChanges(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.open()
@@ -757,6 +803,8 @@ func TestCacheWatchFallsBackWhenTheKindBehindThePluralChanges(t *testing.T) {
 // directly because the loop's own select would race the cancellation, and what is under
 // test is that both sends are checked rather than assumed.
 func TestApplyStopsAtAnyFrameWhenTheConsumerIsGone(t *testing.T) {
+	t.Parallel()
+
 	changes := map[string]kubestore.Changes[row]{
 		"written": {Written: []row{{UID: "a", Data: "1"}}},
 		"deleted": {Deleted: []string{"a"}},
@@ -801,6 +849,8 @@ func (g goneStores) ListenForCacheOpenChanges(cacheID int64) kubestore.CacheOpen
 // clear or a teardown, and a non-nil Err reaches the client as an error toast per open
 // watch for a button the user pressed.
 func TestCacheWatchEndsCleanlyWhenTheCacheGoesBeforeItSubscribes(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	f.open()
@@ -850,6 +900,8 @@ func (l *lateBreakStores) ListenForCacheOpenChanges(cacheID int64) kubestore.Cac
 // leave the client on an empty table with no reason for it, since that signal fires when a
 // file is CREATED and this one already exists.
 func TestCacheWatchReportsAStoreThatBreaksWhileItWaits(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	f := newWatchFixture(t)
 	boom := errors.New("database disk image is malformed")
@@ -877,6 +929,8 @@ func TestCacheWatchReportsAStoreThatBreaksWhileItWaits(t *testing.T) {
 // with nowhere to go, and the cancel is what frees it — no race with the loop's own select,
 // which is why this cannot be written as "cancel and see".
 func TestCacheWatchStopsMidBurstWhenTheConsumerLeaves(t *testing.T) {
+	t.Parallel()
+
 	bursts := map[string]func(*watchFixture){
 		"reading what moved": func(f *watchFixture) {
 			f.push(kubestore.Changes[row]{
@@ -923,6 +977,8 @@ func TestCacheWatchStopsMidBurstWhenTheConsumerLeaves(t *testing.T) {
 // changes read arms the retry with nothing sent, and the retry's own frames are where the
 // departed consumer stops the loop.
 func TestCacheWatchStopsOnTheRetryWhenTheConsumerLeaves(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	f := newWatchFixture(t)

@@ -29,6 +29,7 @@ import (
 // file from each working directory, and the fence and a chat's paths compare
 // absolute paths.
 func TestResolveFoldersRefusesAnEmptyOrRelativeFolder(t *testing.T) {
+	// t.Chdir changes the process's working directory, so this test stays serial.
 	for _, name := range []string{"the data directory", "the cache directory", "the runtime directory"} {
 		for _, dir := range []string{"", "relative"} {
 			t.Run(name+"="+dir, func(t *testing.T) {
@@ -52,6 +53,8 @@ func TestResolveFoldersRefusesAnEmptyOrRelativeFolder(t *testing.T) {
 
 // Every folder is made, and named as the kernel names it.
 func TestResolveFoldersMakesEachFolder(t *testing.T) {
+	t.Parallel()
+
 	n := linuxNamed(scratch(t))
 
 	f, err := ResolveFolders(n)
@@ -67,6 +70,8 @@ func TestResolveFoldersMakesEachFolder(t *testing.T) {
 
 // A debug build's moved folder is made where it is named.
 func TestResolveFoldersMakesAMissingMovedFolder(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	n := linuxNamed(root)
 	n.Data = filepath.Join(root, "moved", "data")
@@ -81,6 +86,8 @@ func TestResolveFoldersMakesAMissingMovedFolder(t *testing.T) {
 // Every platform's layout passes the check, on Windows with its two roots
 // apart and as one.
 func TestResolveFoldersAcceptsEachPlatformsLayout(t *testing.T) {
+	t.Parallel()
+
 	for _, c := range []struct {
 		name     string
 		platform layout.Platform
@@ -101,6 +108,8 @@ func TestResolveFoldersAcceptsEachPlatformsLayout(t *testing.T) {
 
 // Two kinds the environment puts on one folder fail the start.
 func TestResolveFoldersRefusesTwoKindsOnOneFolder(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	n := linuxNamed(root)
 	n.Cache = n.Data
@@ -113,6 +122,8 @@ func TestResolveFoldersRefusesTwoKindsOnOneFolder(t *testing.T) {
 
 // A kind the layout does not put inside another fails the start there.
 func TestResolveFoldersRefusesAKindInsideAnother(t *testing.T) {
+	t.Parallel()
+
 	n := linuxNamed(scratch(t))
 	n.Cache = filepath.Join(n.Data, "cache")
 
@@ -126,6 +137,8 @@ func TestResolveFoldersRefusesAKindInsideAnother(t *testing.T) {
 // Redirection does, is the administrator's; a link leading one out is refused
 // (folders_unix_test.go).
 func TestResolveFoldersTakesWindowsFoldersWindowsPlaces(t *testing.T) {
+	t.Parallel()
+
 	windowsNamed := func(root, profile string) Named {
 		n := namedOn(layout.Windows, root, sharedWindowsRoots(root))
 		n.Profile = profile
@@ -151,6 +164,8 @@ func TestResolveFoldersTakesWindowsFoldersWindowsPlaces(t *testing.T) {
 
 // A file where a folder goes fails the start.
 func TestResolveFoldersFailsOnAFileWhereAFolderGoes(t *testing.T) {
+	t.Parallel()
+
 	n := linuxNamed(scratch(t))
 	require.NoError(t, os.MkdirAll(filepath.Dir(n.Data), 0o700))
 	require.NoError(t, os.WriteFile(n.Data, nil, 0o600))
@@ -162,6 +177,8 @@ func TestResolveFoldersFailsOnAFileWhereAFolderGoes(t *testing.T) {
 
 // On Windows a profile Kubetail cannot name fails the start.
 func TestResolveFoldersRefusesAnUnknownWindowsProfile(t *testing.T) {
+	t.Parallel()
+
 	root := scratch(t)
 	n := namedOn(layout.Windows, root, sharedWindowsRoots(root))
 	n.Profile = ""

@@ -31,6 +31,8 @@ import (
 // checked under the lock that close takes, so this one case also covers a handler
 // dispatched before the close that reaches the gate after it.
 func TestARequestAfterCloseIsRefusedAtTheGate(t *testing.T) {
+	t.Parallel()
+
 	r := newRequests()
 	called := false
 	ts := httptest.NewServer(r.wrap(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
@@ -49,6 +51,8 @@ func TestARequestAfterCloseIsRefusedAtTheGate(t *testing.T) {
 
 // close ends a request still running, and wait returns once its handler has.
 func TestCloseEndsARequestAndWaitJoinsIt(t *testing.T) {
+	t.Parallel()
+
 	r := newRequests()
 	started := testutil.NewSignal()
 	ts := httptest.NewServer(r.wrap(http.HandlerFunc(func(_ http.ResponseWriter, req *http.Request) {
@@ -76,6 +80,8 @@ func TestCloseEndsARequestAndWaitJoinsIt(t *testing.T) {
 // count while the handler runs on. Only wait still sees it, which is why the stop
 // joins handlers after every Shutdown, not only one that timed out.
 func TestShutdownReturnsWhileAResetStreamsHandlerRuns(t *testing.T) {
+	t.Parallel()
+
 	r := newRequests()
 	started := testutil.NewSignal()
 	release := testutil.NewSignal()

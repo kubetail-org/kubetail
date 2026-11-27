@@ -66,6 +66,8 @@ func consoleEnd(t *testing.T, tl *Tool, req ConsoleRequest) (end ConsoleRun, fra
 // A command runs in the sandbox and ends with its output, its exit code and
 // how long it ran; its first frame names it, running.
 func TestAConsoleCommandRunsInTheSandbox(t *testing.T) {
+	t.Parallel()
+
 	tl, fake := consoleTool(t)
 
 	end, frames := consoleEnd(t, tl, ConsoleRequest{Command: "echo out; echo err >&2; exit 3"})
@@ -84,6 +86,8 @@ func TestAConsoleCommandRunsInTheSandbox(t *testing.T) {
 // Each command counts on from the last, and starts in a workspace of its own,
 // which is gone once it ends.
 func TestEachConsoleCommandHasAWorkspaceOfItsOwn(t *testing.T) {
+	t.Parallel()
+
 	tl, _ := consoleTool(t)
 
 	first, _ := consoleEnd(t, tl, ConsoleRequest{Command: "pwd"})
@@ -102,6 +106,8 @@ func TestEachConsoleCommandHasAWorkspaceOfItsOwn(t *testing.T) {
 
 // A command reads the folders granted always, as a chat's does.
 func TestAConsoleCommandReadsTheAlwaysFolders(t *testing.T) {
+	t.Parallel()
+
 	tl, fake := consoleTool(t)
 	granted := testutil.GrantableDir(t)
 	tl.SetAlwaysFolders(func(context.Context) ([]session.Folder, error) { return []session.Folder{{Path: granted}}, nil })
@@ -114,6 +120,8 @@ func TestAConsoleCommandReadsTheAlwaysFolders(t *testing.T) {
 
 // A command with Network ticked has the internet where the machine gives it.
 func TestAConsoleCommandWithNetworkHasTheInternet(t *testing.T) {
+	t.Parallel()
+
 	tl, fake := consoleTool(t)
 
 	end, _ := consoleEnd(t, tl, ConsoleRequest{Command: "true", Network: true})
@@ -125,6 +133,8 @@ func TestAConsoleCommandWithNetworkHasTheInternet(t *testing.T) {
 
 // A command on a cluster that is gone could not start, and says why.
 func TestAConsoleCommandOnAGoneClusterCouldNotStart(t *testing.T) {
+	t.Parallel()
+
 	tl, fake := consoleTool(t)
 	tl.clusterSvc = fakeService{clusters: map[apimeta.ClusterID]*cluster.Cluster{}}
 
@@ -137,6 +147,8 @@ func TestAConsoleCommandOnAGoneClusterCouldNotStart(t *testing.T) {
 
 // A command the sandbox could not start says why.
 func TestAConsoleCommandTheSandboxRefusesCouldNotStart(t *testing.T) {
+	t.Parallel()
+
 	tl, fake := consoleTool(t)
 	fake.cmdErr = &ConsoleRefusal{"refused by the policy"}
 
@@ -149,6 +161,8 @@ func TestAConsoleCommandTheSandboxRefusesCouldNotStart(t *testing.T) {
 // A run whose build hangs, as on a dead network mount, could not start once
 // its bound is out, and the console takes the next command.
 func TestAConsoleCommandsSetupIsBounded(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, 15*time.Second, newConsole().setup)
 	tl, fake := consoleTool(t)
 	tl.console.setup = 50 * time.Millisecond
@@ -167,6 +181,8 @@ func TestAConsoleCommandsSetupIsBounded(t *testing.T) {
 
 // A command's directory that cannot be made could not start.
 func TestAConsoleCommandWithNoDirectoryCouldNotStart(t *testing.T) {
+	t.Parallel()
+
 	tl, fake := consoleTool(t)
 	file := filepath.Join(t.TempDir(), "file")
 	require.NoError(t, os.WriteFile(file, nil, 0o600))
@@ -181,6 +197,7 @@ func TestAConsoleCommandWithNoDirectoryCouldNotStart(t *testing.T) {
 // A command's directory that cannot be removed is left for the next start's
 // sweep, and the command still ends.
 func TestAConsoleDirectoryThatCannotBeRemovedIsLogged(t *testing.T) {
+	// CaptureLogs swaps the process's default logger, so this test stays serial.
 	if os.Getuid() == 0 {
 		t.Skip("root removes any folder")
 	}
@@ -199,6 +216,8 @@ func TestAConsoleDirectoryThatCannotBeRemovedIsLogged(t *testing.T) {
 // Output reaches a watcher while the command still runs, and a second
 // command is refused meanwhile. A stop ends it as a chat's Cancel does.
 func TestARunningConsoleCommandStreamsAndStops(t *testing.T) {
+	t.Parallel()
+
 	tl, _ := consoleTool(t)
 	tl.console.tick = time.Millisecond
 	h := newHolder(t)
@@ -234,6 +253,8 @@ func TestARunningConsoleCommandStreamsAndStops(t *testing.T) {
 // A stop while the command's run is still being built ends it as cancelled,
 // never as a command that could not start.
 func TestAConsoleCommandStoppedBeforeItStartsIsCancelled(t *testing.T) {
+	t.Parallel()
+
 	tl, fake := consoleTool(t)
 	fake.hold = testutil.NewSignal()
 	rx := tl.WatchConsoleState()
@@ -256,6 +277,8 @@ func TestAConsoleCommandStoppedBeforeItStartsIsCancelled(t *testing.T) {
 
 // A command past its deadline is stopped and says so.
 func TestAConsoleCommandIsBounded(t *testing.T) {
+	t.Parallel()
+
 	tl, _ := consoleTool(t)
 	c := newClock()
 	tl.after = func(d time.Duration) <-chan time.Time {
@@ -282,6 +305,8 @@ func TestAConsoleCommandIsBounded(t *testing.T) {
 
 // Close stops a running command and waits for it, then ends every watcher.
 func TestCloseEndsARunningConsoleCommand(t *testing.T) {
+	t.Parallel()
+
 	tl, _ := consoleTool(t)
 	h := newHolder(t)
 	rx := tl.WatchConsoleState()
@@ -302,6 +327,8 @@ func TestCloseEndsARunningConsoleCommand(t *testing.T) {
 
 // Output is redacted, and capped: what passes the cap is counted.
 func TestConsoleOutputIsRedactedAndCapped(t *testing.T) {
+	t.Parallel()
+
 	tl, _ := consoleTool(t)
 
 	end, _ := consoleEnd(t, tl, ConsoleRequest{Command: "echo 'Authorization: Bearer abc.def.ghi'; head -c 300000 /dev/zero"})
@@ -315,6 +342,8 @@ func TestConsoleOutputIsRedactedAndCapped(t *testing.T) {
 // Under the machine's sandbox, a command cannot read a file outside what the
 // sandbox opens, and its output shows the refusal.
 func TestTheSandboxRefusesAConsoleCommandsRead(t *testing.T) {
+	t.Parallel()
+
 	tl, _ := consoleTool(t)
 	tl.sandboxer = confining(t)
 	tl.home = testutil.GrantableDir(t)
@@ -333,6 +362,8 @@ func TestTheSandboxRefusesAConsoleCommandsRead(t *testing.T) {
 // Under the machine's sandbox, a command on a cluster reads it, and its
 // change is refused: nobody is there to approve it.
 func TestAConsoleCommandChangesNoCluster(t *testing.T) {
+	t.Parallel()
+
 	api := newFakeAPI(t)
 	tl := proxyTool(t, &fakeLease{serverUID: "uid-1", conn: api.connection()})
 	tl.sandboxer = confining(t)

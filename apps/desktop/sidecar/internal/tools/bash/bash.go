@@ -246,6 +246,12 @@ func New(paths Paths, hostPID int, boxer *sandbox.Sandbox, clusterSvc cluster.Se
 	if !found {
 		return nil, false
 	}
+	return newTool(shell, kind, paths, hostPID, boxer, clusterSvc, pathList, userEnv, cloud)
+}
+
+// newTool is New over a shell already found, so a test can name one without
+// setting $SHELL on the process.
+func newTool(shell, kind string, paths Paths, hostPID int, boxer *sandbox.Sandbox, clusterSvc cluster.Service, pathList func(context.Context) (settings.RunPath, error), userEnv UserEnv, cloud Cloud) (t *Tool, ok bool) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, false
