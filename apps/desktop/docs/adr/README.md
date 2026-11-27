@@ -216,3 +216,4 @@ What differs here:
 | 2026-11-26 | [Call a query or a subscription a read, and its contract a read contract](2026-11-26-call-a-query-or-a-subscription-a-read-and-its-contract-a-read-contract.md) | cross-cutting | Accepted |
 | 2026-11-26 | [Write the read contracts once and each surface's rules beside them](2026-11-26-write-the-read-contracts-once-and-each-surfaces-rules-beside-them.md) | cross-cutting | Accepted |
 | 2026-11-26 | [A reload reads the latest host.json from the window's sessionStorage](2026-11-26-a-reload-reads-the-latest-host-json-from-session-storage.md) | cross-cutting | Accepted |
+| 2026-11-27 | [A new chat starts with its default, and a message can leave the sandbox for its turn](2026-11-27-a-new-chat-starts-with-its-default-and-a-message-can-leave-the-sandbox-for-its-turn.md) | cross-cutting | Accepted |
