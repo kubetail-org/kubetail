@@ -3,8 +3,8 @@
 #
 # Runs the tests of one area that the working tree's change reaches, since the
 # branch left main, with the flags make test-<area> uses. It prints each
-# command it runs and each suite it skips. A development aid: it trades
-# correctness for speed, so make test-<area> and CI remain the check.
+# command it runs and each suite it skips. The local check before a push: it
+# trades correctness for speed, and CI runs make test-<area>, the full check.
 #
 #   cli, libs,     the changed Go packages and every package of the area
 #   cluster-api    whose build or tests import one (go_scope)

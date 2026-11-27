@@ -145,15 +145,14 @@ vet_changed() {
   [[ "$output" == *"→ go -C apps/desktop/sidecar fix -plusbuild=false -stringsbuilder=false -diff . ./internal/p"$'\n'* ]]
 }
 
-@test "a Go area names the passes it leaves to make vet-<area>" {
+@test "a Go area names the passes it leaves to CI" {
   workspace
   vet_changed libs libs/go-common/b/b.go
-  [[ "$output" == *"Skipped staticcheck: make vet-libs runs it."* ]]
+  [[ "$output" == *"Skipped staticcheck and the other platforms: CI runs them, as make vet-libs does."* ]]
 }
 
-@test "desktop names the passes it leaves to make vet-desktop and CI" {
+@test "desktop names the passes it leaves to CI" {
   sidecar
   vet_changed desktop apps/desktop/sidecar/internal/p/p.go
-  [[ "$output" == *"Skipped the sidecar's debug, livecache and liveswitch tags, staticcheck and check-sidecar-deps.sh: make vet-desktop runs them."* ]]
-  [[ "$output" == *"Skipped the other platforms: CI vets them."* ]]
+  [[ "$output" == *"Skipped the sidecar's debug, livecache and liveswitch tags, staticcheck, check-sidecar-deps.sh and the other platforms: CI runs them, as make vet-desktop does."* ]]
 }

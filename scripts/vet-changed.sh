@@ -3,8 +3,8 @@
 #
 # Vets what the working tree's change reaches in one area, since the branch
 # left main, for this platform and the default build tags. It prints each
-# command it runs and each pass it skips. A development aid: it trades
-# correctness for speed, so make vet-<area> and CI remain the check.
+# command it runs and each pass it skips. The local check before a push: it
+# trades correctness for speed, and CI runs make vet-<area>, the full check.
 #
 #   cli, libs,     go vet and the go fix check on the changed Go packages and
 #   cluster-api    every package of the area whose build or tests import one
@@ -68,7 +68,7 @@ case "$area" in
     else
       echo "Skipped go vet and go fix: no change reaches a package in ${mods[*]}."
     fi
-    echo "Skipped staticcheck: make vet-$area runs it."
+    echo "Skipped staticcheck and the other platforms: CI runs them, as make vet-$area does."
     ;;
   cluster-agent)
     if has_code '^(cluster/agent|libs/proto)/'; then
@@ -98,7 +98,6 @@ case "$area" in
     else
       echo "Skipped clippy: no change in apps/desktop/src-tauri/, apps/desktop/proto/ or the layout fixture."
     fi
-    echo "Skipped the sidecar's debug, livecache and liveswitch tags, staticcheck and check-sidecar-deps.sh: make vet-desktop runs them."
-    echo "Skipped the other platforms: CI vets them."
+    echo "Skipped the sidecar's debug, livecache and liveswitch tags, staticcheck, check-sidecar-deps.sh and the other platforms: CI runs them, as make vet-desktop does."
     ;;
 esac

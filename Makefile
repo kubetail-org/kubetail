@@ -90,10 +90,10 @@ test-cli: ## Test cli/ and dashboard/ with the race detector
 
 # One vet-<area>-changed and test-<area>-changed per area, each a wrapper around
 # scripts/vet-changed.sh or scripts/test-changed.sh.
-vet-cli-changed: ## Vet what the change reaches in cli/ and dashboard/ for this platform: narrows vet-cli, never replaces it before a PR
+vet-cli-changed: ## Vet what the change reaches in cli/ and dashboard/ for this platform: the local check before a push; CI runs vet-cli
 	bash scripts/vet-changed.sh cli
 
-test-cli-changed: ## Run the tests in cli/ and dashboard/ the change reaches: narrows test-cli, never replaces it before a PR
+test-cli-changed: ## Run the tests in cli/ and dashboard/ the change reaches: the local check before a push; CI runs test-cli
 	bash scripts/test-changed.sh cli
 
 # One cover target per CI coverage area, each a wrapper around
@@ -112,10 +112,10 @@ vet-libs: ## Run go vet, the go fix check and staticcheck for this platform on l
 test-libs: ## Test libs/go-common/ with the race detector
 	$(call test-go,libs/go-common)
 
-vet-libs-changed: ## Vet what the change reaches in libs/go-common/ for this platform: narrows vet-libs, never replaces it before a PR
+vet-libs-changed: ## Vet what the change reaches in libs/go-common/ for this platform: the local check before a push; CI runs vet-libs
 	bash scripts/vet-changed.sh libs
 
-test-libs-changed: ## Run the tests in libs/go-common/ the change reaches: narrows test-libs, never replaces it before a PR
+test-libs-changed: ## Run the tests in libs/go-common/ the change reaches: the local check before a push; CI runs test-libs
 	bash scripts/test-changed.sh libs
 
 cover-libs-changed: ## List the changed lines in libs/go-common/ no test covers (FULL=1 runs every test)
@@ -132,10 +132,10 @@ vet-cluster-api: ## Run go vet, the go fix check and staticcheck for this platfo
 test-cluster-api: ## Test cluster/api/ with the race detector
 	$(call test-go,cluster/api)
 
-vet-cluster-api-changed: ## Vet what the change reaches in cluster/api/ for this platform: narrows vet-cluster-api, never replaces it before a PR
+vet-cluster-api-changed: ## Vet what the change reaches in cluster/api/ for this platform: the local check before a push; CI runs vet-cluster-api
 	bash scripts/vet-changed.sh cluster-api
 
-test-cluster-api-changed: ## Run the tests in cluster/api/ the change reaches: narrows test-cluster-api, never replaces it before a PR
+test-cluster-api-changed: ## Run the tests in cluster/api/ the change reaches: the local check before a push; CI runs test-cluster-api
 	bash scripts/test-changed.sh cluster-api
 
 cover-cluster-api-changed: ## List the changed lines in cluster/api/ no test covers (FULL=1 runs every test)
@@ -156,10 +156,10 @@ vet-cluster-agent: ## Run clippy on cluster/agent/
 test-cluster-agent: ## Test cluster/agent/
 	cd $(CLUSTER_AGENT_DIR) && cargo test
 
-vet-cluster-agent-changed: ## Vet what the change reaches in cluster/agent/ for this platform: narrows vet-cluster-agent, never replaces it before a PR
+vet-cluster-agent-changed: ## Vet what the change reaches in cluster/agent/ for this platform: the local check before a push; CI runs vet-cluster-agent
 	bash scripts/vet-changed.sh cluster-agent
 
-test-cluster-agent-changed: ## Run the tests in cluster/agent/ the change reaches: narrows test-cluster-agent, never replaces it before a PR
+test-cluster-agent-changed: ## Run the tests in cluster/agent/ the change reaches: the local check before a push; CI runs test-cluster-agent
 	bash scripts/test-changed.sh cluster-agent
 
 cover-cluster-agent-changed: ## List the changed lines in cluster/agent/ no test covers (needs cargo-llvm-cov)
@@ -180,10 +180,10 @@ vet-web: ## Type-check apps/web/ and its tests
 test-web: ## Test apps/web/
 	cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm test run
 
-vet-web-changed: ## Type-check apps/web/ when the change reaches its TypeScript: narrows vet-web, never replaces it before a PR
+vet-web-changed: ## Type-check apps/web/ when the change reaches its TypeScript: the local check before a push; CI runs vet-web
 	bash scripts/vet-changed.sh web
 
-test-web-changed: ## Run the tests in apps/web/ the change reaches: narrows test-web, never replaces it before a PR
+test-web-changed: ## Run the tests in apps/web/ the change reaches: the local check before a push; CI runs test-web
 	bash scripts/test-changed.sh web
 
 cover-web-changed: ## List the changed lines in apps/web/ no test covers
@@ -280,10 +280,10 @@ test-desktop: build-desktop-sidecar ## Test the desktop app's sidecar with the r
 	cd $(DESKTOP_DIR)/src-tauri && cargo test
 	cd $(DESKTOP_DIR) && pnpm install && pnpm test --run
 
-vet-desktop-changed: ## Vet what the change reaches in apps/desktop/ for this platform: narrows vet-desktop, never replaces it before a PR
+vet-desktop-changed: ## Vet what the change reaches in apps/desktop/ for this platform: the local check before a push; CI runs vet-desktop
 	bash scripts/vet-changed.sh desktop
 
-test-desktop-changed: ## Run the tests in apps/desktop/ the change reaches: narrows test-desktop, never replaces it before a PR
+test-desktop-changed: ## Run the tests in apps/desktop/ the change reaches: the local check before a push; CI runs test-desktop
 	bash scripts/test-changed.sh desktop
 
 # Each reaches the vendors and spends real tokens, so nothing runs it
@@ -369,7 +369,7 @@ test-repo: ## Test the scripts with bats, and scripts/stress.go
 	bats scripts/
 	go test scripts/stress.go scripts/stress_test.go
 
-test-repo-changed: ## Run the bats files of the changed scripts, and stress.go's test if it changed: narrows test-repo, never replaces it before a PR
+test-repo-changed: ## Run the bats files of the changed scripts, and stress.go's test if it changed: the local check before a push; CI runs test-repo
 	bash scripts/test-changed.sh repo
 
 # scripts/generate.sh
