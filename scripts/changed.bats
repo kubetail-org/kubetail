@@ -6,6 +6,7 @@ setup() {
   mkdir -p "$repo/scripts"
   cp "$(dirname "$BATS_TEST_FILENAME")/changed.sh" "$repo/scripts/"
   git -C "$repo" init -q -b main
+  git -C "$repo" config core.autocrlf false
   git -C "$repo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m base
   git -C "$repo" checkout -q -b work
 }

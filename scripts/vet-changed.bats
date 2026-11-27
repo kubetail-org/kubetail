@@ -7,6 +7,7 @@ setup() {
   mkdir -p "$repo/scripts"
   cp "$(dirname "$BATS_TEST_FILENAME")"/{changed,vet-changed}.sh "$repo/scripts/"
   git -C "$repo" init -q -b main
+  git -C "$repo" config core.autocrlf false
   git -C "$repo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m base
   git -C "$repo" checkout -q -b work
   bin="$BATS_TEST_TMPDIR/bin"
@@ -147,7 +148,7 @@ vet_changed() {
 @test "a Go area names the passes it leaves to make vet-<area>" {
   workspace
   vet_changed libs libs/go-common/b/b.go
-  [[ "$output" == *"Skipped GOOS=windows go vet and staticcheck: make vet-libs runs them."* ]]
+  [[ "$output" == *"Skipped staticcheck: make vet-libs runs it."* ]]
 }
 
 @test "desktop names the passes it leaves to make vet-desktop and CI" {
