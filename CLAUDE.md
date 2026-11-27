@@ -120,7 +120,7 @@ Each guide has an `AGENTS.md` symlink beside it; a new guide gets one. This file
 
 - **Update a guide in the same change** as the invariant, convention or command it states.
 - **Keep them light: they are read on every task.** A line belongs when a change would go wrong without it and the files being edited do not say it: an invariant, a convention, a command, a coupling between files, a trap. What a file holds, what a function does and which flags or keys exist are read from the code. State a fact once, in the narrowest guide that covers it.
-- **Each guide has a byte budget** in `.github/ci-config/claude-md-budgets.yml`, which CI enforces (`make lint-repo-claude-md`, `Lint · CLAUDE.md`). A new guide gets one, and a commit that raises one explains why in its body.
+- **Each guide has a byte budget** in `.github/ci-config/claude-md-budgets.yml`, which CI enforces (`make lint-repo-md`, `Lint · Markdown`). A new guide gets one, and a commit that raises one explains why in its body.
 - **They state what is true now.** Why a design was chosen, and what was rejected, goes in an ADR ([`docs/adr/README.md`](docs/adr/README.md)), linked from the guide that states the decision. The desktop app's own decisions are in [`apps/desktop/docs/adr/`](apps/desktop/docs/adr/README.md). When a decision changes, write a new ADR, flip the old one's status and repoint every link in the same commit. A guide never links a superseded ADR.
 - **Describe the present, not the past**, in guides and code comments alike: drop "used to", "no longer", "formerly", and notes on what was renamed or removed. A contrast with an external system ("unlike client-go's default") is fine. `docs/adr/` is the one exemption: it is an append-only record.
 
@@ -168,7 +168,7 @@ A change in one place can break another area. Also run:
 | `.github/` or other YAML | `make lint-repo-yaml` |
 | `scripts/` | `make lint-repo-sh test-repo` |
 | `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...`, and `make lint-desktop` for `designsync` or `securitymodel` |
-| Markdown | `make lint-repo-md lint-repo-claude-md` |
+| Markdown | `make lint-repo-md` |
 | `config/` or `hack/` | CI runs no code job for these: name the checks you ran in the PR |
 
 - **Each check is `make <verb>-<area>`**, over the areas CI checks apart: `cli` (with `dashboard`), `libs`, `cluster-api`, `cluster-agent`, `web`, `desktop`, `e2e` and `repo`, for what belongs to no component. No target runs every area. `make help` lists them. `vet-web` type-checks the UI with `tsc -b`; no target runs `vite build` or the checks of `tools/`.
