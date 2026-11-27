@@ -41,6 +41,7 @@ go-common:
   - go.work.sum
   - libs/go-common/**
   - scripts/check-go-fix.sh
+  - scripts/go-builds.sh
   - scripts/staticcheck.sh
   - '!**/*.md'
 graphql-dashboard:
@@ -78,6 +79,8 @@ desktop-sidecar:
   - apps/desktop/sidecar/**
   - apps/desktop/src-tauri/linux/**
   - scripts/check-go-fix.sh
+  - scripts/go-builds.sh
+  - scripts/go-vet.sh
   - scripts/restore-mtime.go
   - scripts/staticcheck.sh
   - '!**/*.md'
