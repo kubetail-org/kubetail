@@ -86,12 +86,12 @@
       "figma": {
         "node": "7:248",
         "name": "HistoryNav",
-        "hash": "599a08badf1556fc"
+        "hash": "6d2ec21aaa228627"
       },
       "code": [
         {
           "path": "src/components/shell/app-bar/history-nav.tsx",
-          "blob": "45f28f61702a5964cb654489773fc31389b4d109"
+          "blob": "61d11c6b75bca3a8ed0469a573b7eb64ce610619"
         }
       ]
     },
@@ -100,12 +100,12 @@
       "figma": {
         "node": "7:262",
         "name": "AppBar/Actions",
-        "hash": "04ab13be67e33b55"
+        "hash": "71a2edc39ba4a975"
       },
       "code": [
         {
           "path": "src/components/shell/app-bar/bar.tsx",
-          "blob": "9fe34843ff065dff1920236e599ec00acce71861"
+          "blob": "637831577f61f38268b840e2c923709fa5dd7006"
         }
       ]
     },
@@ -114,12 +114,12 @@
       "figma": {
         "node": "22:159",
         "name": "AppMenu",
-        "hash": "4f70d8c3b1f639ff"
+        "hash": "c38d7ad77756650e"
       },
       "code": [
         {
           "path": "src/components/shell/app-bar/menu.tsx",
-          "blob": "a6b6842b8744bb5c832356221246177de8be8012"
+          "blob": "b2c8b57bb5cdaa2737a8ccc0466a9f02a27422f0"
         }
       ]
     },
@@ -128,12 +128,12 @@
       "figma": {
         "node": "7:264",
         "name": "ContextOmnibox",
-        "hash": "197e63cde51da056"
+        "hash": "b86ee3f54228543c"
       },
       "code": [
         {
           "path": "src/components/shell/context-omnibox/omnibox.tsx",
-          "blob": "c66c00bb3be78b93f21ed416b5a68ddcfa8c8350"
+          "blob": "a64a35f1ee10ae39c4181cff42ca8853e763602e"
         }
       ]
     },
@@ -142,12 +142,12 @@
       "figma": {
         "node": "9:92",
         "name": "ModeTabs",
-        "hash": "58e0feba2f8863a3"
+        "hash": "263ab85ba34d8380"
       },
       "code": [
         {
           "path": "src/components/shell/context-omnibox/mode-tabs.tsx",
-          "blob": "ad29aacba01b1174ee1dea49e4b028be31ceb936"
+          "blob": "242645892779895c229e4d652f7135719f8962b8"
         }
       ]
     },
@@ -156,12 +156,12 @@
       "figma": {
         "node": "22:203",
         "name": "AppBar",
-        "hash": "48b193ae26c2c9d7"
+        "hash": "96b79ded15be513a"
       },
       "code": [
         {
           "path": "src/components/shell/app-bar/bar.tsx",
-          "blob": "9fe34843ff065dff1920236e599ec00acce71861"
+          "blob": "637831577f61f38268b840e2c923709fa5dd7006"
         }
       ]
     },
@@ -342,7 +342,7 @@
       "code": [
         {
           "path": "src/components/cluster/unverified-tls-badge.tsx",
-          "blob": "e8c60485f38abef77cf6fff82f4df17928ada37b"
+          "blob": "3eaac6aebd15f2e2a4b0c9e58603da631e63931d"
         }
       ]
     },
@@ -1017,12 +1017,12 @@
       "figma": {
         "node": "43:9226",
         "name": "AppMenu",
-        "hash": "f4321c346fbe07c3"
+        "hash": "94481c40582a22d3"
       },
       "code": [
         {
           "path": "src/components/shell/app-bar/menu.tsx",
-          "blob": "a6b6842b8744bb5c832356221246177de8be8012"
+          "blob": "b2c8b57bb5cdaa2737a8ccc0466a9f02a27422f0"
         }
       ]
     },
