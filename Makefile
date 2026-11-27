@@ -29,7 +29,7 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/cli/cmd.version=
 	test-desktop-livecache test-desktop-liveswitch status-desktop-design record-desktop-design \
 	clean-desktop-data clean-desktop-window \
 	lint-e2e test-e2e \
-	lint-repo lint-repo-sh lint-repo-md lint-repo-yaml lint-repo-toolchains lint-repo-digests lint-repo-claude-md test-repo
+	lint-repo lint-repo-sh lint-repo-md lint-repo-yaml lint-repo-toolchains lint-repo-digests test-repo
 
 build: build-dashboard-ui ## Build the kubetail CLI, with the UI embedded, for this platform
 	mkdir -p $(OUTPUT_DIR)
@@ -298,15 +298,16 @@ endif
 
 # repo: what belongs to no component. CI runs each lint-repo-* in a job of its own.
 
-lint-repo: lint-repo-sh lint-repo-md lint-repo-yaml lint-repo-toolchains lint-repo-digests lint-repo-claude-md ## Run every lint-repo-* and check tools/'s and scripts/' license headers
+lint-repo: lint-repo-sh lint-repo-md lint-repo-yaml lint-repo-toolchains lint-repo-digests ## Run every lint-repo-* and check tools/'s and scripts/' license headers
 	sh scripts/check-license-headers.sh tools scripts
 
 lint-repo-sh: ## Lint every shell script
 	git ls-files '*.sh' | xargs shellcheck -x
 
-# scripts/check-markdown-links.sh
-lint-repo-md: ## Check local paths and anchors in every Markdown file
+# scripts/check-markdown-links.sh and scripts/check-claude-md.sh
+lint-repo-md: ## Check local paths and anchors in every Markdown file, and every tracked CLAUDE.md against its byte budget
 	sh scripts/check-markdown-links.sh
+	sh scripts/check-claude-md.sh
 
 # actionlint type-checks the workflows and composite actions and shellchecks
 # their `run:` blocks; zizmor audits them against .github/ci-config/zizmor.yml.
@@ -328,10 +329,6 @@ lint-repo-toolchains: ## Check the Dockerfiles' golang, node and rust images, an
 # scripts/check-image-digests.sh
 lint-repo-digests: ## Check every image a Dockerfile pulls is pinned by digest
 	sh scripts/check-image-digests.sh
-
-# scripts/check-claude-md.sh
-lint-repo-claude-md: ## Check every tracked CLAUDE.md against its byte budget
-	sh scripts/check-claude-md.sh
 
 test-repo: ## Test the scripts with bats, and scripts/stress.go
 	bats scripts/
