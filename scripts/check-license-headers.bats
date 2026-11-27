@@ -75,3 +75,11 @@ $header"
   check cli
   [ "$status" -eq 1 ]
 }
+
+@test "a file shorter than the header fails" {
+  mkdir -p "$repo/cli/a"
+  printf '%s\n' "$header" | head -n 3 >"$repo/cli/a/a.go"
+  check
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"cli/a/a.go"* ]]
+}

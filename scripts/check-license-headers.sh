@@ -23,7 +23,6 @@ header='// Copyright 2024 The Kubetail Authors
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.'
-lines=$(printf '%s\n' "$header" | wc -l)
 
 missing=$(
   for dir in "$@"; do
@@ -31,10 +30,20 @@ missing=$(
       "$dir/*.go" "$dir/*.rs" "$dir/*.ts" "$dir/*.tsx"
   done |
     grep -vE '(^|/)(generated\.go|models_gen\.go|schema\.resolvers\.go)$|/__generated__/|^apps/desktop/src/gql/' |
-    while IFS= read -r f; do
-      # A Windows checkout may end each line in CRLF.
-      [ "$(head -n "$lines" "$f" | tr -d '\r')" = "$header" ] || echo "$f"
-    done
+    HEADER="$header" awk '
+      BEGIN { lines = split(ENVIRON["HEADER"], want, "\n") }
+      {
+        ok = 1
+        for (i = 1; i <= lines; i++) {
+          # A short file, or one gone from the work tree, lacks the header.
+          if ((getline line < $0) <= 0) { ok = 0; break }
+          # A Windows checkout may end each line in CRLF.
+          sub(/\r$/, "", line)
+          if (line != want[i]) { ok = 0; break }
+        }
+        close($0)
+        if (!ok) print
+      }'
 )
 if [ -n "$missing" ]; then
   echo "$missing"
