@@ -270,6 +270,10 @@ lint-desktop-shared: ## Check the desktop app's license headers, coverage marker
 	cd tools && go run ./designsync check
 	cd tools && go run ./securitymodel check
 
+# The full checks print the -changed target to run before a push. Agents in
+# Claude Code are held to it by scripts/check-make-target-hook.sh.
+changed-note = @echo "note: CI runs $@; before a push, run make $(1)"
+
 vet-desktop: vet-desktop-sidecar vet-desktop-host vet-desktop-webview ## Vet the desktop app's sidecar, host and webview for this platform
 
 # go vet, go fix and staticcheck check the sidecar for this platform, untagged
@@ -278,6 +282,7 @@ vet-desktop: vet-desktop-sidecar vet-desktop-host vet-desktop-webview ## Vet the
 # the other platforms, each of which recompiles every dependency.
 # check-sidecar-deps.sh keeps the typed Kubernetes clients out of the binary.
 vet-desktop-sidecar: ## Vet the desktop sidecar for this platform and each tag, check its deps, and run go fix and staticcheck
+	$(call changed-note,vet-desktop-changed)
 	cd $(DESKTOP_DIR)/sidecar && go vet ./... && go vet -tags debug ./... \
 		&& go vet -tags livecache ./internal/agent/catalog && go vet -tags liveswitch ./internal/agent/catalog
 	sh $(DESKTOP_DIR)/scripts/check-sidecar-deps.sh
@@ -285,9 +290,11 @@ vet-desktop-sidecar: ## Vet the desktop sidecar for this platform and each tag, 
 	GO_BUILDS=host sh scripts/staticcheck.sh apps/desktop/sidecar
 
 vet-desktop-host: build-desktop-sidecar ## Run clippy on the desktop host, after building the sidecar
+	$(call changed-note,vet-desktop-changed)
 	cd $(DESKTOP_DIR)/src-tauri && cargo clippy --all-targets -- -D warnings
 
 vet-desktop-webview: ## Type-check the desktop app's webview
+	$(call changed-note,vet-desktop-changed)
 	cd $(DESKTOP_DIR) && pnpm install && pnpm exec tsc -b
 
 test-desktop: test-desktop-sidecar test-desktop-host test-desktop-webview ## Test the desktop app's sidecar with the race detector, its host and its webview
@@ -297,13 +304,16 @@ test-desktop: test-desktop-sidecar test-desktop-host test-desktop-webview ## Tes
 # shell's tests read SSH_AUTH_SOCK. GORACE drops the race detector's one-second
 # sleep at each clean exit.
 test-desktop-sidecar: ## Test the desktop sidecar with the race detector
+	$(call changed-note,test-desktop-changed)
 	cd $(DESKTOP_DIR)/sidecar && GORACE=atexit_sleep_ms=0 SSH_AUTH_SOCK= \
 		go test -race -short -gcflags='modernc.org/...=-d=checkptr=0' ./...
 
 test-desktop-host: build-desktop-sidecar ## Test the desktop host, after building the sidecar
+	$(call changed-note,test-desktop-changed)
 	cd $(DESKTOP_DIR)/src-tauri && cargo test
 
 test-desktop-webview: ## Test the desktop app's webview
+	$(call changed-note,test-desktop-changed)
 	cd $(DESKTOP_DIR) && pnpm install && pnpm test --run
 
 vet-desktop-changed: ## Vet what the change reaches in apps/desktop/ for this platform: the local check before a push; CI runs the full check
@@ -351,6 +361,7 @@ lint-e2e: ## Lint the e2e suite
 # ONLY_BUILD=1 suits iterating on the Cluster API or Cluster Agent while a
 # cluster is up.
 test-e2e: ## Build the images and the CLI, then run the e2e suite (ONLY_BUILD=1 skips the run)
+	$(call changed-note,lint-e2e and the tests you changed)
 	bash e2e/scripts/build.sh
 ifndef ONLY_BUILD
 	bash e2e/scripts/up.sh

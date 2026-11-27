@@ -102,3 +102,9 @@ go_code=$'\nfunc batsUncovered() int {\n\treturn 1\n}\n'
   [ "$status" -eq 2 ]
   [[ "$output" == usage:* ]]
 }
+
+@test "FULL=1 notes the run to make before a push" {
+  FULL=1 BASE=HEAD run bash "$repo/scripts/cover-changed.sh" libs
+  [ "$status" -eq 0 ]
+  [[ "$output" == "note: CI measures the whole area; before a push, run make cover-libs-changed without FULL=1"* ]]
+}

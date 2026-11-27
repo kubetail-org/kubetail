@@ -4,7 +4,7 @@
 # A flat map of path to bytes: the script reads it with awk, so keep keys unquoted.
 CLAUDE.md: 31232
 .github/CLAUDE.md: 8192
-apps/desktop/CLAUDE.md: 8704
+apps/desktop/CLAUDE.md: 9216
 apps/desktop/design/CLAUDE.md: 21504
 apps/desktop/sidecar/CLAUDE.md: 27136
 apps/desktop/sidecar/internal/agent/CLAUDE.md: 23552
