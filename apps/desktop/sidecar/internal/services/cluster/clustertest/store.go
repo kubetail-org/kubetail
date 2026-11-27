@@ -37,6 +37,7 @@ import (
 
 // Store is one cache's store, open for the test's life.
 type Store struct {
+	m *kubestore.Manager
 	s *kubestore.Store
 	// applied counts the bodies applied, the resourceVersion the next one takes.
 	applied int
@@ -56,7 +57,7 @@ func NewStore(t testing.TB) *Store {
 	s, err := m.OpenOrCreate(1)
 	require.NoError(t, err)
 	t.Cleanup(s.Release)
-	return &Store{s: s}
+	return &Store{m: m, s: s}
 }
 
 // emptyStore is the bytes of cache 1's file, migrated and closed, made on first use.
@@ -103,6 +104,12 @@ func (s *Store) Delete(t testing.TB, body map[string]any) {
 	u := &unstructured.Unstructured{Object: body}
 	k := kubestore.Kind{APIVersion: u.GetAPIVersion(), Kind: u.GetKind(), Resource: strings.ToLower(u.GetKind()) + "s"}
 	require.NoError(t, s.s.ApplyChange(context.Background(), k, watch.Deleted, u))
+}
+
+// BodyCalls is how many times the statements on the store have called body(), each
+// call a decompression of one object's body.
+func (s *Store) BodyCalls() int64 {
+	return s.m.BodyCalls()
 }
 
 // Mirror adds a namespaced kind to the kinds the cache mirrors, as its sync does

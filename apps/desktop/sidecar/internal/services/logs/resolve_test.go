@@ -17,6 +17,7 @@ package logs
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -602,6 +603,26 @@ func TestTooManyAcrossSourcesIsRefused(t *testing.T) {
 	addPods(t, f, MaxStreams-2)
 	_, err := resolveOf(t, f, Scope{Sources: []ScopeSource{webScope.Sources[0], {Namespace: "prod", Kind: SourcePod, Name: "job-1"}}})
 	assert.ErrorIs(t, err, ErrTooMany)
+}
+
+// A resolve decompresses a pod's body once a statement, however many containers
+// the pod has: a tail's resolve of a Pod source reads the pod in three statements.
+func TestAResolveReadsEachPodsBodyOnceAStatement(t *testing.T) {
+	t.Parallel()
+	containers := make([]container, MaxStreams)
+	for i := range containers {
+		containers[i] = container{name: "c" + strconv.Itoa(i)}
+	}
+	f := newMirror(t, append([]map[string]any{pod("big", "uid-big", "node-a", nil, containers...)}, webNodes()...)...)
+	all := Scope{Sources: []ScopeSource{{Namespace: "prod", Kind: SourcePod, Name: "big", AllContainers: true}}}
+
+	for _, view := range []Scope{podSource("big", false), all} {
+		before := f.store.BodyCalls()
+		got, err := resolve(t.Context(), f, "7", view, true)
+		require.NoError(t, err)
+		require.NotEmpty(t, got.streams)
+		assert.LessOrEqual(t, f.store.BodyCalls()-before, int64(3))
+	}
 }
 
 // A container status the mirror serves that is not one Kubetail can read dates the

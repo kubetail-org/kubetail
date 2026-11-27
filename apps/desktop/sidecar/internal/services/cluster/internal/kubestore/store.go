@@ -105,8 +105,9 @@ type file struct {
 	// openReadOnly, which opens a CLOSED cache's file per call to measure it; this serves
 	// an open one for the file's life.
 	readDB *sqlitepool.Pool
-	// queryDB is KubeQuery's pool: read-only connections through queryDriver, none kept
-	// idle, so nothing one statement leaves on its connection reaches the next.
+	// queryDB is KubeQuery's pool: read-only connections through the manager's query
+	// driver, none kept idle, so nothing one statement leaves on its connection reaches
+	// the next.
 	queryDB *sqlitepool.Pool
 	// ownQueryDB is the same kind of connection for the sidecar's own statements, kept
 	// between them: a statement the sidecar wrote leaves nothing on its connection.
