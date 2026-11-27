@@ -335,7 +335,7 @@ Now access the dashboard at [http://localhost:5173](http://localhost:5173). The 
 
 ### Checks
 
-[CONTRIBUTING.md](CONTRIBUTING.md) describes how to test a change and open a pull request. Each component's README has a *Checks* section (for example [dashboard/README.md](dashboard/README.md#checks)): what to run while you work, and what to run before you push. CI runs the full checks on every platform; after you push, watch the pull request's checks and fix what fails.
+[CONTRIBUTING.md](CONTRIBUTING.md) describes how to test a change and open a pull request. Each component's README has a *Checks* section (for example [dashboard/README.md](dashboard/README.md#checks)): what to run while you work, and what to run before you push. CI runs the full checks on every platform; after you push, watch the pull request's checks and fix what fails. In Claude Code a hook refuses the full desktop checks, `make test-e2e` and a `FULL=1` cover run, naming the target to run instead; `CHECKS=full` in the command lets one through, to reproduce a CI failure.
 
 A change in one place can break another component. Also run:
 

@@ -109,4 +109,5 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-25 | [Leave the desktop sidecar outside the fsnotify pin](2026-11-25-leave-the-desktop-sidecar-outside-the-fsnotify-pin.md) | repo | Accepted |
 | 2026-11-26 | [Run the stress tests as one workflow per area](2026-11-26-run-the-stress-tests-as-one-workflow-per-area.md) | repo | Accepted |
 | 2026-11-26 | [Scope local test and vet runs to what a change reaches](2026-11-26-scope-local-test-and-vet-runs-to-what-a-change-reaches.md) | repo | Accepted |
+| 2026-11-27 | [Hold agents to the -changed targets with a hook](2026-11-27-hold-agents-to-the-changed-targets-with-a-hook.md) | repo | Accepted |
 | 2026-11-09 | [Share informers and gate each caller with an access review](2026-11-09-share-informers-and-gate-each-caller-with-an-access-review.md) | shared | Accepted |

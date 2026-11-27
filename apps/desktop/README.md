@@ -64,6 +64,8 @@ make cover-desktop-changed            # FULL=1 runs every Go test; the host's co
 
 To iterate on one component, or reproduce a CI failure in it, run its part of a full check: `<verb>-desktop-sidecar`, `-host` or `-webview` for `lint`, `vet` and `test`, and `lint-desktop-shared` for the license headers, coverage markers, design manifest and security model. The host's `vet` and `test` build the sidecar first: `tauri-build` fails without the bundled binary.
 
+In Claude Code a hook refuses `vet-desktop`, `test-desktop` and their parts; `CHECKS=full` in the command runs one. Each prints its `-changed` target first. → [ADR: hold agents to the -changed targets with a hook](../../docs/adr/2026-11-27-hold-agents-to-the-changed-targets-with-a-hook.md)
+
 ## Read next
 
 - [`CLAUDE.md`](CLAUDE.md), and the guide in each area: conventions

@@ -42,6 +42,11 @@ case "$area" in
     ;;
 esac
 
+# scripts/check-make-target-hook.sh gives agents the same advice.
+if [ "${FULL:-}" = 1 ]; then
+  echo "note: CI measures the whole area; before a push, run make cover-$area-changed without FULL=1"
+fi
+
 # shellcheck source=scripts/changed.sh
 . scripts/changed.sh
 
