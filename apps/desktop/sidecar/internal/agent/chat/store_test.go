@@ -363,8 +363,7 @@ func TestClusterMonitoring(t *testing.T) {
 
 	db := openTestDB(t, t.TempDir())
 	st := prepareOn(t, db).Stmts()
-	setMonitoring(t, db, "7", true)
-	setMonitoring(t, db, "8", true)
+	setMonitoring(t, db, "1", false)
 	markCluster(t, db, "8")
 
 	for id, want := range map[apimeta.ClusterID][2]bool{

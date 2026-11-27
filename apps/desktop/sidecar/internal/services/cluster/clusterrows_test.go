@@ -63,7 +63,7 @@ func importRow(t *testing.T, st *sqlstmt.Set[stmtID], contextName string) Cluste
 	return row
 }
 
-// A fresh import takes SQL's defaults: enabled, syncing, not monitored, not the
+// A fresh import takes SQL's defaults: enabled, syncing, monitored, not the
 // default, unnamed, unmarked, both stamps at the import time.
 func TestInsertClusterIfAbsentTakesTheDefaults(t *testing.T) {
 	_, st := openTestStore(t)
@@ -75,7 +75,7 @@ func TestInsertClusterIfAbsentTakesTheDefaults(t *testing.T) {
 	require.Nil(t, row.Name)
 	require.True(t, row.Enabled)
 	require.True(t, row.SyncEnabled)
-	require.False(t, row.MonitoringEnabled)
+	require.True(t, row.MonitoringEnabled)
 	require.False(t, row.IsDefault)
 	require.Equal(t, t0, row.CreatedAt)
 	require.Equal(t, t0, row.UpdatedAt)

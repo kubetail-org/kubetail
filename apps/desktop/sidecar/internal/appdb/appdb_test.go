@@ -390,7 +390,7 @@ func TestClustersTableDefaultsAndClaim(t *testing.T) {
 	var deleteRequestedAt *int64
 	require.NoError(t, db.Read.QueryRow(`SELECT enabled, sync_enabled, monitoring_enabled, delete_requested_at FROM clusters`).
 		Scan(&enabled, &syncEnabled, &monitoringEnabled, &deleteRequestedAt))
-	require.Equal(t, []int{1, 1, 0}, []int{enabled, syncEnabled, monitoringEnabled})
+	require.Equal(t, []int{1, 1, 1}, []int{enabled, syncEnabled, monitoringEnabled})
 	require.Nil(t, deleteRequestedAt)
 }
 
@@ -460,7 +460,7 @@ func TestOpenRefusesANewerFile(t *testing.T) {
 // line in the PR that writes it. Once a desktop release carries a migration, every
 // installed app.db has run it, so its line never changes again.
 var shippedMigrations = map[string]string{
-	"0001_init.sql": "a7937dda6923f8550f6bc687cd0f1214ae5795ccc97b3dd236bfb28d7b08de76",
+	"0001_init.sql": "b4796fe025c005d6dfbacf479b672804856e4b457b11c040c020ce3307df9630",
 }
 
 func TestAShippedMigrationIsNeverEdited(t *testing.T) {

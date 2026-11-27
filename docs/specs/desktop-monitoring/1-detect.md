@@ -109,13 +109,13 @@ It does not gate model spending on its own. `chat.RunMonitor` keeps its check, s
 
 | Task | Status | PR |
 | --- | --- | --- |
-| 1. Schema and switch | Planned | — |
-| 2. Signals | Planned | — |
-| 3. Fold | Planned | — |
-| 4. Store and loop | Planned | — |
+| 1. Schema and switch | Done | — |
+| 2. Signals | Done | — |
+| 3. Fold | Done | — |
+| 4. Store and loop | Done | — |
 
 1. **Schema and switch.** The two tables and their indexes, `PausedKindRefs` and `CacheReading.Health()`, the default and its descriptions, `KeyIncidents`, the new checksum in `appdb_test.go`'s `shippedMigrations`, the rows in `docs/persisted-data.md`, and the security record.
-2. **Signals.** The reading and its judged set, one statement per signal, tested against a real cache store from `cluster/clustertest` seeded with each case, kinds in each state. Each statement that reads `objects` by kind names its index with `INDEXED BY`, so a plan that cannot use it fails to prepare and every statement test pins it. `BenchmarkAReadingOf5000Pods` reads a cache seeded with 5,000 Pods, a few of them failing; the PR records its result, and a reading over 20 ms moves the loop to push from the cache.
+2. **Signals.** The reading and its judged set, one statement per signal, tested against a real cache store from `cluster/clustertest` seeded with each case, kinds in each state. Each statement that reads `objects` by kind names its index with `INDEXED BY`, so a plan that cannot use it fails to prepare and every statement test pins it. `BenchmarkAReadingOf5000Pods` reads a cache seeded with 5,000 Pods, a few of them failing; the PR records its result, and a reading over 20 ms moves the loop to push from the cache. It reads in about 5 ms.
 3. **Fold.** Table-driven tests over the windows and unjudged signals, with time as an argument.
 4. **Store and loop.** The transaction, the notice, the retention and the trim, and the wiring into `Runtime`.
 

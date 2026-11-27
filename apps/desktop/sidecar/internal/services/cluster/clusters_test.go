@@ -1827,7 +1827,7 @@ func TestImportCreatesOneRowPerContext(t *testing.T) {
 	require.Len(t, rows, 2)
 	assert.True(t, rows["prod"].Enabled)
 	assert.True(t, rows["prod"].SyncEnabled)
-	assert.False(t, rows["prod"].MonitoringEnabled)
+	assert.True(t, rows["prod"].MonitoringEnabled)
 	testutil.Recv(t, sub.Chan(), "the clusters signal")
 }
 
