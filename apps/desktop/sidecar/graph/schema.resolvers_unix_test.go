@@ -80,7 +80,7 @@ func post(t *testing.T, srv *httptest.Server, query string) gqlResult {
 // its id.
 func newChatOn(t *testing.T, srv *httptest.Server) string {
 	t.Helper()
-	sent := mutate(t, srv, `mutation { chatSend(mode: Chat, clusterID: "1", sandboxDisabled: false, networkEnabled: false, networkThisTurn: false, providerID: "fake", modelID: "fake", effort: "high",
+	sent := mutate(t, srv, `mutation { chatSend(mode: Chat, clusterID: "1", sandboxDisabled: false, networkEnabled: false, networkThisTurn: false, sandboxDisabledThisTurn: false, providerID: "fake", modelID: "fake", effort: "high",
 		requestID: "`+appdb.NewID()+`", content: "hi") { chatID } }`)
 	return sent["chatSend"].(map[string]any)["chatID"].(string)
 }

@@ -442,6 +442,28 @@ func snapshotOf(in *model.LogsViewSnapshotInput) *chat.Snapshot {
 	}
 }
 
+// sandboxDefaultAnswer is a read or a write of a sandbox default as the wire
+// spells it: its refusal, else the scope's default.
+func sandboxDefaultAnswer(d settings.SandboxDefault, err error) (*model.SandboxDefault, error) {
+	switch {
+	case errors.Is(err, settings.ErrNoSandbox):
+		return nil, gqlerrors.NewValidationError("sandbox-default", settings.ErrNoSandbox.Error())
+	case errors.Is(err, settings.ErrClusterGone):
+		return nil, gqlerrors.Clone(gqlerrors.ErrRecordNotFound)
+	case errors.Is(err, settings.ErrSandboxDefaultChanged):
+		return nil, gqlerrors.Clone(gqlerrors.ErrConflict)
+	case err != nil:
+		return nil, err
+	}
+	return &model.SandboxDefault{SandboxDisabled: d.Disabled, ClusterOverride: d.Own}, nil
+}
+
+// emptyClusterID refuses a sandbox default's empty cluster id, which the store
+// reads as every cluster's scope: only a null one names that.
+func emptyClusterID() error {
+	return gqlerrors.NewValidationError("sandbox-default", "A cluster id is never empty.")
+}
+
 // noSandboxExecutables refuses a probe or a register on a machine with no sandbox.
 func noSandboxExecutables() error {
 	return gqlerrors.NewValidationError("sandbox-executable", settings.ErrNoSandbox.Error())

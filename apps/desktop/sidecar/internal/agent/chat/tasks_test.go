@@ -1196,7 +1196,7 @@ func TestASendThatCannotTakeItsNoticesIsRefused(t *testing.T) {
 	testutil.Wait(t, tk.done, "the row")
 	refuse(t, s, "UPDATE", "background_tasks")
 
-	_, err = s.Send(t.Context(), &first.ChatID, ModeChat, "1", false, false, false, "fake", "fake", "high", reqID("2"), "and?", nil)
+	_, err = s.Send(t.Context(), &first.ChatID, ModeChat, "1", SendSwitches{}, "fake", "fake", "high", reqID("2"), "and?", nil)
 	require.ErrorContains(t, err, "mark notified")
 	msgs, err := s.transcript(t.Context(), first.ChatID)
 	require.NoError(t, err)

@@ -278,7 +278,7 @@ func (e *e2e) ask(t *testing.T, question string, calls ...llm.Block) string {
 	t.Helper()
 	e.fake.Route(question).SetToolCalls(calls...)
 	raw := graphql(t, e.url, `mutation { chatSend(mode: Chat, clusterID: "`+e.clusterID+
-		`", sandboxDisabled: false, networkEnabled: false, networkThisTurn: false, providerID: "fake", modelID: "fake", effort: "low", requestID: "`+appdb.NewID()+
+		`", sandboxDisabled: false, networkEnabled: false, networkThisTurn: false, sandboxDisabledThisTurn: false, providerID: "fake", modelID: "fake", effort: "low", requestID: "`+appdb.NewID()+
 		`", content: "`+question+`") { chatID } }`)
 	var resp struct {
 		Data struct {
@@ -304,7 +304,7 @@ func (e *e2e) askAgain(t *testing.T, chatID string, disabled bool, first string,
 	}, e2eConverge, 10*time.Millisecond, "the first turn settled")
 	e.fake.Route(first).SetToolCalls(calls...)
 	send := `mutation { chatSend(chatID: "` + chatID + `", mode: Chat, clusterID: "` + e.clusterID +
-		`", sandboxDisabled: ` + strconv.FormatBool(disabled) + `, networkEnabled: false, networkThisTurn: false, providerID: "fake", modelID: "fake", effort: "low", requestID: "` + appdb.NewID() +
+		`", sandboxDisabled: ` + strconv.FormatBool(disabled) + `, networkEnabled: false, networkThisTurn: false, sandboxDisabledThisTurn: false, providerID: "fake", modelID: "fake", effort: "low", requestID: "` + appdb.NewID() +
 		`", content: "again") { chatID } }`
 	// A turn settles its row before it lets go of the chat, so a send in
 	// between is refused as a turn in flight, which writes nothing.

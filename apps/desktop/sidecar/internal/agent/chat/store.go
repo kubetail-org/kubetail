@@ -134,7 +134,7 @@ func count(n int) sql.NullInt64 { return sql.NullInt64{Int64: int64(n), Valid: t
 
 func insertChat(ctx context.Context, st stmts, c Chat) error {
 	_, err := st.Exec(ctx, stmtInsertChat,
-		string(c.ID), nullString(c.Title), string(c.Mode), string(c.ClusterID), millis(c.CreatedAt), millis(c.UpdatedAt))
+		string(c.ID), nullString(c.Title), string(c.Mode), string(c.ClusterID), c.SandboxDisabled, millis(c.CreatedAt), millis(c.UpdatedAt))
 	if err != nil {
 		return fmt.Errorf("insert chat: %w", err)
 	}

@@ -94,8 +94,10 @@ row. → [ADR: the answer is a record](../../../docs/adr/2026-09-10-the-answer-i
   each back as the wire's `failure`, which the webview branches on, never `error`.
 - A subagent's model resolves afresh under its parent (`ResolveUnder`), never onto the parent's
   provider, so it signs under the parent's session.
-- `clusterID`, the sandbox switch and the network toggle are read once per turn, so a mid-turn flip
-  changes the next turn; subagents and tasks inherit them.
+- `clusterID`, the sandbox switch, the message's override and the network toggle are read once per
+  turn, so a mid-turn flip changes the next turn; subagents and tasks inherit them. The override
+  (`sandboxDisabledThisTurn`) is never stored, and is refused with no sandbox or beside
+  `networkThisTurn`.
 - **`roomFor` (`context.go`) refuses a send the chat cannot fit** (`ErrChatContextFull`). →
   [ADR](../../../docs/adr/2026-10-17-a-send-the-chat-cannot-fit-is-refused-from-the-providers-count.md).
 - **A chat has no dialect or model; each run records its own** provider, model, effort and dialect
@@ -111,8 +113,10 @@ directory **before** reading the chats, since a send can commit before `Start`.
 The migrations are the only schema authority.
 
 - `mode` and `cluster_id` are fixed at creation; each mode and cluster lists only its own chats.
-- `sandbox_disabled` and `network_enabled` are the user's switches; leaving the sandbox clears
-  network in the same statement, and network cannot go on outside it. Neither moves `updated_at`.
+- `sandbox_disabled` and `network_enabled` are the user's switches; a create copies the cluster's
+  sandbox default into `sandbox_disabled`, and nothing reads a default afterwards. Leaving the
+  sandbox clears network in the same statement, and network cannot go on outside it. Neither
+  moves `updated_at`.
   → [ADR](../../../docs/adr/2026-09-30-leaving-the-sandbox-is-the-users-switch-for-a-chat.md),
   [ADR](../../../docs/adr/2026-10-04-network-is-the-users-switch.md).
 - **Ids are UUIDv7 and identity alone**: transcript order is `messages.seq`, list order
@@ -132,8 +136,9 @@ The migrations are the only schema authority.
 ### Writes
 
 **A send is one transaction** (`writeTurnRows`): `checkChat` refuses a switch that differs from the
-row (`ErrChatSandboxChanged`, `ErrChatNetworkChanged`), then the turn is reserved and the question,
-run and answer inserted, in that order. **A send is idempotent on its `requestID`** (`seenBefore`,
+row, or for a create from the default it resolves (`ErrChatSandboxChanged`,
+`ErrChatNetworkChanged`), then the turn is reserved and the question, run and answer inserted, in
+that order. **A send is idempotent on its `requestID`** (`seenBefore`,
 one joined statement, run first and again in the transaction). On a hit the key is the whole
 identity; a retry after the chat is deleted is a fresh send.
 

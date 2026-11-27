@@ -80,6 +80,7 @@ const (
 	stmtSelectLiveClusterIDs
 
 	stmtSelectToolSettings
+	stmtSelectSandboxDefault
 
 	stmtSelectChatRules
 	stmtInsertChatRule
@@ -154,7 +155,7 @@ const messageReadFrom = ` FROM messages m LEFT JOIN agent_runs r ON r.id = m.run
 // miss the transaction's own writes. statements_test.go refuses a write filed as a
 // read.
 var statements = []sqlstmt.Statement{
-	stmtInsertChat: sqlstmt.OnWriter(`INSERT INTO chats (id, title, mode, cluster_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`),
+	stmtInsertChat: sqlstmt.OnWriter(`INSERT INTO chats (id, title, mode, cluster_id, sandbox_disabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`),
 	stmtTouchChat:  sqlstmt.OnWriter(`UPDATE chats SET updated_at = ? WHERE id = ?`),
 	// RETURNING, so the renamed row comes back from the write itself: a read beside it
 	// is a second statement a concurrent delete can land between.
@@ -329,6 +330,8 @@ var statements = []sqlstmt.Statement{
 	// them). OnBoth, since a send reads them in the transaction that reserves
 	// its turn.
 	stmtSelectToolSettings: sqlstmt.OnBoth(settings.SelectToolSettings),
+	// OnBoth, since a create reads it in its transaction.
+	stmtSelectSandboxDefault: sqlstmt.OnBoth(settings.SelectSandboxDefault),
 
 	// OnBoth, since a rule's write reads the chat's rules in its transaction.
 	stmtSelectChatRules: sqlstmt.OnBoth(`SELECT ` + settings.RuleColumns + ` FROM permission_rules WHERE chat_id = ? ORDER BY created_at, id`),

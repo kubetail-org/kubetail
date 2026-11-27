@@ -90,7 +90,7 @@ func TestAChatsDirectoryIsUnderTheChatsDirectory(t *testing.T) {
 	s := startServiceWith(t, dir, fakeLLM(), &stubClusterCards{}, box, lists)
 	fakeOf(s).SetToolCalls(llm.StagedCall("where", `{}`))
 
-	msg, err := s.Send(t.Context(), nil, ModeChat, "7", false, false, false, "fake", "fake", "high", reqID("1"), "hi", nil)
+	msg, err := s.Send(t.Context(), nil, ModeChat, "7", SendSwitches{}, "fake", "fake", "high", reqID("1"), "hi", nil)
 	require.NoError(t, err)
 	awaitSettled(t, s, msg.ChatID, msg.ID)
 

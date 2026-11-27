@@ -1586,6 +1586,49 @@ func TestATurnsRuntimeCarriesItsChatsSwitch(t *testing.T) {
 	}
 }
 
+// A message's override runs its turn alone outside the sandbox: the next turn
+// runs in it again, and the chat's switch never moves.
+func TestAMessagesOverrideRunsThatTurnAloneOutside(t *testing.T) {
+	t.Parallel()
+
+	s := startServiceWithTool(t, runtimeTool{testTool: testTool{name: "where"}})
+	s.sandboxState = sandbox.State{Available: true}
+	first := sendAndSettle(t, s, nil, "1", "first", "hi")
+
+	fakeOf(s).SetToolCalls(llm.StagedCall("where", `{}`))
+	overridden, err := s.Send(t.Context(), &first.ChatID, ModeChat, "1", SendSwitches{SandboxDisabledThisTurn: true}, "fake", "fake", "high", reqID("overridden"), "hi", nil)
+	require.NoError(t, err)
+	awaitSettled(t, s, overridden.ChatID, overridden.ID)
+	fakeOf(s).SetToolCalls(llm.StagedCall("where", `{}`))
+	after := sendAndSettle(t, s, &first.ChatID, "1", "after", "hi")
+
+	for run, want := range map[RunID]string{overridden.RunID: "true", after.RunID: "false"} {
+		rows := toolCallRows(t, s.db, run)
+		require.Len(t, rows, 1)
+		assert.Equal(t, "chat 1/"+string(first.ChatID)+"/"+want, rows[0].result)
+	}
+	c, _, err := s.Get(t.Context(), first.ChatID)
+	require.NoError(t, err)
+	assert.False(t, c.SandboxDisabled, "the override is never the chat's")
+}
+
+// The override exists only where a sandbox does, and outside it network is
+// the machine's: a send that also asks for this turn's network is refused.
+func TestAnOverrideIsRefusedWithoutASandboxOrWithNetwork(t *testing.T) {
+	t.Parallel()
+
+	s := newTestService(t)
+	_, err := s.Send(t.Context(), nil, ModeChat, "1", SendSwitches{SandboxDisabledThisTurn: true}, "fake", "fake", "high", reqID("1"), "hi", nil)
+	assert.ErrorIs(t, err, ErrBadRequest, "no sandbox")
+
+	s.sandboxState = sandbox.State{Available: true, NetworkAvailable: true}
+	_, err = s.Send(t.Context(), nil, ModeChat, "1", SendSwitches{NetworkThisTurn: true, SandboxDisabledThisTurn: true}, "fake", "fake", "high", reqID("2"), "hi", nil)
+	assert.ErrorIs(t, err, ErrBadRequest, "with network")
+	list, err := s.List(t.Context())
+	require.NoError(t, err)
+	assert.Empty(t, list, "nothing written")
+}
+
 // A tool the user turned off leaves the next turn's offer and its section of
 // the system prompt; turned on again, it is back on the turn after.
 func TestATurnIsNotOfferedAToolTheUserTurnedOff(t *testing.T) {
@@ -1690,7 +1733,7 @@ func TestASendThatCannotReadTheToolSettingsIsRefused(t *testing.T) {
 	_, err := s.db.Write.Exec(`DROP TABLE settings`)
 	require.NoError(t, err)
 
-	_, err = s.Send(t.Context(), nil, ModeChat, "1", false, false, false, "fake", "fake", "high", reqID("1"), "hi", nil)
+	_, err = s.Send(t.Context(), nil, ModeChat, "1", SendSwitches{}, "fake", "fake", "high", reqID("1"), "hi", nil)
 	assert.ErrorContains(t, err, "disabled tools")
 	assert.Empty(t, fakeOf(s).Requests(), "no model asked")
 }

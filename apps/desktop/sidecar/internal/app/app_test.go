@@ -494,7 +494,7 @@ func TestAppTearsDownADeletedCluster(t *testing.T) {
 	raw := graphql(t, srv.URL, `mutation { clusterSyncEnabledSet(id: "`+id+`", syncEnabled: false) { spec { syncEnabled } } }`)
 	assert.Contains(t, raw, `"syncEnabled":false`)
 
-	raw = graphql(t, srv.URL, `mutation { chatSend(mode: Chat, clusterID: "`+id+`", sandboxDisabled: false, networkEnabled: false, networkThisTurn: false, providerID: "fake", modelID: "fake", effort: "high", requestID: "`+appdb.NewID()+`", content: "hello") { chatID } }`)
+	raw = graphql(t, srv.URL, `mutation { chatSend(mode: Chat, clusterID: "`+id+`", sandboxDisabled: false, networkEnabled: false, networkThisTurn: false, sandboxDisabledThisTurn: false, providerID: "fake", modelID: "fake", effort: "high", requestID: "`+appdb.NewID()+`", content: "hello") { chatID } }`)
 	var sent struct {
 		Data struct {
 			ChatSend struct {

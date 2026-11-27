@@ -401,7 +401,7 @@ func reqID(name string) string {
 // send is a create-shaped send under cluster "1" on the fake's names.
 func send(t *testing.T, s *service, chatID *ChatID, key, text string) ChatMessage {
 	t.Helper()
-	msg, err := s.Send(t.Context(), chatID, ModeChat, "1", false, false, false, "fake", "fake", "high", reqID(key), text, nil)
+	msg, err := s.Send(t.Context(), chatID, ModeChat, "1", SendSwitches{}, "fake", "fake", "high", reqID(key), text, nil)
 	require.NoError(t, err)
 	return msg
 }
@@ -806,6 +806,14 @@ func settingsStore(t *testing.T, db *appdb.DB) *settings.Store {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
 	return store
+}
+
+// setSandboxDefault writes the sandbox switch a new chat on cluster ("" for
+// every cluster) starts with, as Settings does.
+func setSandboxDefault(t *testing.T, s *service, cluster apimeta.ClusterID, disabled bool) {
+	t.Helper()
+	_, err := settingsStore(t, s.db).SetSandboxDefault(t.Context(), cluster, disabled)
+	require.NoError(t, err)
 }
 
 // setToolEnabled turns the tool named name on or off, as Settings does.

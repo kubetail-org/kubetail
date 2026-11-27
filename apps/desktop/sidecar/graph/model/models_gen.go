@@ -290,6 +290,14 @@ type SandboxConsoleRun struct {
 	DurationMs int `json:"durationMs"`
 }
 
+// The sandbox switch a new chat starts with, in one scope. A chat copies it when it is created; changing it leaves every chat that exists alone.
+type SandboxDefault struct {
+	// Whether a new chat starts outside the sandbox: the cluster's own value, else every cluster's, else `false`. Always `false` on a machine with no sandbox.
+	SandboxDisabled bool `json:"sandboxDisabled"`
+	// Whether the cluster has a value of its own; `false` for every cluster.
+	ClusterOverride bool `json:"clusterOverride"`
+}
+
 // One executable the sandbox probe checks, as the last probe found it.
 type SandboxExecutable struct {
 	// The executable's name. User text for a registered one: draw it through VisibleText.
