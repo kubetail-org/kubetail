@@ -8,13 +8,13 @@ The user can see what monitoring found: a list of the window's cluster's inciden
 
 **A third route, `/incidents`**, under the `_app` layout beside Chat and Dashboard, with an entry in the left sidebar. The selected incident is the `incident` search param, so each window keeps its own.
 
-**The list** is the window's cluster's incidents from `incidentCollectionWatch`, open first, then by `lastSeenAt`. A row shows the subject's kind and namespaced name, the signal's label, *Open* or *Recovered*, the occurrence count and when it was last seen. A `baseline` incident is marked *Found when monitoring started*. Nothing draws before the `Bookmark`.
+**One provider holds the one `incidentCollectionWatch`**, mounted with the app shell, so the list and the bell read the same map and neither joins a shared stream late. The list is the window's cluster's incidents, joined by `clusterID`: open incidents first, newest `lastStartedAt` first, then recovered ones, newest `lastSeenAt` first. A row shows the subject's kind and namespaced name, the signal's label, *Open since* its `lastStartedAt` or *Recovered, last seen* its `lastSeenAt`, and the occurrence count. Nothing draws before the `Bookmark`.
 
-**The empty state says why.** One of: nothing found; monitoring is off for this cluster, with a link to the Monitoring tab; the cluster's cache is not trusted yet, so nothing can be detected.
+**The empty state says why.** One of: nothing found; monitoring is off for this cluster (`Cluster.monitoringEnabled`), with a link to the Monitoring tab; the cluster's cache is not trusted yet, so nothing can be detected. Trust is read from `clusterCacheHealthKeyedStateWatch`, joined onto the cluster's active cache by `cacheID`, and only once that cache is in the cache collection.
 
-**The detail** shows the same facts and the occurrences from `incidentOccurrenceList`, newest first, each with its start and its duration, or *ongoing*.
+**The detail** shows the same facts and the occurrences from `incidentOccurrenceEventFeed`, folded with `eventFeedReducer` (newest `startedAt` first, capped at 100) and subscribed unshared, each with its start and its duration, or *ongoing*. When `occurrenceCount` is above 100, it says it shows the newest 100 of that count. Nothing draws before its `Bookmark`. A frame for another incident is dropped. When the incident's `Deleted` arrives, the detail closes.
 
-**The bell** (`shell/app-bar/notification-button.tsx`) lists every cluster's open incidents that are not `baseline`, newest first, each naming its cluster, and shows their count on the button. Pressing one opens it: in this window when it is the window's cluster, else in a window on that cluster.
+**The bell** (`shell/app-bar/notification-button.tsx`) lists every cluster's open incidents, newest first, each naming its cluster, and shows their count on the button. Pressing one opens it: in this window when it is the window's cluster, else in a window on that cluster.
 
 **Every string from a cluster is drawn through `VisibleText`**: the subject's kind, namespace and name. A signal's label is the webview's own, a `Record` over the enum, so a new signal fails the build.
 
@@ -28,7 +28,7 @@ The user can see what monitoring found: a list of the window's cluster's inciden
 | 2. Route, list and detail | Planned | — |
 | 3. Bell | Planned | — |
 
-1. **Hooks.** `useIncidents(clusterID)` over `useFoldedSubscription`, and `useIncidentOccurrences(incident)`.
+1. **Hooks.** `IncidentsProvider` folding `IncidentCollectionWatch` with `collectionWatchReducer`; `useIncidents(clusterID?)`, named for what it returns, and `useIncidentOccurrenceEventFeed(incidentID)`, named for its operation.
 2. **Route, list and detail.** The route, the sidebar entry, the three empty states.
 3. **Bell.** The list, the count and the press.
 
@@ -37,8 +37,10 @@ The user can see what monitoring found: a list of the window's cluster's inciden
 - An incident that opens while the list is shown appears without a reload, and moves to *Recovered* when its occurrence ends.
 - A subject name holding a bidi override or an escape sequence is drawn as visible text.
 - With monitoring off for the cluster, the list is replaced by the reason.
-- The bell counts an open incident on another cluster and leaves out a `baseline` one.
+- The bell counts an open incident on another cluster.
 - Two windows on two clusters each show their own cluster's list.
+- The list and the bell show nothing before the `Bookmark`, and the bell mounted before the route shows the same incidents the route does.
+- Switching the detail to another incident draws none of the first one's occurrences.
 
 ## When it lands
 

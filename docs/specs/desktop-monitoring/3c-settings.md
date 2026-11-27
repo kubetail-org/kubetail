@@ -8,7 +8,7 @@ The Settings dialog's Monitoring tab replaces *Coming soon* with what monitoring
 
 **The tab opens with one sentence on what is watched and when**: the five signals, while Kubetail is running, the tray included.
 
-**A row per cluster** from `useClusters()`, with its name and a switch over `clusterMonitoringEnabledSet`, through `src/lib/cluster-mutations.ts` as the Clusters tab's switches are. Nothing draws before the `Bookmark`. A cluster whose cache cannot be trusted keeps its switch and says nothing is detected until it syncs.
+**A row per cluster** from `useClusters()`, with its name and a switch over `clusterMonitoringEnabledSet`, through `src/lib/cluster-mutations.ts` as the Clusters tab's switches are. Nothing draws before the `Bookmark`. A cluster whose cache cannot be trusted keeps its switch and says nothing is detected until it syncs, read from `clusterCacheHealthKeyedStateWatch` as step 3a reads it.
 
 Steps 3b and 5 each add a section to this tab: notification permission, and automatic triage.
 
