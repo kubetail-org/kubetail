@@ -29,7 +29,7 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/cli/cmd.version=
 	build-desktop-sidecar build-desktop-sidecar-dev build-desktop-bwrap build-desktop-pasta \
 	build-desktop-embedded-sources generate-desktop-prompts generate-desktop-icons \
 	test-desktop-livecache test-desktop-liveswitch status-desktop-design record-desktop-design \
-	clean-desktop-data clean-desktop-window \
+	clean-desktop-data clean-desktop-window uninstall-desktop \
 	lint-e2e test-e2e \
 	lint-repo lint-repo-sh lint-repo-md lint-repo-yaml lint-repo-toolchains lint-repo-digests test-repo test-repo-changed
 
@@ -351,6 +351,11 @@ clean-desktop-data: ## Delete the desktop dev app's data, cache, config and stat
 
 clean-desktop-window: ## Delete the desktop dev app's saved window frame
 	go -C $(DESKTOP_DIR)/sidecar run ./scripts/clean-dev-data.go -window-state
+
+# For testing a first run, an install or an upgrade of a release build. It
+# lists what it deletes and asks first; YES=1 skips the question.
+uninstall-desktop: ## Uninstall the desktop release and delete all its data, webview profile and keyring entries (YES=1 skips the prompt)
+	go -C $(DESKTOP_DIR)/sidecar run ./scripts/uninstall-desktop.go
 
 # e2e
 
