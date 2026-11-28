@@ -13,6 +13,5 @@
 // limitations under the License.
 
 // The columns and tone of each kind's table. Nothing outside imports a kind's file.
-export { Age, ageSortValue } from './common';
 export type { ObjectColumn } from './common';
 export { columnsForKind, toneForKind } from './registry';

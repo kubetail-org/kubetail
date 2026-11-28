@@ -153,6 +153,12 @@ describe('ResizeHandle', () => {
     expect(handle()).toHaveClass('left-0');
   });
 
+  it('takes a class that moves or widens its strip', () => {
+    render(<ResizeHandle edge="right" bounds={BOUNDS} onResize={() => {}} label="Resize" className="-right-2 w-4" />);
+    expect(handle()).toHaveClass('-right-2', 'w-4');
+    expect(handle()).not.toHaveClass('-right-1', 'w-2');
+  });
+
   it('takes focus, carrying the pane’s width as drawn and its bounds', () => {
     let bounds = { min: 200, max: 480 };
     render(

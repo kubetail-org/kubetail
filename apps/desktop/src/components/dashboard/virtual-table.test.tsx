@@ -58,6 +58,15 @@ describe('VirtualTable', () => {
     expect(bottom.style.height).toBe(`${(10_000 - rows.length) * ROW_H_PX}px`);
   });
 
+  it('draws no header strip when headless, and still scrolls its rows', () => {
+    const view = render(<VirtualTable rows={rowsOf(100)} rowKey={rowKey} columns={columns} headless />);
+    expect(screen.queryAllByRole('columnheader')).toHaveLength(0);
+    const scroller = view.container.querySelector<HTMLDivElement>('[tabindex="0"]')!;
+    scroller.scrollTop = 50 * ROW_H_PX;
+    fireEvent.scroll(scroller);
+    expect(screen.getByText('r50')).toBeInTheDocument();
+  });
+
   it('lays the table out fixed, with each column carrying its class on header and cells', () => {
     renderTable(rowsOf(3));
     document.querySelectorAll('table').forEach((t) => expect(t).toHaveClass('table-fixed'));

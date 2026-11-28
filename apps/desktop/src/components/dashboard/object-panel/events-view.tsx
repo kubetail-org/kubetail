@@ -19,12 +19,27 @@ import { Spinner } from '@kubetail/ui/elements/spinner';
 import { useMemo } from 'react';
 import ReactTimeAgo from 'react-timeago';
 
-import { TypeBadge } from '@/components/dashboard/events-table';
 import { VisibleText } from '@/components/primitives/visible-text';
 import { useClusterCachedDataEvents } from '@/lib/cluster-cached-data-events';
+import type { ClusterCachedDataEvent } from '@/lib/cluster-cached-data-events';
 import type { FocusedObject } from '@/lib/object-view';
 
 import { ObjectPanelNote } from './note';
+
+// `type` is an open Kubernetes string — a cluster may omit it or supply a custom
+// value, so everything but Warning stays muted (empty renders "Unknown").
+function TypeBadge({ type }: { type: ClusterCachedDataEvent['type'] }) {
+  const warning = type === 'Warning';
+  return (
+    <span
+      className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${
+        warning ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : 'bg-muted text-muted-foreground'
+      }`}
+    >
+      {type || 'Unknown'}
+    </span>
+  );
+}
 
 export function ObjectEventsView({ object }: { object: FocusedObject }) {
   // Its own connection, as the YAML tab's: the Events page may hold the same watch.

@@ -118,6 +118,8 @@ type VirtualTableProps<T> = {
   // Restyles the header strip. Its background must stay opaque: the patch over the pinned
   // columns and the scroller's bar inherits it.
   headerClassName?: string;
+  // Draws no header strip, for a list whose one column needs no name.
+  headless?: boolean;
   // The column the caller sorted `rows` by, and the press on a sortable header.
   sort?: TableSort;
   onSort?: (key: string) => void;
@@ -131,6 +133,7 @@ export function VirtualTable<T>({
   columns,
   rowSize = ROW,
   headerClassName,
+  headless = false,
   sort,
   onSort,
 }: VirtualTableProps<T>) {
@@ -227,55 +230,57 @@ export function VirtualTable<T>({
       It leaves room for the scroller's bar, so its box is as wide as the rows' view, and
       follows the scroller sideways by a transform: WebKit leaves the padding out of a box's
       scroll range, so a header scrolled to match would stop short at the far right. */}
-      <div
-        ref={headerBoxRef}
-        className={cn('relative shrink-0 overflow-hidden bg-background', headerClassName)}
-        style={{ paddingRight: gutter }}
-      >
-        <div ref={headerRef}>
-          <Table role="none" className="table-fixed" containerClassName="overflow-x-visible" style={{ minWidth }}>
-            {cols}
-            <TableHeader role="rowgroup">
-              <TableRow role="row">
-                {columns.map((c) => {
-                  const desc = sort?.key === c.key ? sort.desc : undefined;
-                  return (
-                    <TableHead
-                      key={c.key}
-                      role="columnheader"
-                      className={c.className}
-                      aria-sort={ariaSort(desc)}
-                      onFocus={c.pinned ? undefined : (e) => revealHeaderButton(e.target)}
-                    >
-                      {c.sortValue && onSort ? (
-                        <SortButton label={c.header} desc={desc} onClick={() => onSort(c.key)} />
-                      ) : (
-                        c.header
-                      )}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            </TableHeader>
-          </Table>
+      {!headless && (
+        <div
+          ref={headerBoxRef}
+          className={cn('relative shrink-0 overflow-hidden bg-background', headerClassName)}
+          style={{ paddingRight: gutter }}
+        >
+          <div ref={headerRef}>
+            <Table role="none" className="table-fixed" containerClassName="overflow-x-visible" style={{ minWidth }}>
+              {cols}
+              <TableHeader role="rowgroup">
+                <TableRow role="row">
+                  {columns.map((c) => {
+                    const desc = sort?.key === c.key ? sort.desc : undefined;
+                    return (
+                      <TableHead
+                        key={c.key}
+                        role="columnheader"
+                        className={c.className}
+                        aria-sort={ariaSort(desc)}
+                        onFocus={c.pinned ? undefined : (e) => revealHeaderButton(e.target)}
+                      >
+                        {c.sortValue && onSort ? (
+                          <SortButton label={c.header} desc={desc} onClick={() => onSort(c.key)} />
+                        ) : (
+                          c.header
+                        )}
+                      </TableHead>
+                    );
+                  })}
+                </TableRow>
+              </TableHeader>
+            </Table>
+          </div>
+          {/* The scroller's bar sits in the header's padding, where the scrolled header still draws. */}
+          {pinnedWidth + gutter > 0 && (
+            <div
+              data-testid="pinned-header-patch"
+              aria-hidden
+              className="absolute inset-y-0 bg-inherit"
+              style={{ right: 0, width: pinnedWidth + gutter }}
+            />
+          )}
         </div>
-        {/* The scroller's bar sits in the header's padding, where the scrolled header still draws. */}
-        {pinnedWidth + gutter > 0 && (
-          <div
-            data-testid="pinned-header-patch"
-            aria-hidden
-            className="absolute inset-y-0 bg-inherit"
-            style={{ right: 0, width: pinnedWidth + gutter }}
-          />
-        )}
-      </div>
+      )}
       <div
         ref={scrollerRef}
         // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable so Home/End/PageUp/PageDown reach the scroll region
         tabIndex={0}
         onScroll={(e) => {
           setScrollTop(e.currentTarget.scrollTop);
-          headerRef.current!.style.transform = `translateX(${-e.currentTarget.scrollLeft}px)`;
+          if (headerRef.current) headerRef.current.style.transform = `translateX(${-e.currentTarget.scrollLeft}px)`;
         }}
         className="table-scrollbar flex-1 overflow-auto [overflow-anchor:none] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >

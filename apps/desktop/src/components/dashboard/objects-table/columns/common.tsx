@@ -18,9 +18,8 @@
 // names the narrow shape it reads (`kind<PodBody>(…)`), and its readers must degrade to "—"
 // rather than throw on a partial body (e.g. a Deleted row's last-known state).
 import type { ReactNode } from 'react';
-import ReactTimeAgo from 'react-timeago';
-import type { Formatter } from 'react-timeago';
 
+import { Age, ageSortValue } from '@/components/dashboard/age';
 import { StatusPill } from '@/components/dashboard/status-pill';
 import type { VirtualColumn } from '@/components/dashboard/virtual-table';
 import { VisibleText } from '@/components/primitives/visible-text';
@@ -65,32 +64,6 @@ export function kind<T>(apiVersion: string, resource: string, columns: KindColum
 }
 
 export const DASH = '—';
-
-// An age as kubectl prints it, largest unit only: 45s, 22m, 3d.
-const UNIT: Record<string, string> = {
-  second: 's',
-  minute: 'm',
-  hour: 'h',
-  day: 'd',
-  week: 'w',
-  month: 'mo',
-  year: 'y',
-};
-const shortAge: Formatter = (value, unit) => `${value}${UNIT[unit]}`;
-
-// The time since `ms`, muted; a dash for a time that did not parse.
-export function Age({ ms }: { ms: number }) {
-  return (
-    <span className="text-xs text-muted-foreground">
-      {Number.isNaN(ms) ? DASH : <ReactTimeAgo date={ms} component="span" formatter={shortAge} maxPeriod={60} />}
-    </span>
-  );
-}
-
-// Youngest first.
-export function ageSortValue(ms: number): number | undefined {
-  return Number.isNaN(ms) ? undefined : -ms;
-}
 
 // Text the cluster wrote, cut to its column with the whole of it on hover.
 export function Text({ text, mono = false }: { text: string | undefined; mono?: boolean }) {

@@ -52,8 +52,19 @@ vi.mock('@/components/dashboard/breadcrumb-bar', () => ({
 }));
 // Both panels are covered by their own suites; this one is about which is picked and
 // what each is handed.
+// Its rows open and close an event through `onOpen`; two buttons stand in.
 vi.mock('@/components/dashboard/events-table', () => ({
-  EventsTable: (props: Record<string, unknown>) => <div data-testid="events-table">{JSON.stringify(props)}</div>,
+  EventsTable: ({ onOpen, ...props }: { onOpen: (uid: string | undefined) => void }) => (
+    <>
+      <div data-testid="events-table">{JSON.stringify(props)}</div>
+      <button type="button" onClick={() => onOpen('a')}>
+        open a
+      </button>
+      <button type="button" onClick={() => onOpen(undefined)}>
+        close
+      </button>
+    </>
+  ),
 }));
 // The table's rows press their actions through `onAction`; one button per action stands in.
 vi.mock('@/components/dashboard/objects-table/table', () => ({
@@ -151,8 +162,6 @@ beforeEach(() => {
 // What the mocked component was last handed.
 const propsOf = (testId: string) => JSON.parse(screen.getByTestId(testId).textContent ?? '{}');
 const crumb = () => screen.getByTestId('breadcrumb-bar');
-// The Events page's note, whatever it holds.
-const eventsNote = () => screen.queryByText((_, el) => el?.tagName === 'P' && /event/i.test(el.textContent ?? ''));
 
 function render(path: string, kinds: ServerKind[] = []) {
   useClusterCachedDataKindsMock.mockReturnValue({ kinds, active: true, cacheID: 'cache-1', phase: 'live' });
@@ -395,7 +404,7 @@ describe('dashboard route', () => {
     );
   });
 
-  it('shows Events scoped to the namespace, and says so', async () => {
+  it('shows Events scoped to the namespace', async () => {
     useClusterCachedDataEventsMock.mockReturnValue({
       events: [event('a', 'checkout'), event('b', 'default')],
       active: true,
@@ -403,13 +412,12 @@ describe('dashboard route', () => {
     });
     await render('/dashboard?resource=events&namespace=checkout');
     expect(crumb()).toHaveTextContent('Events');
-    expect(eventsNote()).toHaveTextContent(/^1 event in checkout\.$/);
     const table = propsOf('events-table');
     expect(table.events.map((e: { uid: string }) => e.uid)).toEqual(['a']);
     expect(table.namespace).toBe('checkout');
   });
 
-  it('shows Events with every event and no note without a namespace', async () => {
+  it('shows Events with every event without a namespace', async () => {
     useClusterCachedDataEventsMock.mockReturnValue({
       events: [event('a', 'x'), event('b', 'y')],
       active: true,
@@ -417,29 +425,87 @@ describe('dashboard route', () => {
     });
     await render('/dashboard?resource=events');
     expect(propsOf('events-table').events).toHaveLength(2);
-    expect(eventsNote()).toHaveTextContent(/^2 events\.$/);
   });
 
-  it('counts no events until the snapshot lands, naming the namespace meanwhile', async () => {
-    useClusterCachedDataEventsMock.mockReturnValue({ events: [], active: true, phase: 'connecting' });
+  // The tabs and the table's footer carry the counts.
+  it.each([
+    ['live', true],
+    ['connecting', true],
+    ['live', false],
+  ])('draws no note over Events (%s, active %s)', async (phase, active) => {
+    useClusterCachedDataEventsMock.mockReturnValue({ events: [], active, phase });
     await render('/dashboard?resource=events&namespace=checkout');
-    expect(eventsNote()).toHaveTextContent(/^Events in checkout\.$/);
+    expect(screen.queryByText(/event/i, { selector: 'p' })).not.toBeInTheDocument();
   });
 
-  it('draws no note before the snapshot without a namespace, nor with no active cache', async () => {
+  it('opens and closes an event without changing the URL or the history', async () => {
+    useClusterCachedDataEventsMock.mockReturnValue({ events: [event('a', 'x')], active: true, phase: 'live' });
+    const { router } = await render('/dashboard?resource=events');
+    const href = router.state.location.href;
+    const entries = router.history.length;
+    expect(propsOf('events-table').openUid).toBeUndefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'open a' }));
+    expect(propsOf('events-table').openUid).toBe('a');
+    fireEvent.click(screen.getByRole('button', { name: 'close' }));
+    expect(propsOf('events-table').openUid).toBeUndefined();
+
+    expect(router.state.location.href).toBe(href);
+    expect(router.history.length).toBe(entries);
+    expect(focusObject).not.toHaveBeenCalled();
+  });
+
+  it('closes the open event when the namespace scope changes', async () => {
+    useClusterCachedDataEventsMock.mockReturnValue({ events: [event('a', 'x')], active: true, phase: 'live' });
+    const { router } = await render('/dashboard?resource=events');
+    fireEvent.click(screen.getByRole('button', { name: 'open a' }));
+    await act(() => router.navigate({ to: '/dashboard', search: { resource: 'events', namespace: 'x' } }));
+    expect(propsOf('events-table').openUid).toBeUndefined();
+  });
+
+  it('keeps the closed event closed on going back to its namespace', async () => {
+    useClusterCachedDataEventsMock.mockReturnValue({ events: [event('a', 'x')], active: true, phase: 'live' });
+    const { router } = await render('/dashboard?resource=events&namespace=x');
+    fireEvent.click(screen.getByRole('button', { name: 'open a' }));
+    await act(() => router.navigate({ to: '/dashboard', search: { resource: 'events', namespace: 'y' } }));
+    await act(() => router.navigate({ to: '/dashboard', search: { resource: 'events', namespace: 'x' } }));
+    expect(propsOf('events-table').openUid).toBeUndefined();
+  });
+
+  it('holds the rows and phase they last stood at through a reconnect’s replay', async () => {
+    useClusterCachedDataEventsMock.mockReturnValue({ events: [event('a', 'x')], active: true, phase: 'live' });
+    await render('/dashboard?resource=events');
+    fireEvent.click(screen.getByRole('button', { name: 'open a' }));
     useClusterCachedDataEventsMock.mockReturnValue({ events: [], active: true, phase: 'connecting' });
-    const { unmount } = await render('/dashboard?resource=events');
-    expect(eventsNote()).not.toBeInTheDocument();
-    // Nor an empty one, holding space above the spinner.
-    expect(document.querySelector('p.mb-5')).toBeNull();
-    unmount();
-    useClusterCachedDataEventsMock.mockReturnValue({ events: [], active: false, phase: 'live' });
-    await render('/dashboard?resource=events');
-    expect(eventsNote()).not.toBeInTheDocument();
+    act(() => catalog.emit());
+    const table = propsOf('events-table');
+    expect(table.events.map((e: { uid: string }) => e.uid)).toEqual(['a']);
+    expect(table.phase).toBe('live');
+    expect(table.openUid).toBe('a');
   });
 
-  it('counts zero events once an empty snapshot lands', async () => {
+  it('passes the first snapshot’s wait through', async () => {
+    useClusterCachedDataEventsMock.mockReturnValue({ events: [], active: true, phase: 'connecting' });
     await render('/dashboard?resource=events');
-    expect(eventsNote()).toHaveTextContent(/^0 events\.$/);
+    expect(propsOf('events-table').phase).toBe('connecting');
+  });
+
+  it('closes the open event when the cluster’s cache changes', async () => {
+    useClusterCachedDataEventsMock.mockReturnValue({ events: [event('a', 'x')], active: true, phase: 'live' });
+    await render('/dashboard?resource=events');
+    fireEvent.click(screen.getByRole('button', { name: 'open a' }));
+    emit({ kinds: [], active: true, cacheID: 'cache-1', phase: 'live' });
+    expect(propsOf('events-table').openUid).toBe('a');
+    emit({ kinds: [], active: true, cacheID: 'cache-2', phase: 'live' });
+    expect(propsOf('events-table').openUid).toBeUndefined();
+  });
+
+  it('closes the open event when the page unmounts', async () => {
+    useClusterCachedDataEventsMock.mockReturnValue({ events: [event('a', 'x')], active: true, phase: 'live' });
+    const { router } = await render('/dashboard?resource=events');
+    fireEvent.click(screen.getByRole('button', { name: 'open a' }));
+    await act(() => router.navigate({ to: '/dashboard', search: { resource: 'pods' } }));
+    await act(() => router.navigate({ to: '/dashboard', search: { resource: 'events' } }));
+    expect(propsOf('events-table').openUid).toBeUndefined();
   });
 });

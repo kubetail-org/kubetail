@@ -25,9 +25,17 @@ export function usePersistedWidth(name: string, { min, max, initial }: WidthBoun
   const key = storageKey(name);
   const clamp = useCallback((px: number) => Math.min(max, Math.max(min, px)), [min, max]);
 
+  // Storage can be unavailable or refuse a write; the pane then keeps its width for the
+  // session alone.
   const read = useCallback(() => {
-    const stored = Number(localStorage.getItem(key));
-    return stored ? clamp(stored) : initial;
+    let stored = 0;
+    try {
+      stored = Number(localStorage.getItem(key));
+    } catch {
+      // The default below.
+    }
+    // `Number` reads `Infinity`, which no clamp to an unbounded maximum would catch.
+    return Number.isFinite(stored) && stored > 0 ? clamp(stored) : initial;
   }, [clamp, initial, key]);
 
   // The key travels with the state, so a caller that switches names (a pane whose
@@ -40,7 +48,11 @@ export function usePersistedWidth(name: string, { min, max, initial }: WidthBoun
     (px: number) => {
       const next = clamp(px);
       setState({ key, width: next });
-      localStorage.setItem(key, String(next));
+      try {
+        localStorage.setItem(key, String(next));
+      } catch {
+        // Kept for the session alone.
+      }
     },
     [clamp, key],
   );
