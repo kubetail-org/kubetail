@@ -32,6 +32,11 @@ describe('actionsColumn', () => {
     expect(onAction).toHaveBeenCalledWith('logs', object);
   });
 
+  it('is the menu and the chevron in one pinned column, 74px wide', () => {
+    const column = actionsColumn({ apiVersion: 'v1', resource: 'pods' }, vi.fn());
+    expect(column).toMatchObject({ pinned: true, width: 74 });
+  });
+
   it('opens the object on its YAML from the chevron', async () => {
     const user = userEvent.setup();
     const onAction = vi.fn();
