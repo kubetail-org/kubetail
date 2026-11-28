@@ -128,7 +128,7 @@ func TestTheTargetIsTheRecordsContextAndServer(t *testing.T) {
 	c := kubeCluster("prod-admin", "uid-1")
 	tl := targetTool(t, map[apimeta.ClusterID]*cluster.Cluster{"7": c})
 
-	got, err := tl.target(t.Context(), "7")
+	got, err := tl.target(t.Context(), "7", "")
 	require.NoError(t, err)
 
 	assert.Equal(t, clustercard.ContextName(c), got.context)
@@ -137,13 +137,27 @@ func TestTheTargetIsTheRecordsContextAndServer(t *testing.T) {
 	assert.Equal(t, "uid-1", got.serverUID, "the claim names the identity the cache is keyed on")
 }
 
+// A target for one server is refused once the record names another, before any
+// kubectl cache is made: a monitor run reads the server its incident opened on.
+func TestATargetForAnotherServerIsRefused(t *testing.T) {
+	tl := targetTool(t, map[apimeta.ClusterID]*cluster.Cluster{"7": kubeCluster("prod", "uid-2")})
+
+	_, err := tl.target(t.Context(), "7", "uid-1")
+	assert.ErrorIs(t, err, cluster.ErrIdentityMismatch)
+	assert.NoDirExists(t, filepath.Join(tl.kubectlDir, "7"))
+
+	got, err := tl.target(t.Context(), "7", "uid-2")
+	require.NoError(t, err)
+	assert.Equal(t, "uid-2", got.serverUID)
+}
+
 // A cluster never identified has no server UID to claim by.
 func TestAnUnidentifiedTargetHasNoServerUID(t *testing.T) {
 	t.Parallel()
 
 	tl := targetTool(t, map[apimeta.ClusterID]*cluster.Cluster{"7": kubeCluster("prod", "")})
 
-	got, err := tl.target(t.Context(), "7")
+	got, err := tl.target(t.Context(), "7", "")
 	require.NoError(t, err)
 
 	assert.Empty(t, got.serverUID)
@@ -158,7 +172,7 @@ func TestATargetWithNoCacheFails(t *testing.T) {
 	require.NoError(t, os.WriteFile(file, nil, 0o600))
 	tl.kubectlDir = filepath.Join(file, "kubectl")
 
-	_, err := tl.target(t.Context(), "7")
+	_, err := tl.target(t.Context(), "7", "")
 
 	assert.Error(t, err)
 }
@@ -171,7 +185,7 @@ func TestARecordWithNoContextNamesTheRunsOwn(t *testing.T) {
 	c := &cluster.Cluster{}
 	tl := targetTool(t, map[apimeta.ClusterID]*cluster.Cluster{"7": c})
 
-	got, err := tl.target(t.Context(), "7")
+	got, err := tl.target(t.Context(), "7", "")
 	require.NoError(t, err)
 
 	assert.Empty(t, clustercard.ContextName(c))
@@ -200,7 +214,7 @@ func TestAGoneClusterHasNoTarget(t *testing.T) {
 			tl := targetTool(t, c.clusters)
 			tl.clusterSvc = fakeService{clusters: c.clusters, err: c.err}
 
-			_, err := tl.target(t.Context(), "7")
+			_, err := tl.target(t.Context(), "7", "")
 
 			require.Error(t, err)
 			if c.want != nil {

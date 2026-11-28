@@ -349,6 +349,31 @@ func TestASlowReadTimesOut(t *testing.T) {
 	assert.Equal(t, `{"error":"timed-out"}`, text)
 }
 
+// A read that finds another server as its deadline passes ends the run all the same.
+func TestAServerMoveOutranksTheDeadline(t *testing.T) {
+	t.Parallel()
+	tool := New(logsinputtest.Watching(t), fetchFunc(nil))
+	tool.logs = movedAtDeadline{}
+	tool.readTimeout = time.Millisecond
+	moved := 0
+	rt := tools.Runtime{ClusterID: "7", ServerUID: "uid-1", OnServerMoved: func() { moved++ }}
+
+	text, isError, _ := tool.RunShown(t.Context(), rt, json.RawMessage(webapp+`}`))
+
+	assert.True(t, isError)
+	assert.JSONEq(t, `{"error":"server-changed"}`, text)
+	assert.Equal(t, 1, moved)
+}
+
+// movedAtDeadline is a log service whose fetch finds another server once its
+// context ends.
+type movedAtDeadline struct{}
+
+func (movedAtDeadline) Fetch(ctx context.Context, _ cluster.ClusterID, _ logs.FetchRequest) (logs.FetchResponse, error) {
+	<-ctx.Done()
+	return logs.FetchResponse{}, cluster.ErrIdentityMismatch
+}
+
 // blocking is a log service whose fetch answers only once its context ends.
 type blocking struct{}
 
@@ -503,4 +528,32 @@ func TestShownOldRowsDecodeTheSame(t *testing.T) {
 		require.NoError(t, err, stored)
 		assert.Equal(t, want, got, stored)
 	}
+}
+
+// A monitor run reads the server its incident opened on: once the cluster names
+// another, a first page is refused at its resolve and a cursor at the service's,
+// each before any log is read, and the run is told so.
+func TestAReadOfAnotherServerIsRefusedAndEndsTheRun(t *testing.T) {
+	t.Parallel()
+	l := webappLogs(t, "m0", "m1")
+	text, _ := readOf(t, l, webapp+`,"page_size":1}`)
+	prev, _, _ := pageOf(t, text)
+	require.NotEmpty(t, prev)
+
+	tool := New(l.Service, l.Logs)
+	tool.now = func() time.Time { return clock }
+	moved := 0
+	rt := tools.Runtime{ClusterID: "7", ServerUID: "uid-0", OnServerMoved: func() { moved++ }}
+	for _, raw := range []string{webapp + `}`, `{"cursor":"` + prev + `"}`} {
+		text, isError, shown := tool.RunShown(t.Context(), rt, json.RawMessage(raw))
+		assert.True(t, isError, raw)
+		assert.Nil(t, shown, raw)
+		assert.JSONEq(t, `{"error":"server-changed"}`, text, raw)
+	}
+	assert.Equal(t, 2, moved)
+
+	rt.ServerUID = "uid-1"
+	_, isError, _ := tool.RunShown(t.Context(), rt, json.RawMessage(webapp+`}`))
+	assert.False(t, isError, "the server the run reads")
+	assert.Equal(t, 2, moved)
 }

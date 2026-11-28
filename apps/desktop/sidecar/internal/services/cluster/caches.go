@@ -133,6 +133,11 @@ type ClusterCacheHealth struct {
 	// the kinds behind a Connecting verdict. Not on the wire, so no frame is sent for a
 	// change to it alone; KubeQuery reads it.
 	UnansweredKindRefs []KindRef
+	// WatchingKindRefs names every kind whose state is Watching, and PausedKindRefs every
+	// kind the user has switched off, each sorted. A paused kind is named here alone. Not
+	// on the wire either; the monitor reads both.
+	WatchingKindRefs []KindRef
+	PausedKindRefs   []KindRef
 	// Failure is the first offender's class of failure (a kubeconn.Reason such as Forbidden);
 	// empty when unclassified or not failing.
 	Failure string
@@ -517,6 +522,7 @@ func (a cachesAPI) readCacheHealth(
 		// and one unanswered kind pins the whole cache at Connecting forever.
 		if kindObj.Spec.Paused {
 			health.PausedKinds++
+			health.PausedKindRefs = append(health.PausedKindRefs, kindRefOf(kindObj.Spec))
 			continue
 		}
 
@@ -528,9 +534,10 @@ func (a cachesAPI) readCacheHealth(
 			health.UnansweredKindRefs = append(health.UnansweredKindRefs, kindRefOf(kindObj.Spec))
 			continue
 		}
-		if state.Reason != kubesync.ReasonWatching {
-			ref := kindRefOf(kindObj.Spec)
-			health.UnhealthyKindRefs = append(health.UnhealthyKindRefs, UnhealthyKindRef{KindRef: ref, Reason: state.Reason})
+		if ref := kindRefOf(kindObj.Spec); state.Reason == kubesync.ReasonWatching {
+			health.WatchingKindRefs = append(health.WatchingKindRefs, ref)
+		} else {
+			health.UnhealthyKindRefs = append(health.UnhealthyKindRefs, UnhealthyKindRef{KindRef: ref, Reason: state.Reason, Failure: string(state.Failure)})
 			stateByRef[ref] = state
 		}
 		if state.LastUpdateAt.After(newestUpdateAt) {
@@ -554,6 +561,8 @@ func (a cachesAPI) readCacheHealth(
 		return compareKindRefs(a.KindRef, b.KindRef)
 	})
 	slices.SortFunc(health.UnansweredKindRefs, compareKindRefs)
+	slices.SortFunc(health.WatchingKindRefs, compareKindRefs)
+	slices.SortFunc(health.PausedKindRefs, compareKindRefs)
 	health.LastUpdateAt = optionalTime(newestUpdateAt)
 	if !anyKindUnproven {
 		health.LastLiveAt = optionalTime(oldestLiveAt)

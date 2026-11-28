@@ -704,7 +704,9 @@ type ActionAsker interface {
 // names neither. Session is the run's policy, the chat's switch as its turn read
 // it included. Agent and Watches are nil in a subagent's and a monitor's runtime,
 // so neither spawns an agent or starts a watch. ActionAsker is nil where nobody can
-// be asked.
+// be asked. ServerUID is the server a monitor run reads, "" for a chat's, which
+// reads whichever server its cluster reaches: a tool reaching the cluster refuses
+// a cache or a connection of another and calls ServerMoved, which ends the run.
 type Runtime struct {
 	ClusterID   apimeta.ClusterID
 	ChatID      apimeta.ChatID
@@ -715,4 +717,15 @@ type Runtime struct {
 	Agent       Spawner
 	Watches     Watches
 	ActionAsker ActionAsker
+	ServerUID   string
+	// OnServerMoved ends the run; nil where ServerUID is "".
+	OnServerMoved func()
+}
+
+// ServerMoved tells the run that the cluster reaches another server than
+// ServerUID. It ends a monitor run and does nothing in a chat's.
+func (rt Runtime) ServerMoved() {
+	if rt.OnServerMoved != nil {
+		rt.OnServerMoved()
+	}
 }

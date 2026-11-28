@@ -87,12 +87,10 @@ func markCluster(t *testing.T, db *appdb.DB, id apimeta.ClusterID) {
 	require.NoError(t, err)
 }
 
-// setMonitoring switches the monitor on or off for a seeded cluster.
-func setMonitoring(t *testing.T, db *appdb.DB, id apimeta.ClusterID, on bool) {
-	t.Helper()
-	_, err := db.Write.Exec(`UPDATE clusters SET monitoring_enabled = ? WHERE id = ?`, on, string(id))
-	require.NoError(t, err)
-}
+// admitted admits every monitor run; refused admits none.
+func admitted(context.Context, *sql.Tx, RunID) (bool, error) { return true, nil }
+
+func refused(context.Context, *sql.Tx, RunID) (bool, error) { return false, nil }
 
 // newTestSet is the statement set prepared on an app.db of this test's own.
 func newTestSet(t *testing.T) *sqlstmt.Set[stmtID] {
@@ -284,6 +282,8 @@ type stubClusterCards struct {
 	mu    sync.Mutex
 	card  string
 	asked []apimeta.ClusterID
+	// server is the server the cluster reaches, "" for whichever a run reads.
+	server string
 }
 
 func (c *stubClusterCards) ClusterCard(_ context.Context, clusterID apimeta.ClusterID) string {
@@ -291,6 +291,23 @@ func (c *stubClusterCards) ClusterCard(_ context.Context, clusterID apimeta.Clus
 	defer c.mu.Unlock()
 	c.asked = append(c.asked, clusterID)
 	return c.card
+}
+
+func (c *stubClusterCards) ClusterCardAt(_ context.Context, clusterID apimeta.ClusterID, serverUID string) (string, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.asked = append(c.asked, clusterID)
+	if c.server != "" && c.server != serverUID {
+		return "", false
+	}
+	return c.card, true
+}
+
+// moveTo points the cluster at another server.
+func (c *stubClusterCards) moveTo(serverUID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.server = serverUID
 }
 
 func (c *stubClusterCards) set(card string) {

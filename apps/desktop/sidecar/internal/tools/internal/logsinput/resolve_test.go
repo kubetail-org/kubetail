@@ -21,6 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs/refusal"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools"
@@ -59,7 +60,24 @@ func TestAViewTheMirrorCannotReadFails(t *testing.T) {
 	count := logsinputtest.Watching(t)
 	count.QueryErr, count.FailIn = failed, "count(*)"
 	for name, f := range map[string]*logsinputtest.Service{"every statement": every, "the pods' count": count} {
-		_, _, err := Resolve(t.Context(), f, time.Now(), "7", previous)
+		_, _, err := Resolve(t.Context(), f, time.Now(), "7", "", previous)
 		assert.ErrorIs(t, err, failed, name)
 	}
+}
+
+// A view resolved for one server is refused a mirror of another, before any
+// statement runs: a monitor run reads the server its incident opened on.
+func TestAViewOfAnotherServerIsRefused(t *testing.T) {
+	t.Parallel()
+	f := logsinputtest.Watching(t)
+	uid := "uid-2"
+	f.Active.Cluster.Status.Server.UID = &uid
+	in := Input{Sources: []Source{{Namespace: "prod", Kind: tools.LogsSourceDeployment, Name: "webapp"}}}
+
+	_, _, err := Resolve(t.Context(), f, time.Now(), "7", "uid-1", in)
+	assert.ErrorIs(t, err, cluster.ErrIdentityMismatch)
+	assert.Empty(t, f.Queried)
+
+	_, _, err = Resolve(t.Context(), f, time.Now(), "7", uid, in)
+	assert.NoError(t, err)
 }

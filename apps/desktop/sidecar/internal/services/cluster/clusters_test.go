@@ -66,6 +66,24 @@ func TestCacheIsActive(t *testing.T) {
 	assert.False(t, CacheIsActive(clusterObj(""), "uid-1"))
 }
 
+// A reading reads a server when its record's last probe named that server; one
+// for "" reads whichever the record names, as a chat's does. A record never
+// identified reads no named server.
+func TestActiveClusterReadsServer(t *testing.T) {
+	at := func(uid string) ActiveCluster {
+		c := &Cluster{}
+		if uid != "" {
+			c.Status.Server.UID = &uid
+		}
+		return ActiveCluster{Cluster: c}
+	}
+	assert.True(t, at("uid-1").ReadsServer("uid-1"))
+	assert.False(t, at("uid-2").ReadsServer("uid-1"), "the context moved to another server")
+	assert.False(t, at("").ReadsServer("uid-1"), "never identified")
+	assert.True(t, at("uid-2").ReadsServer(""))
+	assert.True(t, at("").ReadsServer(""))
+}
+
 // --- kubeconfigObservation / Reconcile ---
 
 // kubeconfigObj builds a kubeconfig-sourced record for contextName, carrying status
@@ -996,7 +1014,7 @@ func TestToCluster(t *testing.T) {
 	uid := "uid-1"
 	row := ClusterRow{
 		ID: "7", Source: SourceKubeconfig, SourceKey: new("prod"), Name: new("Prod"),
-		Enabled: true, SyncEnabled: true, MonitoringEnabled: true,
+		Enabled: true, SyncEnabled: true,
 		CreatedAt: t0, UpdatedAt: t0.Add(time.Second),
 	}
 	obj := &beehive.Object[ClusterRuntimeSpec, ClusterStatus]{
@@ -1014,7 +1032,6 @@ func TestToCluster(t *testing.T) {
 	assert.Equal(t, "Prod", *c.Spec.Name)
 	assert.True(t, c.Spec.Enabled)
 	assert.True(t, c.Spec.SyncEnabled)
-	assert.True(t, c.Spec.MonitoringEnabled)
 	assert.Equal(t, "prod", c.Spec.Source.Kubeconfig.Context)
 	require.NotNil(t, c.Status.Server.UID)
 	assert.Equal(t, uid, *c.Status.Server.UID)
@@ -1683,21 +1700,6 @@ func TestClustersSetEnabledReportsAnUnknownID(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
-// The third toggle is stored and served like the other two, and bumps updated_at as
-// a user edit does.
-func TestClustersSetMonitoringEnabled(t *testing.T) {
-	t.Parallel()
-
-	d := newTestDeps(t)
-	obj := createCluster(t, d, "prod")
-
-	got, err := serviceOver(t, d).Clusters().SetMonitoringEnabled(context.Background(), clusterIDOf(obj), true)
-
-	require.NoError(t, err)
-	assert.True(t, got.Spec.MonitoringEnabled)
-	assert.Equal(t, t0.Add(time.Hour), got.UpdatedAt)
-}
-
 // SetDefault returns the record as the default, and wakes the watchers.
 func TestClustersSetDefault(t *testing.T) {
 	t.Parallel()
@@ -2033,7 +2035,6 @@ func TestImportCreatesOneRowPerContext(t *testing.T) {
 	require.Len(t, rows, 2)
 	assert.True(t, rows["prod"].Enabled)
 	assert.True(t, rows["prod"].SyncEnabled)
-	assert.False(t, rows["prod"].MonitoringEnabled)
 	testutil.Recv(t, sub.Chan(), "the clusters signal")
 }
 

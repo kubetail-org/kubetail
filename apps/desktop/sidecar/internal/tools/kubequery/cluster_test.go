@@ -151,7 +151,7 @@ func connecting() *fakeService {
 
 // dataQuery runs sql over cluster 7's cache, as the tool does.
 func dataQuery(f *fakeService, sql string) (answer, error) {
-	return New(f).query(context.Background(), "7", sql, 5)
+	return New(f).query(context.Background(), "7", "", sql, 5)
 }
 
 // The rows and the verdict come from one reading: the query runs inside it, on the

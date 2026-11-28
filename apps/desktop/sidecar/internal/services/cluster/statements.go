@@ -25,7 +25,6 @@ const (
 	stmtInsertCluster stmtID = iota
 	stmtSetClusterEnabled
 	stmtSetClusterSyncEnabled
-	stmtSetClusterMonitoringEnabled
 	stmtClearClusterDefault
 	stmtSetClusterDefault
 	stmtMarkCluster
@@ -36,7 +35,7 @@ const (
 )
 
 // clusterColumns is the column list every read scans, in scanClusterRow's order.
-const clusterColumns = `id, source, source_key, name, enabled, sync_enabled, monitoring_enabled,
+const clusterColumns = `id, source, source_key, name, enabled, sync_enabled,
 	is_default, created_at, updated_at, delete_requested_at`
 
 // Every write that may touch nothing RETURNs what it wrote, so the row — or no
@@ -54,8 +53,6 @@ var statements = []sqlstmt.Statement{
 	stmtSetClusterEnabled: sqlstmt.OnWriter(`UPDATE clusters SET enabled = ?1, is_default = is_default AND ?1, updated_at = ?2
 	WHERE id = ?3 AND delete_requested_at IS NULL RETURNING ` + clusterColumns),
 	stmtSetClusterSyncEnabled: sqlstmt.OnWriter(`UPDATE clusters SET sync_enabled = ?, updated_at = ?
-	WHERE id = ? AND delete_requested_at IS NULL RETURNING ` + clusterColumns),
-	stmtSetClusterMonitoringEnabled: sqlstmt.OnWriter(`UPDATE clusters SET monitoring_enabled = ?, updated_at = ?
 	WHERE id = ? AND delete_requested_at IS NULL RETURNING ` + clusterColumns),
 	// The default's two writes run in one transaction, the clear first, so the
 	// one-default index never sees two marked rows.

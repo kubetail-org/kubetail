@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/apimeta"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/llm"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions"
@@ -186,6 +187,24 @@ type Model struct {
 	Efforts []string `json:"efforts"`
 	// The level a picker starts on. Empty when `efforts` is.
 	DefaultEffort string `json:"defaultEffort"`
+}
+
+// One label and its value, of an integration's own: drawn as key–value text.
+type MonitorAttribute struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+}
+
+// One signal a target's last reading could not judge. Its label is the `MonitorSignal` of the same `name`.
+type MonitorUnknownSignal struct {
+	Name   string                `json:"name"`
+	Reason monitor.ReadErrorCode `json:"reason"`
+}
+
+type MonitoringTriageModelInput struct {
+	ProviderID string  `json:"providerID"`
+	ModelID    string  `json:"modelID"`
+	Effort     *string `json:"effort,omitempty"`
 }
 
 type Mutation struct {
@@ -498,6 +517,60 @@ func (e *LogsTailFrameType) UnmarshalJSON(b []byte) error {
 }
 
 func (e LogsTailFrameType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// The system a target belongs to. The webview draws each value's name.
+type MonitorIntegration string
+
+const (
+	MonitorIntegrationKubernetes MonitorIntegration = "Kubernetes"
+)
+
+var AllMonitorIntegration = []MonitorIntegration{
+	MonitorIntegrationKubernetes,
+}
+
+func (e MonitorIntegration) IsValid() bool {
+	switch e {
+	case MonitorIntegrationKubernetes:
+		return true
+	}
+	return false
+}
+
+func (e MonitorIntegration) String() string {
+	return string(e)
+}
+
+func (e *MonitorIntegration) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MonitorIntegration(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MonitorIntegration", str)
+	}
+	return nil
+}
+
+func (e MonitorIntegration) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MonitorIntegration) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MonitorIntegration) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

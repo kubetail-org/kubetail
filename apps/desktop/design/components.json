@@ -680,7 +680,7 @@
       },
       "code": [
         {
-          "path": "src/components/chat/chat-composer/model-picker.tsx",
+          "path": "src/components/primitives/model-picker.tsx",
           "symbol": "ProviderMark",
           "blob": "a66bd95fb459f16c398b1998fa8a71e8f041205b"
         }
@@ -699,7 +699,7 @@
       },
       "code": [
         {
-          "path": "src/components/chat/chat-composer/model-picker.tsx",
+          "path": "src/components/primitives/model-picker.tsx",
           "blob": "a66bd95fb459f16c398b1998fa8a71e8f041205b"
         }
       ],
@@ -717,7 +717,7 @@
       },
       "code": [
         {
-          "path": "src/components/chat/chat-composer/model-picker.tsx",
+          "path": "src/components/primitives/model-picker.tsx",
           "blob": "a66bd95fb459f16c398b1998fa8a71e8f041205b"
         }
       ],
@@ -734,7 +734,7 @@
       },
       "code": [
         {
-          "path": "src/components/chat/chat-composer/model-picker.tsx",
+          "path": "src/components/primitives/model-picker.tsx",
           "blob": "a66bd95fb459f16c398b1998fa8a71e8f041205b"
         }
       ],
@@ -1097,7 +1097,7 @@
       },
       "code": [
         {
-          "path": "src/components/chat/chat-composer/model-picker.tsx",
+          "path": "src/components/primitives/model-picker.tsx",
           "blob": "a66bd95fb459f16c398b1998fa8a71e8f041205b"
         }
       ]

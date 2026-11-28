@@ -32,8 +32,8 @@
 --
 -- name is the display name the user set; NULL shows the context name instead.
 -- enabled and sync_enabled default on, so a found context appears in the picker
--- without being switched on first; monitoring_enabled defaults off, since it lets
--- the background monitor spend model calls on the cluster.
+-- without being switched on first. Whether the monitor reads the cluster is its
+-- target's switch, monitor_targets.enabled.
 -- updated_at moves on every user edit and never on a reconcile.
 --
 -- delete_requested_at is set when the user deletes the cluster. The row stays,
@@ -55,7 +55,6 @@ CREATE TABLE clusters (
   name                TEXT,
   enabled             INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
   sync_enabled        INTEGER NOT NULL DEFAULT 1 CHECK (sync_enabled IN (0, 1)),
-  monitoring_enabled  INTEGER NOT NULL DEFAULT 0 CHECK (monitoring_enabled IN (0, 1)),
   created_at          INTEGER NOT NULL,
   updated_at          INTEGER NOT NULL,
   delete_requested_at INTEGER,
@@ -549,3 +548,123 @@ CREATE TABLE shell_path (
   id   INTEGER PRIMARY KEY CHECK (id = 1),
   path TEXT    NOT NULL
 ) STRICT;
+
+-- monitor_targets: each thing the monitor reads. Its integration lists it, and
+-- the monitor's reconcile makes and deletes its row. integration is checked in
+-- Go against the integrations the build has. key is the integration's own: for
+-- kubernetes, the cluster's id. current_uid is what the target reached at its last
+-- reading: for kubernetes, the server's UID.
+--
+-- enabled defaults on and gates detection alone: reading a target finds failures
+-- and spends no model call. generation counts the switch's flips, the fold's guard
+-- against a reading from before one. unknown_signals holds each signal the last
+-- reading could not judge, with its code; last_read_at is NULL until the first
+-- reading. label is the integration's, rewritten when it changes. baselines holds,
+-- by signal name, the time in ms its baseline window opened: its first judged
+-- reading since the target was switched on or reached a new UID.
+CREATE TABLE monitor_targets (
+  id              TEXT    PRIMARY KEY,
+  integration     TEXT    NOT NULL,
+  key             TEXT    NOT NULL,
+  label           TEXT    NOT NULL,
+  enabled         INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  generation      INTEGER NOT NULL DEFAULT 0,
+  current_uid     TEXT,
+  unknown_signals TEXT    NOT NULL DEFAULT '{}' CHECK (json_valid(unknown_signals) AND json_type(unknown_signals) = 'object'),
+  baselines       TEXT    NOT NULL DEFAULT '{}' CHECK (json_valid(baselines)),
+  last_read_at    INTEGER,
+  created_at      INTEGER NOT NULL,
+  updated_at      INTEGER NOT NULL,
+  UNIQUE (integration, key)
+) STRICT;
+
+-- incidents: a target under one UID, a subject and a signal, and the occurrences
+-- it has held. subject_key is the integration's, compared to match an incident
+-- and never parsed; subject_attributes is a JSON object of strings only the
+-- integration reads. signal_label and severity are copied when the incident
+-- opens. last_seen_at is the last time a reading saw its signal; occurrence_count
+-- counts every occurrence the incident has had, trimmed ones included. baseline
+-- is 1 until the incident's first occurrence that is not baseline, and never
+-- set again; alerted_at is when that occurrence raised its alert, by the wall
+-- clock, and alert_seq its place in the order the alerts committed, which the
+-- alert feed reads.
+--
+-- The triage columns hold the incident's newest triage, which the user asks for.
+-- triage_state is none, queued while its request waits or its run lasts, then
+-- done or failed. triage_request_id names the request queued, set while queued
+-- alone: a worker writes only while it holds that id. triage_run_id is the
+-- request's run, linked in the transaction that inserts it; the run's result is
+-- the report. triage_verdict is set on a done triage alone, triage_error, one of
+-- the monitor's fixed codes, on a failed one. triage_trigger is who asked for it:
+-- the user's press, manual, or the triage setting, automatic.
+CREATE TABLE incidents (
+  id                 TEXT    PRIMARY KEY,
+  target_id          TEXT    NOT NULL REFERENCES monitor_targets(id) ON DELETE CASCADE,
+  target_uid         TEXT    NOT NULL,
+  subject_key        TEXT    NOT NULL,
+  subject_label      TEXT    NOT NULL,
+  subject_attributes TEXT    NOT NULL DEFAULT '{}' CHECK (json_valid(subject_attributes)),
+  signal             TEXT    NOT NULL,
+  signal_label       TEXT    NOT NULL,
+  severity           TEXT    NOT NULL CHECK (severity IN ('critical', 'warning', 'info')),
+  first_seen_at      INTEGER NOT NULL,
+  last_seen_at       INTEGER NOT NULL,
+  occurrence_count   INTEGER NOT NULL CHECK (occurrence_count >= 1),
+  baseline           INTEGER NOT NULL DEFAULT 0 CHECK (baseline IN (0, 1)),
+  alerted_at         INTEGER,
+  alert_seq          INTEGER,
+  triage_state       TEXT    NOT NULL DEFAULT 'none' CHECK (triage_state IN ('none', 'queued', 'done', 'failed')),
+  triage_request_id  TEXT,
+  triage_run_id      TEXT    REFERENCES agent_runs(id) ON DELETE SET NULL,
+  triage_verdict     TEXT    CHECK (triage_verdict IN ('attention', 'dismiss')),
+  triage_error       TEXT,
+  triage_trigger     TEXT    CHECK (triage_trigger IN ('manual', 'automatic')),
+  CHECK ((alerted_at IS NULL) = (alert_seq IS NULL)),
+  CHECK ((triage_state = 'none') = (triage_trigger IS NULL)),
+  CHECK ((triage_state = 'queued') = (triage_request_id IS NOT NULL)),
+  CHECK ((triage_state = 'done') = (triage_verdict IS NOT NULL)),
+  CHECK ((triage_state = 'failed') = (triage_error IS NOT NULL))
+) STRICT;
+
+CREATE INDEX incidents_subject ON incidents (target_id, target_uid, signal, subject_key);
+CREATE INDEX incidents_last_seen ON incidents (last_seen_at);
+CREATE UNIQUE INDEX incidents_alerted ON incidents (alert_seq) WHERE alert_seq IS NOT NULL;
+-- A run's delete sets its triage's link to NULL through this index.
+CREATE INDEX incidents_triage_run ON incidents (triage_run_id) WHERE triage_run_id IS NOT NULL;
+
+-- monitor_alert_seq: the last alert_seq given, so an alerted incident's delete
+-- never frees its number. No row before the first alert.
+CREATE TABLE monitor_alert_seq (
+  id   INTEGER PRIMARY KEY CHECK (id = 1),
+  last INTEGER NOT NULL
+) STRICT;
+
+-- incident_occurrences: one stretch an incident's signal held. number is its
+-- order, never reused; started_at is the wall clock's and orders nothing. An
+-- occurrence is open while ended_at is NULL; detail is what the reading that
+-- started it saw, a JSON object of strings. baseline marks one whose pair was
+-- first seen in its signal's baseline window: it raises no alert.
+CREATE TABLE incident_occurrences (
+  id          TEXT    PRIMARY KEY,
+  incident_id TEXT    NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+  number      INTEGER NOT NULL CHECK (number >= 1),
+  started_at  INTEGER NOT NULL,
+  ended_at    INTEGER CHECK (ended_at >= started_at),
+  end_reason  TEXT    CHECK (end_reason IN ('resolved', 'stopped', 'stale')),
+  detail      TEXT    NOT NULL DEFAULT '{}' CHECK (json_valid(detail)),
+  baseline    INTEGER NOT NULL DEFAULT 0 CHECK (baseline IN (0, 1)),
+  UNIQUE (incident_id, number),
+  CHECK ((ended_at IS NULL) = (end_reason IS NULL))
+) STRICT, WITHOUT ROWID;
+
+CREATE UNIQUE INDEX incident_occurrences_one_open ON incident_occurrences (incident_id) WHERE ended_at IS NULL;
+
+-- monitor_triage_starts: a row per automatic triage whose run was inserted, on
+-- the monitor's clock, which caps a target's automatic triages an hour. Rows
+-- past the hour are trimmed, and a target's go with it.
+CREATE TABLE monitor_triage_starts (
+  target_id  TEXT    NOT NULL REFERENCES monitor_targets(id) ON DELETE CASCADE,
+  started_at INTEGER NOT NULL
+) STRICT;
+
+CREATE INDEX monitor_triage_starts_target ON monitor_triage_starts (target_id, started_at);

@@ -200,8 +200,8 @@ importers:
         specifier: ^3.2.0
         version: 3.2.0(graphql@17.1.0)
       '@kubetail/ui':
-        specifier: 3.0.3
-        version: 3.0.3(@base-ui/react@1.9.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(lucide-react@1.75.0(@types/react@19.3.0)(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5)
+        specifier: 3.0.4
+        version: 3.0.4(@base-ui/react@1.9.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(lucide-react@1.75.0(@types/react@19.3.0)(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5)
       '@tanstack/react-router':
         specifier: ^1.170.46
         version: 1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1034,8 +1034,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@kubetail/ui@3.0.3':
-    resolution: {integrity: sha512-oYsevvadGrUfHGe/X9bpXwkHYwJXBq0xqB/gME8tlWDsd+5ClV0zSkU2TEiYWcFiU+6vIUtuATNfUgOgq4ntqA==}
+  '@kubetail/ui@3.0.4':
+    resolution: {integrity: sha512-0yd+6SWfN6FTryE55DEoW3bAUVyJxjazJxvEyV7vrd6fNW6XHOmRNaxUyuQ+n/Wh345kFavljeUTvGX0sZ15cQ==}
     peerDependencies:
       '@base-ui/react': ^1
       '@types/react': ^19
@@ -4671,7 +4671,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@kubetail/ui@3.0.3(@base-ui/react@1.9.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(lucide-react@1.75.0(@types/react@19.3.0)(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5)':
+  '@kubetail/ui@3.0.4(@base-ui/react@1.9.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(lucide-react@1.75.0(@types/react@19.3.0)(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5)':
     dependencies:
       '@base-ui/react': 1.9.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       class-variance-authority: 0.7.1

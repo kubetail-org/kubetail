@@ -57,7 +57,7 @@ func TestEveryQueryFieldHasACaller(t *testing.T) {
 		}
 	}
 	slices.Sort(got)
-	want := []string{"chatPermissionRulesGet", "envVarsGet", "logsFetch", "permissionSettingsGet", "sandboxCloudAccessGet", "sandboxPathFaultGet", "sandboxPathGet", "sandboxStateGet"}
+	want := []string{"chatPermissionRulesGet", "envVarsGet", "logsFetch", "monitorSignalList", "permissionSettingsGet", "sandboxCloudAccessGet", "sandboxPathFaultGet", "sandboxPathGet", "sandboxStateGet"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("Query fields = %v, want %v", got, want)
 	}

@@ -586,6 +586,6 @@ func queryResult(cacheID ClusterCacheID, res kubestore.QueryResult, err error) (
 	return ClusterCachedDataQueryResult{Columns: res.Columns, Rows: res.Rows, More: res.More}, nil
 }
 
-func (a cachedDataAPI) ReadActive(ctx context.Context, id ClusterID, maxRows, maxBytes int, read func(CacheReading, ActiveCluster) error) error {
-	return ReadActiveCache(ctx, a.s, id, maxRows, maxBytes, read)
+func (a cachedDataAPI) ReadActive(ctx context.Context, id ClusterID, serverUID string, maxRows, maxBytes int, read func(CacheReading, ActiveCluster) error) error {
+	return ReadActiveCache(ctx, a.s, id, serverUID, maxRows, maxBytes, read)
 }

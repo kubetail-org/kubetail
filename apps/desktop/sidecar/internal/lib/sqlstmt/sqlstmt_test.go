@@ -289,3 +289,45 @@ func TestASetKeepsTheTableItWasPreparedFrom(t *testing.T) {
 	require.NoError(t, s.Stmts().QueryRow(t.Context(), 0).Scan(&got))
 	assert.Equal(t, 1, got)
 }
+
+// Tx is the transaction a write issues on, so a caller's own statement joins it,
+// and nil on the pools.
+func TestTxIsTheTransactionTheStatementsIssueOn(t *testing.T) {
+	s := prepareTestSet(t)
+	assert.Nil(t, s.Stmts().Tx())
+
+	err := s.InTx(t.Context(), func(st Stmts[testStmt]) error {
+		require.NotNil(t, st.Tx())
+		_, err := st.Tx().ExecContext(t.Context(), `INSERT INTO t (id) VALUES ('joined')`)
+		require.NoError(t, err)
+		assert.Equal(t, 1, count(t, st), "the caller's write is the transaction's")
+		return errors.New("roll back")
+	})
+
+	require.Error(t, err)
+	assert.Zero(t, count(t, s.Stmts()), "and rolls back with it")
+}
+
+// On issues a set's statements on a write transaction another set over the same
+// pools began, so a statement of one table joins the other's transaction and
+// rolls back with it.
+func TestOnIssuesInAnotherSetsTransaction(t *testing.T) {
+	write, read := openPools(t)
+	owner, err := Prepare[testStmt](t.Context(), write, read, testTable)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = owner.Close() })
+	guest, err := Prepare[testStmt](t.Context(), write, read, testTable)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = guest.Close() })
+
+	err = owner.InTx(t.Context(), func(st Stmts[testStmt]) error {
+		joined := guest.On(st.Tx())
+		insert(t, joined, "joined")
+		assert.Equal(t, 1, count(t, st), "the guest's write is the owner's transaction's")
+		assert.Same(t, st.Tx(), joined.Tx())
+		return errors.New("roll back")
+	})
+
+	require.Error(t, err)
+	assert.Zero(t, count(t, owner.Stmts()), "and rolls back with it")
+}

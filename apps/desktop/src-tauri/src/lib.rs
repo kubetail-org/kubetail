@@ -24,6 +24,7 @@
 // `unwrap()` is idiomatic in tests.
 #![cfg_attr(test, allow(clippy::unwrap_used))]
 
+mod alerts;
 mod app;
 mod app_menu;
 mod cloud;
@@ -225,6 +226,7 @@ fn window_destroyed<R: Runtime>(app: &AppHandle<R>, label: &str) {
     log_windows::destroyed(app, label);
     if let Some(state) = app.try_state::<AppState>() {
         state.window_manager.window_destroyed(label);
+        state.notification_permission.unsubscribe(label);
     }
 }
 
@@ -241,6 +243,10 @@ fn window_focused<R: Runtime>(app: &AppHandle<R>, label: &str) {
         state.log_windows.focused(label);
         state.window_manager.window_focused(app, label);
     }
+    // macOS signals no change to the answer, which the user can make only in
+    // System Settings, so coming back to a window is when it may have moved.
+    #[cfg(target_os = "macos")]
+    alerts::macos::reread();
 }
 
 /// A second launch forwarded here: surface the main window. One that arrives
@@ -275,6 +281,8 @@ fn invoke_handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 's
         commands::log_window_viewport,
         commands::log_window_title,
         commands::log_window_show_chat,
+        commands::notification_permission_state_watch,
+        commands::notification_press_take,
     ]
 }
 

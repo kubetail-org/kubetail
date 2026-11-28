@@ -56,7 +56,7 @@ func TestMirrorCreatesTheObjectBehindARow(t *testing.T) {
 
 	d := newRunningDeps(t)
 	row := importCluster(t, d, "prod")
-	_, err := d.db.Write.Exec(`UPDATE clusters SET name = 'Prod', monitoring_enabled = 1 WHERE id = ?`, string(row.ID))
+	_, err := d.db.Write.Exec(`UPDATE clusters SET name = 'Prod' WHERE id = ?`, string(row.ID))
 	require.NoError(t, err)
 
 	_, passed := startMirror(t, d)

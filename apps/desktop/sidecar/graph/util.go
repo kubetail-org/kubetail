@@ -17,7 +17,9 @@ package graph
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"maps"
 	"slices"
@@ -29,6 +31,8 @@ import (
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph/model"
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor/kubesignals"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/apimeta"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/llm"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/kubeproxy"
@@ -174,6 +178,83 @@ func memoryErr(err error) error {
 		}
 	}
 	return err
+}
+
+// monitorRefusals maps the monitor's named errors onto wire codes: an unknown
+// target or incident, a triage the incident cannot take, a triage model with no
+// ids, and a subscription or a triage asked for as the monitor stops.
+var monitorRefusals = []struct {
+	err  error
+	wire *gqlerror.Error
+}{
+	{monitor.ErrNoTarget, gqlerrors.ErrRecordNotFound},
+	{monitor.ErrNoIncident, gqlerrors.ErrRecordNotFound},
+	{monitor.ErrTriageQueued, gqlerrors.ErrValidationError},
+	{monitor.ErrCannotTriage, gqlerrors.ErrValidationError},
+	{monitor.ErrTargetMoved, gqlerrors.ErrValidationError},
+	{monitor.ErrInvalidTriageModel, gqlerrors.ErrValidationError},
+	{monitor.ErrStopping, gqlerrors.ErrServiceUnavailable},
+}
+
+// monitorErr is what every monitoring field returns an error through.
+func monitorErr(err error) error {
+	for _, r := range monitorRefusals {
+		if errors.Is(err, r.err) {
+			return gqlerrors.Clone(r.wire)
+		}
+	}
+	return err
+}
+
+// monitorIntegrations is each registered integration's value on the wire, by name.
+var monitorIntegrations = map[string]model.MonitorIntegration{
+	kubesignals.Name: model.MonitorIntegrationKubernetes,
+}
+
+// monitorIntegrationOf is an integration's wire value; an error for one the enum
+// lacks, which nulls the whole record that carries it, since the field is
+// non-null. TestEveryMonitorIntegrationHasAValue pins the map to the enum.
+func monitorIntegrationOf(name string) (model.MonitorIntegration, error) {
+	if v, ok := monitorIntegrations[name]; ok {
+		return v, nil
+	}
+	return "", fmt.Errorf("integration %q has no MonitorIntegration value", name)
+}
+
+// monitorAttributes is a stored JSON object of strings as label–value pairs,
+// sorted by label.
+func monitorAttributes(stored string) ([]*model.MonitorAttribute, error) {
+	var m map[string]string
+	if err := json.Unmarshal([]byte(stored), &m); err != nil {
+		return nil, fmt.Errorf("read attributes: %w", err)
+	}
+	out := make([]*model.MonitorAttribute, 0, len(m))
+	for _, label := range slices.Sorted(maps.Keys(m)) {
+		out = append(out, &model.MonitorAttribute{Label: label, Value: m[label]})
+	}
+	return out, nil
+}
+
+// monitorUnknownSignals is a target's stored unknown signals, sorted by name.
+func monitorUnknownSignals(stored string) ([]*model.MonitorUnknownSignal, error) {
+	var m map[string]monitor.ReadErrorCode
+	if err := json.Unmarshal([]byte(stored), &m); err != nil {
+		return nil, fmt.Errorf("read unknown signals: %w", err)
+	}
+	out := make([]*model.MonitorUnknownSignal, 0, len(m))
+	for _, name := range slices.Sorted(maps.Keys(m)) {
+		out = append(out, &model.MonitorUnknownSignal{Name: name, Reason: m[name]})
+	}
+	return out, nil
+}
+
+// nonZero is &v, or nil for v's zero value: the wire's null for a record's unset field.
+func nonZero[T comparable](v T) *T {
+	var zero T
+	if v == zero {
+		return nil
+	}
+	return &v
 }
 
 // connectorErr is a refused Connect or Disconnect as the wire codes it: while

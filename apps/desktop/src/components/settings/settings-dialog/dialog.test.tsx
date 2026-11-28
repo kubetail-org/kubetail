@@ -35,6 +35,7 @@ vi.mock('./clusters', () => ({
 }));
 
 vi.mock('./sandbox', () => ({ SandboxSettings: () => <p>The sandbox</p> }));
+vi.mock('./monitoring', () => ({ MonitoringSettings: () => <p>The monitoring</p> }));
 
 // The Permissions pane draws over these hooks; its own test covers the rest.
 const { sandboxAvailable } = vi.hoisted(() => ({ sandboxAvailable: { current: true } }));
@@ -80,6 +81,7 @@ vi.mock('./tools', () => ({ ToolsSettings: () => <p>The tools</p> }));
 
 const { ThemeProvider } = await import('@/lib/theme');
 const { SettingsDialog } = await import('./dialog');
+const { DialogProvider, useDialog } = await import('@/lib/dialog');
 
 function renderDialog(onOpenChange = vi.fn()) {
   render(
@@ -120,6 +122,22 @@ describe('SettingsDialog', () => {
     expect(screen.getByRole('tab', { name: 'General', selected: true })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'General' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Appearance' })).toBeInTheDocument();
+  });
+
+  it('opens on the tab it was opened on', async () => {
+    function OpenOnMonitoring() {
+      const { openDialog, activeDialog } = useDialog();
+      useEffect(() => openDialog('settings', 'Monitoring'), [openDialog]);
+      return activeDialog && <SettingsDialog open onOpenChange={vi.fn()} />;
+    }
+    render(
+      <ThemeProvider>
+        <DialogProvider>
+          <OpenOnMonitoring />
+        </DialogProvider>
+      </ThemeProvider>,
+    );
+    expect(await screen.findByRole('tab', { name: 'Monitoring', selected: true })).toBeInTheDocument();
   });
 
   it('draws the Sandbox tab', async () => {
@@ -209,7 +227,7 @@ describe('SettingsDialog', () => {
     await user.click(await screen.findByRole('tab', { name: 'Monitoring' }));
 
     expect(screen.getByRole('heading', { name: 'Monitoring' })).toBeInTheDocument();
-    expect(screen.getByRole('tabpanel')).toHaveTextContent('Coming soon');
+    expect(screen.getByRole('tabpanel')).toHaveTextContent('The monitoring');
   });
 
   // Each row's cache size is a live watch; it must not run behind another tab.

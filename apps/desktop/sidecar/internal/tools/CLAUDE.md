@@ -39,6 +39,9 @@ cluster and workspace come from the runtime alone, never the session.
   byte unaltered.
 - **`ActionAsker`** puts a sandboxed command's classified action to the user, or `Record`s one
   decided unasked. Nil where nobody can be asked.
+- **`ServerUID`** is a monitor run's one server, "" for a chat's. Every tool reaching the cluster
+  refuses a cache (`ActiveCluster.ReadsServer`) or a connection (`ConnFor`) of another, answering
+  `server-changed`, and calls `rt.ServerMoved()`, which ends the run.
 - **A tool that acts through a service is built with it** (in `app`'s `chatTools`) and maps the
   service's errors to the model's codes → [ADR](../../../docs/adr/2026-09-27-a-tool-calls-its-service-directly.md).
 - `InlineLimit` caps a result; `FileLimit` caps saved output and Read.

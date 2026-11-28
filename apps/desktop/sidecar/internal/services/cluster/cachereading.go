@@ -35,6 +35,7 @@ type CacheReading struct {
 	query    OwnQuery
 	maxRows  int
 	maxBytes int
+	health   ClusterCacheHealth
 }
 
 // OwnQuery runs one statement of a reading CachedData().ReadOwn holds open.
@@ -43,8 +44,13 @@ type OwnQuery func(sql string, maxRows, maxBytes int, args ...any) (ClusterCache
 // ReadActiveCache is CachedData().ReadActive over svc. Exported because a fake
 // CachedData outside this package answers ReadActive through it, over its own
 // readings, health and query.
-func ReadActiveCache(ctx context.Context, svc Service, id ClusterID, maxRows, maxBytes int, read func(CacheReading, ActiveCluster) error) error {
+func ReadActiveCache(ctx context.Context, svc Service, id ClusterID, serverUID string, maxRows, maxBytes int, read func(CacheReading, ActiveCluster) error) error {
 	err := svc.Clusters().ReadActive(ctx, id, func(ctx context.Context, active ActiveCluster) error {
+		// First: another server's cache, its health and its rows are none of a
+		// pinned reading's business.
+		if !active.ReadsServer(serverUID) {
+			return ErrIdentityMismatch
+		}
 		if active.Cache == nil {
 			return ErrNoCache
 		}
@@ -59,18 +65,23 @@ func ReadActiveCache(ctx context.Context, svc Service, id ClusterID, maxRows, ma
 			return ErrSyncing
 		}
 		ok, err = svc.CachedData().ReadOwn(ctx, id, active.Cache.ID, func(query OwnQuery) error {
-			return read(CacheReading{query, maxRows, maxBytes}, active)
+			return read(CacheReading{query, maxRows, maxBytes, health}, active)
 		})
 		if err == nil && !ok {
 			return ErrNoCache
 		}
 		return err
 	})
+	err = PinnedReadErr(serverUID, err)
 	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrIdentityMoved) {
 		return ErrNoCache
 	}
 	return err
 }
+
+// Health is the cache's health the reading was admitted under, read just before
+// its snapshot: which kinds were watching, paused or behind.
+func (r CacheReading) Health() ClusterCacheHealth { return r.health }
 
 // Query is sql's answer, with args bound to its placeholders; a cache gone under
 // the read is ErrNoCache.

@@ -31,6 +31,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/oauth"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster"
 )
@@ -494,8 +495,8 @@ func (f fakeCachedData) ReadOwn(context.Context, cluster.ClusterID, cluster.Clus
 	return false, nil
 }
 
-func (f fakeCachedData) ReadActive(ctx context.Context, id cluster.ClusterID, maxRows, maxBytes int, read func(cluster.CacheReading, cluster.ActiveCluster) error) error {
-	return cluster.ReadActiveCache(ctx, f.s, id, maxRows, maxBytes, read)
+func (f fakeCachedData) ReadActive(ctx context.Context, id cluster.ClusterID, serverUID string, maxRows, maxBytes int, read func(cluster.CacheReading, cluster.ActiveCluster) error) error {
+	return cluster.ReadActiveCache(ctx, f.s, id, serverUID, maxRows, maxBytes, read)
 }
 
 func (f fakeCachedData) ListKinds(_ context.Context, clusterID cluster.ClusterID, _ cluster.ClusterCacheID, namespace string) ([]cluster.ClusterCachedDataKind, error) {
@@ -686,18 +687,6 @@ func (f fakeClusters) SetSyncEnabled(_ context.Context, id cluster.ClusterID, en
 		return nil, cluster.ErrNotFound
 	}
 	c.Spec.SyncEnabled = enabled
-	cp := *c
-	return &cp, nil
-}
-
-func (f fakeClusters) SetMonitoringEnabled(_ context.Context, id cluster.ClusterID, enabled bool) (*cluster.Cluster, error) {
-	f.s.mu.Lock()
-	defer f.s.mu.Unlock()
-	c, ok := f.s.clusters[id]
-	if !ok {
-		return nil, cluster.ErrNotFound
-	}
-	c.Spec.MonitoringEnabled = enabled
 	cp := *c
 	return &cp, nil
 }
@@ -993,9 +982,6 @@ func (e errClusters) SetEnabled(context.Context, cluster.ClusterID, bool) (*clus
 func (e errClusters) SetSyncEnabled(context.Context, cluster.ClusterID, bool) (*cluster.Cluster, error) {
 	return nil, e.err
 }
-func (e errClusters) SetMonitoringEnabled(context.Context, cluster.ClusterID, bool) (*cluster.Cluster, error) {
-	return nil, e.err
-}
 
 func (e errClusters) SetDefault(context.Context, cluster.ClusterID, bool) (*cluster.Cluster, error) {
 	return nil, e.err
@@ -1098,3 +1084,34 @@ type errAuth struct {
 }
 
 func (e errAuth) Disconnect(context.Context) error { return e.err }
+
+// errMonitor fails every monitoring call with err.
+type errMonitor struct{ err error }
+
+func (errMonitor) ListSignals() []monitor.MonitorSignal { return nil }
+
+func (e errMonitor) SetEnabled(context.Context, monitor.MonitorTargetID, bool) (monitor.MonitorTarget, error) {
+	return monitor.MonitorTarget{}, e.err
+}
+
+func (e errMonitor) Triage(context.Context, monitor.IncidentID, monitor.TriageModel, bool) (monitor.Incident, error) {
+	return monitor.Incident{}, e.err
+}
+
+func (e errMonitor) SetTriageModel(context.Context, *monitor.TriageModel) error { return e.err }
+
+func (e errMonitor) WatchTriageModelState(context.Context) (*monitor.Stream[*monitor.TriageModel], error) {
+	return nil, e.err
+}
+
+func (e errMonitor) WatchTargetCollection(context.Context) (*monitor.Stream[monitor.MonitorTargetCollectionWatchFrame], error) {
+	return nil, e.err
+}
+
+func (e errMonitor) WatchIncidentCollection(context.Context) (*monitor.Stream[monitor.IncidentCollectionWatchFrame], error) {
+	return nil, e.err
+}
+
+func (e errMonitor) SubscribeIncidentOccurrenceEventFeed(context.Context, monitor.IncidentID) (*monitor.Stream[monitor.IncidentOccurrenceEventFeedFrame], error) {
+	return nil, e.err
+}

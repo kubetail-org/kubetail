@@ -162,9 +162,14 @@ func requireTables(t *testing.T, db *sql.DB) {
 		"env_vars wr=0 strict=1",
 		"executables wr=0 strict=1",
 		"folder_grants wr=0 strict=1",
+		"incident_occurrences wr=1 strict=1",
+		"incidents wr=0 strict=1",
 		"llm_calls wr=0 strict=1",
 		"memories wr=0 strict=1",
 		"messages wr=0 strict=1",
+		"monitor_alert_seq wr=0 strict=1",
+		"monitor_targets wr=0 strict=1",
+		"monitor_triage_starts wr=0 strict=1",
 		"oauth_connections wr=1 strict=1",
 		"permission_modes wr=0 strict=1",
 		"permission_rules wr=0 strict=1",
@@ -197,9 +202,15 @@ func requireTables(t *testing.T, db *sql.DB) {
 		"CREATE UNIQUE INDEX env_vars_name ON env_vars (ifnull(cluster_id, ''), name)",
 		"CREATE INDEX folder_grants_chat_idx ON folder_grants (chat_id, created_at, id)",
 		"CREATE UNIQUE INDEX folder_grants_folder ON folder_grants (ifnull(chat_id, ''), folder)",
+		"CREATE UNIQUE INDEX incident_occurrences_one_open ON incident_occurrences (incident_id) WHERE ended_at IS NULL",
+		"CREATE UNIQUE INDEX incidents_alerted ON incidents (alert_seq) WHERE alert_seq IS NOT NULL",
+		"CREATE INDEX incidents_last_seen ON incidents (last_seen_at)",
+		"CREATE INDEX incidents_subject ON incidents (target_id, target_uid, signal, subject_key)",
+		"CREATE INDEX incidents_triage_run ON incidents (triage_run_id) WHERE triage_run_id IS NOT NULL",
 		"CREATE UNIQUE INDEX llm_calls_run_idx ON llm_calls (run_id, seq)",
 		"CREATE UNIQUE INDEX memories_name ON memories (ifnull(cluster_id, ''), name)",
 		"CREATE INDEX messages_run_idx ON messages (run_id)",
+		"CREATE INDEX monitor_triage_starts_target ON monitor_triage_starts (target_id, started_at)",
 		"CREATE INDEX permission_rules_chat_idx ON permission_rules (chat_id, created_at, id)",
 		"CREATE UNIQUE INDEX settings_scope_key ON settings (ifnull(cluster_id, ''), key)",
 		"CREATE UNIQUE INDEX tool_calls_llm_call_idx ON tool_calls (llm_call_id, seq)",
@@ -369,7 +380,7 @@ func TestTheChecksRefuseValuesOutsideTheirLists(t *testing.T) {
 }
 
 // The clusters table's defaults: a row inserted with nothing but its identity and
-// stamps is enabled, syncing, and not monitored; the source claim is unique.
+// stamps is enabled and syncing; the source claim is unique.
 func TestClustersTableDefaultsAndClaim(t *testing.T) {
 	db, err := Open(filepath.Join(t.TempDir(), "app.db"), 0)
 	require.NoError(t, err)
@@ -381,12 +392,90 @@ func TestClustersTableDefaultsAndClaim(t *testing.T) {
 	_, err = db.Write.Exec(insert, NewID())
 	require.ErrorContains(t, err, "UNIQUE")
 
-	var enabled, syncEnabled, monitoringEnabled int
+	var enabled, syncEnabled int
 	var deleteRequestedAt *int64
-	require.NoError(t, db.Read.QueryRow(`SELECT enabled, sync_enabled, monitoring_enabled, delete_requested_at FROM clusters`).
-		Scan(&enabled, &syncEnabled, &monitoringEnabled, &deleteRequestedAt))
-	require.Equal(t, []int{1, 1, 0}, []int{enabled, syncEnabled, monitoringEnabled})
+	require.NoError(t, db.Read.QueryRow(`SELECT enabled, sync_enabled, delete_requested_at FROM clusters`).
+		Scan(&enabled, &syncEnabled, &deleteRequestedAt))
+	require.Equal(t, []int{1, 1}, []int{enabled, syncEnabled})
 	require.Nil(t, deleteRequestedAt)
+}
+
+// The monitor's tables: a target is enabled by default with an empty read state,
+// held as an object, one row per integration's key; an incident and its occurrences go with their
+// target; an incident holds one open occurrence at most, and an occurrence's end
+// and its reason come together, never before its start.
+func TestTheMonitorTablesHoldWhatTheirChecksAllow(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "app.db"), 0)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	exec := func(q string, args ...any) error { _, err := db.Write.Exec(q, args...); return err }
+
+	const target = `INSERT INTO monitor_targets (id, integration, key, label, created_at, updated_at) VALUES (?, 'kubernetes', ?, 'dev', 0, 0)`
+	require.NoError(t, exec(target, "t1", "c1"))
+	require.ErrorContains(t, exec(target, "t2", "c1"), "UNIQUE")
+	var enabled, generation int
+	var unknown, baselines string
+	var uid, readAt *string
+	require.NoError(t, db.Read.QueryRow(`SELECT enabled, generation, unknown_signals, baselines, current_uid, last_read_at FROM monitor_targets`).
+		Scan(&enabled, &generation, &unknown, &baselines, &uid, &readAt))
+	assert.Equal(t, []any{1, 0, "{}", "{}"}, []any{enabled, generation, unknown, baselines})
+	assert.Nil(t, uid)
+	assert.Nil(t, readAt)
+	assert.ErrorContains(t, exec(`UPDATE monitor_targets SET unknown_signals = 'nope'`), "CHECK")
+	assert.ErrorContains(t, exec(`UPDATE monitor_targets SET unknown_signals = '[]'`), "CHECK")
+	assert.ErrorContains(t, exec(`UPDATE monitor_targets SET baselines = 'nope'`), "CHECK")
+
+	const incident = `INSERT INTO incidents (id, target_id, target_uid, subject_key, subject_label, signal, signal_label, severity, first_seen_at, last_seen_at, occurrence_count)
+		VALUES (?, 't1', 'uid', 'apps/Deployment/default/web', 'Deployment default/web', 'kubernetes.crash_loop', 'Crash loop', ?, 0, 0, 1)`
+	require.NoError(t, exec(incident, "i1", "warning"))
+	assert.ErrorContains(t, exec(incident, "i2", "loud"), "CHECK")
+	var incidentBaseline int
+	var alertedAt *int64
+	require.NoError(t, db.Read.QueryRow(`SELECT baseline, alerted_at FROM incidents`).Scan(&incidentBaseline, &alertedAt))
+	assert.Zero(t, incidentBaseline)
+	assert.Nil(t, alertedAt)
+	assert.ErrorContains(t, exec(`UPDATE incidents SET baseline = 2`), "CHECK")
+	var triageState string
+	require.NoError(t, db.Read.QueryRow(`SELECT triage_state FROM incidents`).Scan(&triageState))
+	assert.Equal(t, "none", triageState)
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'maybe'`), "CHECK")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'queued'`), "CHECK", "a queued triage has its request")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_request_id = 'r1'`), "CHECK", "and only a queued one")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'done'`), "CHECK", "a done triage has its verdict")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'done', triage_verdict = 'shrug'`), "CHECK")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'failed'`), "CHECK", "a failed triage has its error")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_run_id = 'nope'`), "FOREIGN KEY")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_trigger = 'manual'`), "CHECK", "a triage never asked for has no trigger")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'failed', triage_error = 'x'`), "CHECK", "and one asked for has one")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'failed', triage_error = 'x', triage_trigger = 'whim'`), "CHECK")
+	require.NoError(t, exec(`INSERT INTO clusters (id, source, created_at, updated_at) VALUES ('c1', 'kubeconfig', 0, 0)`))
+	require.NoError(t, exec(`INSERT INTO agent_runs (id, agent_type, app_version, trigger, cluster_id, provider, model, dialect, created_at)
+		VALUES ('r1', 'monitor', 'test', 'monitor', 'c1', 'fake', 'fake', 'fake', 0)`))
+	require.NoError(t, exec(`UPDATE incidents SET triage_state = 'done', triage_verdict = 'dismiss', triage_run_id = 'r1', triage_trigger = 'automatic'`))
+	require.NoError(t, exec(`DELETE FROM agent_runs WHERE id = 'r1'`))
+	var runID *string
+	require.NoError(t, db.Read.QueryRow(`SELECT triage_run_id FROM incidents`).Scan(&runID))
+	assert.Nil(t, runID, "a run's delete leaves its triage")
+
+	const occurrence = `INSERT INTO incident_occurrences (id, incident_id, number, started_at, ended_at, end_reason) VALUES (?, 'i1', ?, 10, ?, ?)`
+	require.NoError(t, exec(occurrence, "o1", 1, 20, "resolved"))
+	require.NoError(t, exec(occurrence, "o2", 2, nil, nil))
+	assert.ErrorContains(t, exec(occurrence, "o3", 3, nil, nil), "UNIQUE", "one open occurrence")
+	assert.ErrorContains(t, exec(occurrence, "o4", 2, 30, "stale"), "UNIQUE", "a number is never reused")
+	assert.ErrorContains(t, exec(occurrence, "o5", 5, 30, nil), "CHECK", "an end has its reason")
+	assert.ErrorContains(t, exec(occurrence, "o6", 6, 5, "stopped"), "CHECK", "no end before the start")
+	assert.ErrorContains(t, exec(occurrence, "o7", 7, 30, "gone"), "CHECK")
+	assert.ErrorContains(t, exec(`UPDATE incident_occurrences SET baseline = 2`), "CHECK")
+
+	const start = `INSERT INTO monitor_triage_starts (target_id, started_at) VALUES (?, 0)`
+	require.NoError(t, exec(start, "t1"))
+	assert.ErrorContains(t, exec(start, "nope"), "FOREIGN KEY")
+
+	require.NoError(t, exec(`DELETE FROM monitor_targets WHERE id = 't1'`))
+	var left int
+	require.NoError(t, db.Read.QueryRow(`SELECT (SELECT count(*) FROM incidents) + (SELECT count(*) FROM incident_occurrences)
+		+ (SELECT count(*) FROM monitor_triage_starts)`).Scan(&left))
+	assert.Zero(t, left, "a target's delete takes its incidents, their occurrences and its triage starts")
 }
 
 // A data dir that cannot hold app.db fails the open — both when the parent path
@@ -423,7 +512,7 @@ func TestOpenRefusesANewerFile(t *testing.T) {
 // line in the PR that writes it. Once a desktop release carries a migration, every
 // installed app.db has run it, so its line never changes again.
 var shippedMigrations = map[string]string{
-	"0001_init.sql": "ae3f3cb49dac3e5125ce724a58c8caef5f7067616c6b584a880267b452af0917",
+	"0001_init.sql": "a8088d63acaf0e947af95c501b2b7edf528931ced283a07498763b7407f70ff4",
 }
 
 func TestAShippedMigrationIsNeverEdited(t *testing.T) {

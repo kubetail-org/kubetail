@@ -203,10 +203,6 @@ type Clusters interface {
 	SetEnabled(ctx context.Context, id ClusterID, enabled bool) (*Cluster, error)
 	// SetSyncEnabled toggles a cluster's sync and returns the updated record.
 	SetSyncEnabled(ctx context.Context, id ClusterID, enabled bool) (*Cluster, error)
-	// SetMonitoringEnabled toggles the background monitor's leave to run against the
-	// cluster and returns the updated record. The toggle is stored and served; nothing
-	// runs on it yet.
-	SetMonitoringEnabled(ctx context.Context, id ClusterID, enabled bool) (*Cluster, error)
 	// SetDefault makes a cluster the user's default, clearing the one before, or stops
 	// it being the default, and returns the updated record. A call that changes nothing
 	// writes nothing. Making a cluster the default is refused (ErrCannotBeDefault) unless
@@ -349,10 +345,12 @@ type CachedData interface {
 	ReadOwn(ctx context.Context, clusterID ClusterID, cacheID ClusterCacheID, read func(OwnQuery) error) (bool, error)
 	// ReadActive runs read over one reading of cluster id's active cache, whose rows
 	// must be trusted, its statements bounded by maxRows and maxBytes: ErrNoCache for
-	// a cluster with no cache, ErrSyncing for one whose rows are not. Every statement
+	// a cluster with no cache, ErrSyncing for one whose rows are not. A reading pinned
+	// to serverUID ("" for any) is ErrIdentityMismatch, checked before the rest, when
+	// the record names another server or its identity moves under the reading. Every statement
 	// read runs reads that one cache. read may run twice, as Clusters().ReadActive's
 	// does, so it sets what it returns and never appends to it.
-	ReadActive(ctx context.Context, id ClusterID, maxRows, maxBytes int, read func(CacheReading, ActiveCluster) error) error
+	ReadActive(ctx context.Context, id ClusterID, serverUID string, maxRows, maxBytes int, read func(CacheReading, ActiveCluster) error) error
 }
 
 // The family accessors are stateless views onto the one *service: the split is

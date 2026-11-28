@@ -174,8 +174,6 @@ func startSandboxRig(t *testing.T) sandboxRig {
 	require.NoError(t, err)
 	startPrepared(t, s)
 	home := grantable(t, s)
-	setMonitoring(t, s.db, "7", true)
-	setMonitoring(t, s.db, "8", true)
 	return sandboxRig{s: s, sb: sb, api: api, home: home}
 }
 
@@ -194,7 +192,7 @@ func defaultPath(context.Context) (settings.RunPath, error) {
 func (r sandboxRig) monitorRuns(t *testing.T, clusterID apimeta.ClusterID, calls ...llm.Block) []storedToolCall {
 	t.Helper()
 	fakeOf(r.s).SetToolCalls(calls...)
-	res, err := r.s.RunMonitor(t.Context(), clusterID, fakeTarget(r.s), "look")
+	res, err := r.s.RunMonitor(t.Context(), clusterID, "uid-1", fakeTarget(r.s), "look", admitted)
 	require.NoError(t, err)
 	rows := toolCallRows(t, r.s.db, res.RunID)
 	require.Len(t, rows, len(calls))

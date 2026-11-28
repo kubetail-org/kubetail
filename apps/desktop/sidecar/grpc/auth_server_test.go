@@ -141,7 +141,7 @@ func serveGRPC(t *testing.T, grpcSrv *grpc.Server) (*http.Server, *grpc.ClientCo
 // StartLogin the next message delivers the authenticated identity.
 func TestAuthStateWatchSnapshotThenDelta(t *testing.T) {
 	svc := newFakeAuthSvc(oauth.Identity{UserID: "u1", Email: "ada@example.com", Name: "Ada"})
-	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil)
+	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil, nil)
 	conn := newGRPCTestConn(t, grpcSrv)
 	t.Cleanup(grpcSrv.Stop)
 
@@ -173,7 +173,7 @@ func TestAuthStateWatchSnapshotThenDelta(t *testing.T) {
 // fake and that Logout causes the next watch to start signed-out.
 func TestStartLoginAndLogoutRPC(t *testing.T) {
 	svc := signedInFakeAuthSvc(oauth.Identity{Email: "ada@example.com"})
-	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil)
+	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil, nil)
 	conn := newGRPCTestConn(t, grpcSrv)
 	t.Cleanup(grpcSrv.Stop)
 
@@ -200,7 +200,7 @@ func TestStartLoginAndLogoutRPC(t *testing.T) {
 // unary RPCs return Unavailable — mirroring the GraphQL resolver's nil-Auth
 // degrade.
 func TestAuthRPCsNilServiceTolerant(t *testing.T) {
-	grpcSrv := grpcserver.NewServer(context.Background(), nil, nil)
+	grpcSrv := grpcserver.NewServer(context.Background(), nil, nil, nil)
 	conn := newGRPCTestConn(t, grpcSrv)
 	t.Cleanup(grpcSrv.Stop)
 
@@ -229,7 +229,7 @@ func TestAuthStateWatchEndsOnShutdown(t *testing.T) {
 	svc := newFakeAuthSvc(oauth.Identity{})
 	streams, endStreams := context.WithCancel(context.Background())
 	defer endStreams()
-	grpcSrv := grpcserver.NewServer(streams, svc, nil)
+	grpcSrv := grpcserver.NewServer(streams, svc, nil, nil)
 	conn := newGRPCTestConn(t, grpcSrv)
 
 	client := authpb.NewAuthServiceClient(conn)
@@ -255,7 +255,7 @@ func TestAuthStateWatchEndsOnShutdown(t *testing.T) {
 // io.EOF.
 func TestAuthStateWatchEndsWhenTheSubscriptionCloses(t *testing.T) {
 	svc := newFakeAuthSvc(oauth.Identity{})
-	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil)
+	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil, nil)
 	conn := newGRPCTestConn(t, grpcSrv)
 	t.Cleanup(grpcSrv.Stop)
 
@@ -274,7 +274,7 @@ func TestAuthStateWatchEndsWhenTheSubscriptionCloses(t *testing.T) {
 // marshal a string that is not UTF-8, so such an email fails the first send.
 func TestAuthStateWatchEndsOnAFailedSend(t *testing.T) {
 	svc := signedInFakeAuthSvc(oauth.Identity{Email: "\xff"})
-	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil)
+	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil, nil)
 	conn := newGRPCTestConn(t, grpcSrv)
 	t.Cleanup(grpcSrv.Stop)
 
@@ -294,7 +294,7 @@ func TestShutdownEndsWatchesAndFinishesCalls(t *testing.T) {
 	svc.logoutGate = make(chan struct{})
 	streams, endStreams := context.WithCancel(context.Background())
 	defer endStreams()
-	grpcSrv := grpcserver.NewServer(streams, svc, nil)
+	grpcSrv := grpcserver.NewServer(streams, svc, nil, nil)
 	t.Cleanup(grpcSrv.Stop)
 	srv, conn := serveGRPC(t, grpcSrv)
 	srv.RegisterOnShutdown(endStreams)
@@ -339,7 +339,7 @@ func TestAuthUnaryRPCsSurfaceServiceFailures(t *testing.T) {
 	svc := newFakeAuthSvc(oauth.Identity{})
 	svc.connectErr = errors.New("kubetail: the sign-in could not start: Refused")
 	svc.disconnectErr = errors.New("keyring locked")
-	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil)
+	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil, nil)
 	conn := newGRPCTestConn(t, grpcSrv)
 	t.Cleanup(grpcSrv.Stop)
 
@@ -360,7 +360,7 @@ func TestAuthUnaryRPCsSurfaceServiceFailures(t *testing.T) {
 // says nothing of a session.
 func TestAuthStateWatchCarriesRestoring(t *testing.T) {
 	svc := newFakeAuthSvcState(connectors.State{Phase: connectors.Restoring}, oauth.Identity{})
-	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil)
+	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil, nil)
 	conn := newGRPCTestConn(t, grpcSrv)
 	t.Cleanup(grpcSrv.Stop)
 
@@ -380,7 +380,7 @@ func TestAuthUnaryRPCsRefuseWhileRestoring(t *testing.T) {
 	svc := newFakeAuthSvc(oauth.Identity{})
 	svc.connectErr = connectors.ErrRestoring
 	svc.disconnectErr = connectors.ErrRestoring
-	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil)
+	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil, nil)
 	conn := newGRPCTestConn(t, grpcSrv)
 	t.Cleanup(grpcSrv.Stop)
 	client := authpb.NewAuthServiceClient(conn)

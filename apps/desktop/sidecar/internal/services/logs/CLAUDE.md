@@ -61,9 +61,12 @@ words. The sentinels a scope raises (`ErrNoCache`, `ErrSyncing`, `ErrTooMany`) l
 
 ## The kubelet reader (`kubelet`)
 
-- **A container's log is read over a `Claim`**: one raw `GET` of the `log` path through the
-  connection's `HTTPClient`. A cut body answers its reason, never a bare cancel. A tail's claim
-  also watches the record and revokes on disable or delete.
+- **A container's log is read over a `Claim`** for the server the resolve read: one raw `GET` of
+  the `log` path through the connection `ConnFor` hands out. `FetchRequest.ServerUID` names the one
+  server a page may read: a record naming another, before its cache is read, or a stream whose
+  connection reaches another, refuses the page, ahead of any cancel. A cut body answers its
+  reason, never a bare cancel. A tail's claim also watches the record and revokes on disable or
+  delete.
 - **A backend writes every line it reads.** The page's test of a line (`pageQuery.keep`: the grep
   inside the range, every line in the padding) only counts what fills a page and decides what a
   walk passes. Only the forward read and the first `tailLines` window read as kubetail's own

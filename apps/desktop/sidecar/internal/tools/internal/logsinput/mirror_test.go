@@ -29,7 +29,7 @@ import (
 func objectOf(t *testing.T, f *logsinputtest.Service, src Source) found {
 	t.Helper()
 	var got found
-	require.NoError(t, f.CachedData().ReadActive(t.Context(), "7", maxRows, maxBytes, func(q cluster.CacheReading, _ cluster.ActiveCluster) error {
+	require.NoError(t, f.CachedData().ReadActive(t.Context(), "7", "", maxRows, maxBytes, func(q cluster.CacheReading, _ cluster.ActiveCluster) error {
 		var err error
 		got, err = object(q, src)
 		return err

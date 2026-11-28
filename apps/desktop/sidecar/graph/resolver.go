@@ -24,6 +24,7 @@ import (
 	"github.com/amorey/gochan/watch"
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/apimeta"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/llm"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions"
@@ -96,6 +97,20 @@ type Resolver struct {
 	// OpenURL opens one of the sidecar's own addresses in the browser:
 	// browser.Open, or a test's fake. No caller hands it an address.
 	OpenURL func(url string) error
+	// Monitor is the monitor's reads and switch: *monitor.Monitor, or a test's fake.
+	Monitor MonitorService
+}
+
+// MonitorService is the monitor as the monitoring fields reach it.
+type MonitorService interface {
+	ListSignals() []monitor.MonitorSignal
+	SetEnabled(ctx context.Context, id monitor.MonitorTargetID, enabled bool) (monitor.MonitorTarget, error)
+	Triage(ctx context.Context, id monitor.IncidentID, model monitor.TriageModel, always bool) (monitor.Incident, error)
+	SetTriageModel(ctx context.Context, model *monitor.TriageModel) error
+	WatchTriageModelState(ctx context.Context) (*monitor.Stream[*monitor.TriageModel], error)
+	WatchTargetCollection(ctx context.Context) (*monitor.Stream[monitor.MonitorTargetCollectionWatchFrame], error)
+	WatchIncidentCollection(ctx context.Context) (*monitor.Stream[monitor.IncidentCollectionWatchFrame], error)
+	SubscribeIncidentOccurrenceEventFeed(ctx context.Context, id monitor.IncidentID) (*monitor.Stream[monitor.IncidentOccurrenceEventFeedFrame], error)
 }
 
 // ProviderCredentialStore is every provider's keys as the wire drives them. No

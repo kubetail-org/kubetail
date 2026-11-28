@@ -291,6 +291,182 @@ models:
       User:
         value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/memory.AuthorUser
 
+  # --- Monitoring ---
+  # The monitoring types bind 1:1 into internal/agent/monitor, whose records hold
+  # each nullable value as a zero value and JSON as the stored string, so they
+  # stay comparable: those fields are resolvers. integration and clusterID are
+  # resolved through kubesignals, which the core never imports.
+  MonitorTargetID:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.MonitorTargetID
+  IncidentID:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.IncidentID
+  IncidentOccurrenceID:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.IncidentOccurrenceID
+
+  MonitorTarget:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.MonitorTarget
+    fields:
+      integration:
+        resolver: true
+      clusterID:
+        resolver: true
+      currentUID:
+        resolver: true
+      unknownSignals:
+        resolver: true
+  MonitorTargetCollectionWatchFrame:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.MonitorTargetCollectionWatchFrame
+  MonitorSignal:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.MonitorSignal
+    fields:
+      integration:
+        resolver: true
+  Incident:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.Incident
+    fields:
+      subjectAttributes:
+        resolver: true
+      lastSeenAt:
+        resolver: true
+      lastEndReason:
+        resolver: true
+  IncidentTriage:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.IncidentTriage
+    fields:
+      verdict:
+        resolver: true
+      error:
+        resolver: true
+      report:
+        resolver: true
+      providerID:
+        resolver: true
+      modelID:
+        resolver: true
+      effort:
+        resolver: true
+  IncidentTriageState:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageState
+    enum_values:
+      None:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageStateNone
+      Queued:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageStateQueued
+      Done:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageStateDone
+      Failed:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageStateFailed
+  IncidentTriageVerdict:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageVerdict
+    enum_values:
+      Attention:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageVerdictAttention
+      Dismiss:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageVerdictDismiss
+  IncidentTriageError:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageErrorCode
+    enum_values:
+      MonitoringOff:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeMonitoringOff
+      ServerChanged:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeServerChanged
+      TargetGone:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeTargetGone
+      NoSandbox:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeNoSandbox
+      ModelUnavailable:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeModelUnavailable
+      RunFailed:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeRunFailed
+      Cancelled:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeCancelled
+      Interrupted:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeInterrupted
+      Unavailable:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeUnavailable
+      CapReached:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeCapReached
+      SettingChanged:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeSettingChanged
+  MonitoringTriageModel:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageModel
+    fields:
+      effort:
+        resolver: true
+  IncidentCollectionWatchFrame:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.IncidentCollectionWatchFrame
+  IncidentOccurrence:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.IncidentOccurrence
+    fields:
+      endedAt:
+        resolver: true
+      endReason:
+        resolver: true
+      detail:
+        resolver: true
+  IncidentOccurrenceEventFeedFrame:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.IncidentOccurrenceEventFeedFrame
+  IncidentOccurrenceEventFeedFrameType:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.IncidentOccurrenceEventFeedFrameType
+    enum_values:
+      Occurrence:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.IncidentOccurrenceEventFeedFrameOccurrence
+      Bookmark:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.IncidentOccurrenceEventFeedFrameBookmark
+
+  MonitorReadState:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.ReadState
+    enum_values:
+      NeverRead:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.ReadStateNeverRead
+      Ok:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.ReadStateOk
+      Partial:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.ReadStatePartial
+      Failed:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.ReadStateFailed
+  MonitorReadError:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.ReadErrorCode
+    enum_values:
+      NotReady:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.CodeNotReady
+      Disabled:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.CodeDisabled
+      Unavailable:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.CodeUnavailable
+      PermissionDenied:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.CodePermissionDenied
+      Unauthenticated:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.CodeUnauthenticated
+      RateLimited:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.CodeRateLimited
+      Unsupported:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.CodeUnsupported
+      Truncated:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.CodeTruncated
+      Timeout:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.CodeTimeout
+      Invalid:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.CodeInvalid
+  MonitorSeverity:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.Severity
+    enum_values:
+      Critical:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.SeverityCritical
+      Warning:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.SeverityWarning
+      Info:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.SeverityInfo
+  IncidentOccurrenceEndReason:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.EndReason
+    enum_values:
+      Resolved:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.EndResolved
+      Stopped:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.EndStopped
+      Stale:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.EndStale
+
   ToolAction:
     model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools.Action
 

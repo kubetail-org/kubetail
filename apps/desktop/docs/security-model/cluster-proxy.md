@@ -64,6 +64,9 @@ Editing a rule from Settings is reviewed in [the Permissions pane is reachable](
 | KUBE-56 | A list or watch of Secrets across every namespace spans them: a deny or ask rule for any namespace decides it, so a deny keeps the whole list redacted, and only an allow reaching every namespace allows it. | **Enforced** | — |
 | KUBE-54 | A subagent is never wider than its chat. | **Enforced** | — |
 | KUBE-55 | An action with no account asks each time. | **Enforced** | — |
+| KUBE-57 | A monitor run reads one server, the one its incident opened on. A card, a cache read or a connection that finds another is refused, and the run ends failed with no further model call, so no report mixes two servers. A run is refused before its insert once the cluster's card names another. | **Enforced** | A connection vouches for the server a probe last reached over it, as it does for a chat. |
+| KUBE-58 | A monitor run starts only from the user's press of *Triage with AI*, or from an occurrence's start while the user has set a model for automatic triage (KUBE-59). Its admit runs in the transaction that inserts it and refuses a target switched off, or switched since the triage was asked for; a refusal leaves no run and no link. | **Enforced** | The model can still act on what a fenced cluster value says; the read-only session (KUBE-37) bounds what it can do. |
+| KUBE-59 | An automatic triage runs only under the setting it was queued under: a write of the setting fails every one whose run has not started, and its admit refuses a request the incident no longer holds. At most 6 start per target per hour, counted in the admit's transaction from a table that outlives a restart; a refused one takes no slot. One that fails, cannot start or answers anything but `DISMISS` alerts its incident, so none is left with neither a report nor a notification. | **Enforced** | A model's `DISMISS` silences an incident's alert: a misled model hides it from the notifications, though not from the bell. |
 
 ## Evidence
 
@@ -302,7 +305,7 @@ Editing a rule from Settings is reviewed in [the Permissions pane is reachable](
 - **Records:** [the monitoring session](../security/2026-10-05-the-monitoring-session.md)
 - `TestTheMonitorSessionIsReadOnlyAndAsksNobody` — the session is read-only, reads no Secret data and asks nobody.
 - `TestAMonitorHasNoNetwork`, `TestAChatsFoldersNeverReachTheMonitor` — no network and no folder grant, through the real sandbox and proxy.
-- Note: nothing calls `RunMonitor` yet but its tests.
+- Note: an incident's triage is the one caller of `RunMonitor` (KUBE-58).
 
 ### KUBE-38
 
@@ -328,8 +331,9 @@ Editing a rule from Settings is reviewed in [the Permissions pane is reachable](
 ### KUBE-41
 
 - **Where:** `sidecar/internal/agent/chat/monitor.go`
-- **Records:** [the monitoring session](../security/2026-10-05-the-monitoring-session.md)
+- **Records:** [the monitoring session](../security/2026-10-05-the-monitoring-session.md), [monitoring on by default](../security/2026-11-27-monitoring-on-by-default.md)
 - `TestRunMonitorRefuses` — what a monitor run refuses.
+- `TestRunMonitorAdmitsInsideTheInsert` — the caller's switch is checked inside the run's insert.
 
 ### KUBE-42
 
@@ -420,3 +424,34 @@ Editing a rule from Settings is reviewed in [the Permissions pane is reachable](
 - **Records:** [Target-neutral permissions](../security/2026-11-25-target-neutral-permissions.md)
 - `TestARuleForAScopeBelowDecidesASpanningAction`, `TestAPatternBelowAPath`, `TestAPatternAtAndBelowAPath` — a deny or ask below a spanning action decides it, an allow of the cluster alone does not allow it, and an answer to it grants every namespace.
 - `TestADenyForOneNamespaceRedactsAClusterWideList` — end to end, under `auto`.
+
+### KUBE-57
+
+- **Where:** `sidecar/internal/agent/chat/monitor.go`, `sidecar/internal/services/cluster/clustercard/card.go`, `sidecar/internal/tools/kubequery/cluster.go`, `sidecar/internal/tools/internal/logsinput/resolve.go`, `sidecar/internal/services/logs/fetch.go`, `sidecar/internal/tools/bash/upstream.go`
+- **Records:** [incident triage](../security/2026-11-28-incident-triage.md)
+- `TestRunMonitorRefuses` — a card of another server refuses the run before its insert.
+- `TestAReadRefusedForItsServerEndsTheRun` — a tool's refusal ends the run failed, with no further model call.
+- `TestCardAtAServerIsRefusedForAnother`, `TestACacheOfAnotherServerIsRefusedAndEndsTheRun`, `TestAViewOfAnotherServerIsRefused`, `TestAReadOfAnotherServerIsRefusedAndEndsTheRun` — the card, `KubeQuery` and `LogsRead` refuse another server's cache.
+- `TestAFetchForOneServerReadsNoOther` — the log service refuses another server's cache and connection.
+- `TestATargetForAnotherServerIsRefused`, `TestAConnectionToAnotherServerTellsTheRun` — a command's claim and its connections.
+- `TestATriageReadsNoOtherServer` — a triage asks for the incident's server.
+
+### KUBE-58
+
+- **Where:** `sidecar/internal/agent/monitor/triage.go`, `sidecar/internal/agent/monitor/store.go`, `sidecar/internal/agent/chat/monitor.go`
+- **Records:** [incident triage](../security/2026-11-28-incident-triage.md)
+- `TestNoTriageStartsUnaskedWhileAutomaticTriageIsOff` — with automatic triage off, an incident that opens starts no triage.
+- `TestATriageIsAdmittedInsideTheInsert`, `TestATriageQueuedBeforeASwitchIsNotRevived` — a switch off, or off and on, while queued takes no run.
+- `TestRunMonitorAdmitsInsideTheInsert` — the admit runs after the insert, in its transaction, and a refusal rolls both back.
+- `TestAWorkerThatOutlivedItsRequestWritesNothing` — a worker whose request was replaced is refused and records nothing.
+
+### KUBE-59
+
+- **Where:** `sidecar/internal/agent/monitor/alert.go`, `sidecar/internal/agent/monitor/setting.go`, `sidecar/internal/agent/monitor/store.go`, `sidecar/internal/services/settings/monitoring.go`
+- **Records:** [automatic triage](../security/2026-11-28-automatic-triage.md)
+- `TestAnAutomaticTriageRunsOnlyUnderItsSetting`, `TestASettingWriteCancelsTheQueuedAutomaticTriages` — a write of the setting fails each queued automatic triage not yet started, and alerts its incident.
+- `TestACancelledTriageStartsNoRun` — a worker whose request was cancelled starts no run.
+- `TestTheSeventhAutomaticTriageOfAnHourTakesNoRun` — the cap, its count across a restart, and the user's own triage uncapped.
+- `TestAnOccurrenceAlertsOrQueuesByTheRule`, `TestATriagesOutcomeAlertsByTheRule` — the alert rule.
+- `TestAnAutomaticTriageThatCannotStartAlerts`, `TestAnAutomaticTriageCutOffByTheStopAlertsAtTheNextStart`, `TestAStrandedTriageIsFailedAtStart` — no automatic triage ends unalerted but a dismiss.
+- `TestAMonitoringTriageModelKubetailCannotUseIsUnset` — a stored value Kubetail cannot use is off.

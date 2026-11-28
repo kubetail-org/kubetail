@@ -556,19 +556,41 @@ Pending work across the three parts of the app. Grouped by area; detailed items 
     update both `CLAUDE.md`s and the security records' code references. Leave the
     ADRs. No table or wire name changes.
 
-- **Build the monitoring agent over `chat.RunMonitor`.** The run, its session, its record, its
-  folder and its teardown exist; nothing calls them but their tests.
-  - **Schedule and brief.** When a run starts, what it is told, what it keeps between runs (the
-    last run's `task` and `result` are there to read), and how its model is picked.
-  - **Settings.** The per-cluster switch (`clusters.monitoring_enabled`,
-    `clusterMonitoringEnabledSet`), drawn only once something runs behind it, and the note's
-    separate switch for sharing folder grants with the monitor.
-  - **Proposals.** A card for what the monitor proposes, with two fixes from 6B's review. The
-    unstarted chat's draft is keyed `new:<mode>`, not per cluster, and outlives a cluster switch,
-    so a proposal joined onto it must carry its cluster and Send must hold while the window is on
-    another. A proposal is text the monitor wrote from cluster data: drawn through `VisibleText`,
-    and a question only as the user's own draft, never sent on a press.
-  - **Findings.** A view of what the runs found, its reports drawn as text.
+- **Detect `OOMKilled`.** It is an event, not a state: a container killed once keeps
+  `lastState.terminated.reason` for good, and the cache holds no time for it, so it cannot be
+  reported as *seen in the last N minutes*. A container killed repeatedly reaches
+  `CrashLoopBackOff`, which is detected. Needs a time for the kill, from the container's
+  `lastState.terminated.finishedAt` or an Event.
+
+- **Read monitor signals from logs and Events.** Every Kubernetes signal is a state of the cache.
+  An error spike in a workload's logs, or a Warning Event, is a failure the cache does not show.
+
+- **Monitor another integration** (an AWS account, a GCP project, an Azure subscription, a
+  Cloudflare account, a host). It is a package behind `monitor.Integration`, its registration in
+  `runtime.go`, a value of `MonitorIntegration` and its signals. It decides then: targets the user
+  adds, with a config and a test; which connector it reads with, and what a target shows when it
+  is signed out; signals the vendor already judged, with their own start and end times and
+  severity; a read-only triage session behind its `Triager`; and a target per part for a target of
+  several parts, such as an account's regions.
+  → [ADR](adr/2026-11-28-the-monitor-core-knows-no-integration.md)
+
+- **Show what triage costs**, for one triage and for a day's. Each run's model calls are in
+  `llm_calls` with their cost.
+
+- **Mute a subject, and acknowledge an incident.** Both need a state the user writes beside the
+  monitor's, and a rule for what alerts under it.
+
+- **Turn a triage's next steps into a chat draft.** The unstarted chat's draft is keyed
+  `new:<mode>`, not per cluster, and outlives a cluster switch, so a draft from an incident must
+  carry its cluster and Send must hold while the window is on another. The steps are text a model
+  wrote from cluster data: drawn through `VisibleText`, and a question only as the user's own
+  draft, never sent on a press.
+
+- **Share folder grants with the monitor.** A monitor run has no folder grant. A switch of its own,
+  apart from the target's, would let a triage read the folders the user granted.
+
+- **Group incidents by cause.** Incidents with different subjects that share a cause (the pods of
+  one node that went down) are listed apart.
 
 - **Rethink how settings sync (design first).** Settings live in two places today, and neither
   syncs: `host.json` (the host's, such as the color scheme) and `app.db`'s rows (the sidecar's).

@@ -151,6 +151,10 @@ func (s *Set[ID]) InReadTx(ctx context.Context, fn func(Stmts[ID]) error) error 
 	return fn(s.tx(tx, s.read))
 }
 
+// On issues on tx, a write transaction another Set over the same pools began, so
+// a caller handed one runs its own table's statements inside it.
+func (s *Set[ID]) On(tx *sql.Tx) Stmts[ID] { return s.tx(tx, s.write) }
+
 // tx issues inside tx, rebinding from prepared: the copies on the pool tx is on.
 func (s *Set[ID]) tx(tx *sql.Tx, prepared []*sql.Stmt) Stmts[ID] {
 	return Stmts[ID]{set: s, tx: tx, prepared: prepared, bound: make(map[ID]*sql.Stmt)}
@@ -195,6 +199,10 @@ func (s Stmts[ID]) stmt(ctx context.Context, id ID) *sql.Stmt {
 	s.bound[id] = bound
 	return bound
 }
+
+// Tx is the transaction the statements issue on, nil on the pools: a caller
+// handed it runs a statement of its own inside the transaction.
+func (s Stmts[ID]) Tx() *sql.Tx { return s.tx }
 
 func (s Stmts[ID]) Exec(ctx context.Context, id ID, args ...any) (sql.Result, error) {
 	return s.stmt(ctx, id).ExecContext(ctx, args...)

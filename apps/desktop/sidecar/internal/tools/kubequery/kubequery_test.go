@@ -392,3 +392,43 @@ func TestActionOfReadsOldRowsTheSame(t *testing.T) {
 		assert.Equal(t, want, got, raw)
 	}
 }
+
+// A run that reads one server is refused a cache of another, before any statement
+// runs, and told so: a monitor run's cluster whose context moved ends there.
+func TestACacheOfAnotherServerIsRefusedAndEndsTheRun(t *testing.T) {
+	f := watching([]string{"name"}, []any{"api-0"})
+	uid := "uid-2"
+	f.active.Cluster.Status.Server.UID = &uid
+	moved := 0
+	rt := tools.Runtime{ClusterID: "7", ServerUID: "uid-1", OnServerMoved: func() { moved++ }}
+
+	text, isError := New(f).Run(t.Context(), rt, json.RawMessage(`{"sql":"SELECT name FROM objects"}`))
+
+	assert.True(t, isError)
+	assert.JSONEq(t, `{"error":"server-changed"}`, text)
+	assert.Equal(t, 1, moved)
+	assert.Empty(t, f.queried)
+
+	rt.ServerUID = uid
+	_, isError = New(f).Run(t.Context(), rt, json.RawMessage(`{"sql":"SELECT name FROM objects"}`))
+	assert.False(t, isError, "the server the run reads")
+	assert.Equal(t, 1, moved)
+}
+
+// An identity that moves under a run's reading ends the run: it may no longer be of
+// the server the run reads. A chat's reading has no cache to read.
+func TestAnIdentityMovedUnderARunsReadingEndsTheRun(t *testing.T) {
+	f := watching([]string{"name"}, []any{"api-0"})
+	f.readErr = cluster.ErrIdentityMoved
+	moved := 0
+	rt := tools.Runtime{ClusterID: "7", ServerUID: "uid-1", OnServerMoved: func() { moved++ }}
+
+	text, isError := New(f).Run(t.Context(), rt, json.RawMessage(`{"sql":"SELECT name FROM objects"}`))
+	assert.True(t, isError)
+	assert.JSONEq(t, `{"error":"server-changed"}`, text)
+	assert.Equal(t, 1, moved)
+
+	rt.ServerUID = ""
+	_, _ = New(f).Run(t.Context(), rt, json.RawMessage(`{"sql":"SELECT name FROM objects"}`))
+	assert.Equal(t, 1, moved, "a chat's reading")
+}

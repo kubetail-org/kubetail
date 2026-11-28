@@ -1,0 +1,65 @@
+// Copyright 2024 The Kubetail Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Shared proto contract for host(Rust) <-> sidecar(Go) gRPC monitoring alerts.
+//
+// This file is the single source of truth for the MonitorService wire format,
+// consumed by both the Go sidecar (via protoc, see sidecar/grpc/monitorpb) and
+// the Rust host (via tonic-build, see src-tauri/build.rs).
+syntax = "proto3";
+
+package monitor;
+
+option go_package = "github.com/kubetail-org/kubetail/apps/desktop/sidecar/grpc/monitorpb";
+
+// MonitorService carries what the monitor raises to the native host, which shows
+// it as an OS notification with no window open. The webview reads the monitor
+// over GraphQL.
+service MonitorService {
+  // SubscribeAlertEventFeed sends the retained alerts in the order they
+  // committed, then one Bookmark, then each alert as it is raised, so alert_seq
+  // only grows on a stream. The feed retains the newest 100.
+  rpc SubscribeAlertEventFeed(SubscribeAlertEventFeedRequest) returns (stream AlertEventFeedFrame);
+}
+
+message SubscribeAlertEventFeedRequest {}
+
+message AlertEventFeedFrame {
+  enum Type {
+    TYPE_UNSPECIFIED = 0;
+    // Carries an alert, sent once on a stream.
+    ALERT = 1;
+    // Closes the snapshot, once, carrying none.
+    BOOKMARK = 2;
+  }
+  Type type = 1;
+  Alert alert = 2; // set on ALERT alone
+}
+
+// Alert is an incident that raised its alert. Each label is as the sidecar holds
+// it: text a target returned or an integration wrote, to show as text.
+message Alert {
+  string incident_id = 1;
+  string target_id = 2;
+  string integration = 3;
+  string target_label = 4;
+  optional string cluster_id = 5; // the cluster a Kubernetes target reads
+  string subject_label = 6;
+  string signal_label = 7;
+  string severity = 8;
+  int64 alerted_at_unix_ms = 9; // by the sidecar's wall clock
+  // Its place in the order the alerts committed, from 1, never reused. A
+  // greater one committed later, whatever the clocks said.
+  int64 alert_seq = 10;
+}

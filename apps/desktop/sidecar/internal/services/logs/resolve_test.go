@@ -34,7 +34,7 @@ import (
 // resolveOf is what view resolves to over f.
 func resolveOf(t *testing.T, f *fakeService, view Scope) (target, error) {
 	t.Helper()
-	return resolve(t.Context(), f, "7", view, false)
+	return resolve(t.Context(), f, "7", "", view, false)
 }
 
 // A deployment's pods come off the mirror through its replica set, one stream per
@@ -183,7 +183,7 @@ func TestCountPodsCountsTheViewsPods(t *testing.T) {
 	count := func(src ScopeSource) PodCount {
 		t.Helper()
 		var c PodCount
-		require.NoError(t, f.CachedData().ReadActive(t.Context(), "7", maxRows, maxBytes, func(q cluster.CacheReading, _ cluster.ActiveCluster) error {
+		require.NoError(t, f.CachedData().ReadActive(t.Context(), "7", "", maxRows, maxBytes, func(q cluster.CacheReading, _ cluster.ActiveCluster) error {
 			var err error
 			c, err = CountPods(q, src)
 			return err
@@ -243,7 +243,7 @@ func TestALabelFilterWithNoNodesIsRefused(t *testing.T) {
 	const refused = "Kubetail cannot read this cluster's nodes, so it cannot filter by zone or arch"
 
 	for _, follow := range []bool{false, true} {
-		got, err := resolve(t.Context(), f, "7", view, follow)
+		got, err := resolve(t.Context(), f, "7", "", view, follow)
 		require.NoError(t, err, "a page and a tail look in the file before they refuse")
 		assert.EqualError(t, got.noNodes, refused)
 		assert.Equal(t, []string{"dep-web"}, got.sourceUIDs, "the file is asked for the workload's gone pods")
@@ -518,7 +518,7 @@ func TestAFailedReadIsTheFailure(t *testing.T) {
 			t.Parallel()
 			f := webMirror(t)
 			c.set(f)
-			_, err := resolve(t.Context(), f, "7", c.view, c.follow)
+			_, err := resolve(t.Context(), f, "7", "", c.view, c.follow)
 			assert.EqualError(t, err, "db closed")
 		})
 	}
@@ -529,7 +529,7 @@ func TestCountPodsFailsWithItsRead(t *testing.T) {
 	t.Parallel()
 	f := webMirror(t)
 	count := func(src ScopeSource) error {
-		return f.CachedData().ReadActive(t.Context(), "7", maxRows, maxBytes, func(q cluster.CacheReading, _ cluster.ActiveCluster) error {
+		return f.CachedData().ReadActive(t.Context(), "7", "", maxRows, maxBytes, func(q cluster.CacheReading, _ cluster.ActiveCluster) error {
 			_, err := CountPods(q, src)
 			return err
 		})
@@ -618,7 +618,7 @@ func TestAResolveReadsEachPodsBodyOnceAStatement(t *testing.T) {
 
 	for _, view := range []Scope{podSource("big", false), all} {
 		before := f.store.BodyCalls()
-		got, err := resolve(t.Context(), f, "7", view, true)
+		got, err := resolve(t.Context(), f, "7", "", view, true)
 		require.NoError(t, err)
 		require.NotEmpty(t, got.streams)
 		assert.LessOrEqual(t, f.store.BodyCalls()-before, int64(3))
@@ -651,7 +651,7 @@ func TestAResolveFailsWithEachOfItsReads(t *testing.T) {
 			f := webMirror(t)
 			f.queryErr, f.queryErrOn = errors.New("db closed"), on
 			view := Scope{Sources: []ScopeSource{webScope.Sources[0], {Namespace: "prod", Kind: SourcePod, Name: "nope"}}}
-			_, err := resolve(t.Context(), f, "7", view, true)
+			_, err := resolve(t.Context(), f, "7", "", view, true)
 			assert.EqualError(t, err, "db closed")
 		})
 	}
@@ -700,7 +700,7 @@ func TestEveryRefusalCarriesItsCode(t *testing.T) {
 func BenchmarkResolve(b *testing.B) {
 	f := webMirror(b)
 	for b.Loop() {
-		if _, err := resolve(b.Context(), f, "7", webScope, false); err != nil {
+		if _, err := resolve(b.Context(), f, "7", "", webScope, false); err != nil {
 			b.Fatal(err)
 		}
 	}

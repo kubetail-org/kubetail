@@ -125,10 +125,9 @@ type ClusterPrincipal struct {
 // projected off the SQL row. Nothing here is observed, and nothing here is stored in
 // beehive — the runtime spec below carries only what the passes act on.
 type ClusterSpec struct {
-	Name              *string
-	Enabled           bool
-	SyncEnabled       bool
-	MonitoringEnabled bool
+	Name        *string
+	Enabled     bool
+	SyncEnabled bool
 	// IsDefault marks the user's default cluster, which a new window opens on. At most
 	// one record is the default.
 	IsDefault bool
@@ -169,11 +168,10 @@ func kubeconfigContextOf(spec ClusterRuntimeSpec) string {
 // specOf projects the row's user-owned fields into the served spec.
 func specOf(row ClusterRow) ClusterSpec {
 	spec := ClusterSpec{
-		Name:              row.Name,
-		Enabled:           row.Enabled,
-		SyncEnabled:       row.SyncEnabled,
-		MonitoringEnabled: row.MonitoringEnabled,
-		IsDefault:         row.IsDefault,
+		Name:        row.Name,
+		Enabled:     row.Enabled,
+		SyncEnabled: row.SyncEnabled,
+		IsDefault:   row.IsDefault,
 	}
 	if row.Source == SourceKubeconfig && row.SourceKey != nil {
 		spec.Source.Kubeconfig = &ClusterSpecSourceKubeconfig{Context: *row.SourceKey}
@@ -219,6 +217,16 @@ func ClusterActiveUID(obj *beehive.Object[ClusterRuntimeSpec, ClusterStatus]) st
 func CacheIsActive(clusterObj *beehive.Object[ClusterRuntimeSpec, ClusterStatus], cacheUID string) bool {
 	active := ClusterActiveUID(clusterObj)
 	return active != "" && cacheUID == active
+}
+
+// ReadsServer is whether c's last probe reached the server serverUID names. Any
+// server for "", the one a chat reads; none for a record never identified.
+func (c *Cluster) ReadsServer(serverUID string) bool {
+	if serverUID == "" {
+		return true
+	}
+	uid := c.Status.Server.UID
+	return uid != nil && *uid == serverUID
 }
 
 // Cluster is the record for one tracked cluster connection (one kube-context): its
@@ -300,6 +308,20 @@ func (s *service) runtimeObject(ctx context.Context, id ClusterID) (*beehive.Obj
 type ActiveCluster struct {
 	Cluster *Cluster
 	Cache   *ClusterCache
+}
+
+// ReadsServer is whether the reading is of the server serverUID names, as its
+// record's ReadsServer says: the active cache mirrors the record's server.
+func (a ActiveCluster) ReadsServer(serverUID string) bool { return a.Cluster.ReadsServer(serverUID) }
+
+// PinnedReadErr is err, ReadActive's answer, as a reading pinned to serverUID ("" for
+// none) takes it: an identity that moved under the reading is ErrIdentityMismatch,
+// since the record no longer names serverUID's server.
+func PinnedReadErr(serverUID string, err error) error {
+	if serverUID != "" && errors.Is(err, ErrIdentityMoved) {
+		return ErrIdentityMismatch
+	}
+	return err
 }
 
 func (a clustersAPI) ReadActive(ctx context.Context, id ClusterID, read func(context.Context, ActiveCluster) error) error {
@@ -595,10 +617,6 @@ func (a clustersAPI) SetEnabled(ctx context.Context, id ClusterID, enabled bool)
 
 func (a clustersAPI) SetSyncEnabled(ctx context.Context, id ClusterID, enabled bool) (*Cluster, error) {
 	return a.setToggle(ctx, stmtSetClusterSyncEnabled, id, enabled)
-}
-
-func (a clustersAPI) SetMonitoringEnabled(ctx context.Context, id ClusterID, enabled bool) (*Cluster, error) {
-	return a.setToggle(ctx, stmtSetClusterMonitoringEnabled, id, enabled)
 }
 
 func (a clustersAPI) SetDefault(ctx context.Context, id ClusterID, isDefault bool) (*Cluster, error) {

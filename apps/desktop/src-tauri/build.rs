@@ -34,6 +34,8 @@ const COMMANDS: &[&str] = &[
     "log_window_viewport",
     "log_window_title",
     "log_window_show_chat",
+    "notification_permission_state_watch",
+    "notification_press_take",
 ];
 
 fn main() {
@@ -48,12 +50,17 @@ fn main() {
     // sidecar (`services/sidecar/testutil.rs`).
     tonic_prost_build::configure()
         .compile_protos(
-            &["../proto/auth.proto", "../proto/poke.proto"],
+            &[
+                "../proto/auth.proto",
+                "../proto/poke.proto",
+                "../proto/monitor.proto",
+            ],
             &["../proto"],
         )
         .expect("compile proto");
     println!("cargo:rerun-if-changed=../proto/auth.proto");
     println!("cargo:rerun-if-changed=../proto/poke.proto");
+    println!("cargo:rerun-if-changed=../proto/monitor.proto");
 
     let mut attributes = tauri_build::Attributes::new()
         .app_manifest(tauri_build::AppManifest::new().commands(COMMANDS));

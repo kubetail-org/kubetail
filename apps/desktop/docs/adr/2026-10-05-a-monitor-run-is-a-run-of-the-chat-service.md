@@ -3,6 +3,7 @@ title: A monitor run is a run of the chat service
 date: 2026-10-05
 scope: sidecar
 status: Accepted
+amended_by: 2026-11-28-detect-failures-without-a-model-and-triage-on-request.md
 ---
 
 # A monitor run is a run of the chat service

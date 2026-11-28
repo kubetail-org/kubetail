@@ -34,7 +34,6 @@ type ClusterRow struct {
 	Name              *string
 	Enabled           bool
 	SyncEnabled       bool
-	MonitoringEnabled bool
 	IsDefault         bool
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
@@ -59,7 +58,7 @@ func scanClusterRow(s scanner) (ClusterRow, error) {
 		createdAt, updatedAt int64
 		deleteRequestedAt    sql.NullInt64
 	)
-	err := s.Scan(&r.ID, &r.Source, &r.SourceKey, &r.Name, &r.Enabled, &r.SyncEnabled, &r.MonitoringEnabled,
+	err := s.Scan(&r.ID, &r.Source, &r.SourceKey, &r.Name, &r.Enabled, &r.SyncEnabled,
 		&r.IsDefault, &createdAt, &updatedAt, &deleteRequestedAt)
 	if err != nil {
 		return ClusterRow{}, err

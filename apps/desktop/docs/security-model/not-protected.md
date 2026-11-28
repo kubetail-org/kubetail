@@ -58,6 +58,9 @@ Every row of the model that no test enforces, and every residual an enforced row
 - [KUBE-25](cluster-proxy.md#kube-25), residual. Its body reaches the cluster's admission webhooks.
 - [KUBE-51](cluster-proxy.md#kube-51), By decision. Cluster reads leave the machine on the model's word. Everything the user's credentials can read, less Secret values the user has not allowed showing, can reach the provider with no per-call approval.
 - [KUBE-52](cluster-proxy.md#kube-52), By decision. A helm release passes redacted inside. Its chart, default values, rendered notes and other objects' manifests pass, and so does a Secret typed `helm.sh/release.v1` by hand, all but its `config` and its manifests' Secrets, unless the user allowed showing them. A release write runs once its command read no Secret data redacted in its namespace. Residual: An audit of what else carries secrets is in TODO.
+- [KUBE-57](cluster-proxy.md#kube-57), residual. A connection vouches for the server a probe last reached over it, as it does for a chat.
+- [KUBE-58](cluster-proxy.md#kube-58), residual. The model can still act on what a fenced cluster value says; the read-only session (KUBE-37) bounds what it can do.
+- [KUBE-59](cluster-proxy.md#kube-59), residual. A model's `DISMISS` silences an incident's alert: a misled model hides it from the notifications, though not from the bell.
 
 ## Commands and the approval request
 
@@ -230,6 +233,18 @@ Every row of the model that no test enforces, and every residual an enforced row
 - [MODEL-54](model-providers.md#model-54), By decision. A Cancel leaves a background agent running. Residual: The model can speak again after a Cancel, when an agent the send launched ends after it.
 - [MODEL-55](model-providers.md#model-55), By decision. A subagent's `TaskStop` reaches only its own tasks.
 
+## Monitoring
+
+- [MON-5](monitoring.md#mon-5), residual. The cap is per target, so many targets can each spend 6 an hour.
+- [MON-8](monitoring.md#mon-8), residual. A connection vouches for the server a probe last reached over it, as for a chat.
+- [MON-9](monitoring.md#mon-9), residual. The fence keeps the structure alone: a model can still act on what a value says, inside the read-only session.
+- [MON-15](monitoring.md#mon-15), Held by review. No model output reaches an OS notification.
+- [MON-16](monitoring.md#mon-16), Built. macOS asks for notification permission once, and shows and reports a press through its notification center. Residual: Checked by hand in a signed build: the center serves no unsigned app.
+- [MON-17](monitoring.md#mon-17), By decision. Every cluster's target is monitored by default.
+- [MON-18](monitoring.md#mon-18), By decision. A label within its bounds is shown as the cluster wrote it. Residual: A cluster can name a workload so its notification reads as another's.
+- [MON-19](monitoring.md#mon-19), By decision. The OS keeps the notifications it showed in its history. Residual: They outlive the incident's 30-day retention.
+- [MON-20](monitoring.md#mon-20), By decision. An automatic triage that answers `DISMISS` raises no notification. Residual: A model misled by a cluster's text can silence a real incident's notification; the incident stays listed with its report.
+
 ## The sandbox: files and the fence
 
 - [SBX-1](sandbox-files.md#sbx-1), By decision. A command the sandbox confines runs without asking, in the foreground or the background, on macOS and Linux.
@@ -314,3 +329,4 @@ Every row of the model that no test enforces, and every residual an enforced row
 - [WEB-7](webview.md#web-7), residual. The sidecar draws no verdict, so the frontend tests are the fence.
 - [WEB-14](webview.md#web-14), By decision. No GraphQL field is served ahead of a consumer. Residual: A mutation with no caller is what review is for.
 - [WEB-15](webview.md#web-15), By decision, not built. The host forwards only operations the app ships. Residual: CSP reduces injection risk but does not restrict the authority of permitted bundled code.
+- [WEB-16](webview.md#web-16), residual. A label within its bounds shows as the cluster wrote it; macOS's center is checked by hand in a signed build.

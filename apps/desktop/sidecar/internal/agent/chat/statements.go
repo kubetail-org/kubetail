@@ -76,7 +76,7 @@ const (
 
 	stmtSelectClusterAccepts
 	stmtSelectMarkedClusterIDs
-	stmtSelectClusterMonitoring
+	stmtSelectClusterLive
 	stmtSelectLiveClusterIDs
 
 	stmtSelectToolSettings
@@ -322,7 +322,7 @@ var statements = []sqlstmt.Statement{
 	stmtSelectMarkedClusterIDs: sqlstmt.OnReader(`SELECT id FROM clusters WHERE delete_requested_at IS NOT NULL ORDER BY id`),
 	// A monitor's run checks its cluster inside the transaction that inserts it,
 	// as a send does.
-	stmtSelectClusterMonitoring: sqlstmt.OnBoth(`SELECT monitoring_enabled FROM clusters WHERE id = ? AND delete_requested_at IS NULL`),
+	stmtSelectClusterLive: sqlstmt.OnBoth(`SELECT 1 FROM clusters WHERE id = ? AND delete_requested_at IS NULL`),
 	// The clusters a monitor may be kept under: the sweeper ends every other.
 	stmtSelectLiveClusterIDs: sqlstmt.OnReader(`SELECT id FROM clusters WHERE delete_requested_at IS NULL`),
 

@@ -615,6 +615,20 @@ func TestTheMemoryServiceOutlivesTheChatService(t *testing.T) {
 	assert.Less(t, partIndex(t, a, "memory service"), partIndex(t, a, "chat service"))
 }
 
+// The monitor is built after the chat service, over the cluster service, so it
+// stops before either; it starts and stops with the app.
+func TestTheMonitorIsBuiltAfterTheChatService(t *testing.T) {
+	a, err := New(t.Context(), withDirs(t, Config{}))
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, a.Close()) })
+
+	assert.Less(t, partIndex(t, a, "cluster service"), partIndex(t, a, "monitor"))
+	assert.Less(t, partIndex(t, a, "chat service"), partIndex(t, a, "monitor"))
+	stop, err := a.Start(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, stop(t.Context()))
+}
+
 // The UIDs memory stamps are the cluster service's last probe; a cluster it
 // does not know, or has never probed, has none.
 func TestServerUIDLookupReadsTheClusterService(t *testing.T) {

@@ -31,7 +31,7 @@ The chat panes, composer, transcript and list. Also owns `src/lib/`'s `chats.tsx
 
 ## The composer
 
-- **`ModelPicker`**: a tab only browses; a model picked there moves the effort to its default.
+- **`ModelPicker`** (`primitives/model-picker.tsx`, shared with the incident triage): a tab only browses; a model picked there moves the effort to its default.
 - **The pick.** A stored pick the catalog lacks is written back to the seed by an effect, and `canSend` reads the entry's actual pick, never a render-time fallback. **A pick or last answer whose provider lists nothing stays** (ChatGPT, disconnected), drawn *unavailable*, with Send shut.
 - **Send is disabled** while the watch it waits on is `connecting`, while the send is unsettled, while a new chat has no cluster, while a switch is in flight, and while the last message is `Streaming`. The last is in the guard as well as behind the button, since Enter takes the same path. IME composition is respected (`nativeEvent.isComposing`).
 - **Placeholders that blame the user wait for their watch to answer.** An empty catalog's reads *Connect ChatGPT, or set an API key and restart Kubetail*, since the sidecar reads keys once per launch.

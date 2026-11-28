@@ -95,6 +95,43 @@ describe('useDialog', () => {
     expect(result.current.clusterDetail).toBeNull();
   });
 
+  it('carries the incident the Incidents dialog was opened on, until an open that names none', () => {
+    const { result } = renderDialog();
+    expect(result.current.incidentID).toBeNull();
+
+    act(() => result.current.openDialog('incidents', 'i1'));
+    expect(result.current.incidentID).toBe('i1');
+
+    act(() => result.current.openDialog('incidents'));
+    expect(result.current.incidentID).toBeNull();
+  });
+
+  it('counts every open, the same dialog on the same detail included', () => {
+    const { result } = renderDialog();
+    expect(result.current.openSeq).toBe(0);
+    act(() => result.current.openDialog('incidents', 'i1'));
+    act(() => result.current.openDialog('incidents', 'i1'));
+    expect(result.current.openSeq).toBe(2);
+  });
+
+  it('carries the Settings tab to open on, and clears what another dialog was opened on', () => {
+    const { result } = renderDialog();
+    act(() => result.current.openDialog('clusters', { clusterId: 'c1', pane: 'sync' }));
+    act(() => result.current.openDialog('settings', 'Monitoring'));
+    expect(result.current.settingsTab).toBe('Monitoring');
+    expect(result.current.clusterDetail).toBeNull();
+    expect(result.current.incidentID).toBeNull();
+  });
+
+  it('keeps openDialog and closeDialog the same across opens and closes', () => {
+    const { result } = renderDialog();
+    const { openDialog, closeDialog } = result.current;
+    act(() => result.current.openDialog('incidents', 'i1'));
+    act(() => result.current.closeDialog());
+    expect(result.current.openDialog).toBe(openDialog);
+    expect(result.current.closeDialog).toBe(closeDialog);
+  });
+
   it('refuses to work outside a provider, which would silently drop opens', () => {
     expect(() => renderHook(() => useDialog())).toThrow(/within a DialogProvider/);
   });
