@@ -15,25 +15,11 @@
 // A pod's columns: kubectl's, its status read as kubectl's `printPod` reads it, and more of
 // its fields hidden until picked.
 import { ownerOf } from '@/lib/object-owner';
+import { podReady, podRestarts } from '@/lib/pod-detail';
 import { podStatus } from '@/lib/pod-status';
 import type { PodBody } from '@/lib/pod-status';
 
 import { ageColumn, countColumn, DASH, kind, listColumn, readyColumn, statusColumn, textColumn } from './common';
-
-// Denominator is the spec count (kubectl's), so a pod whose statuses haven't all landed
-// still reads against the expected total.
-function podReady(b: PodBody): { ready: number; total: number } | undefined {
-  const cs = b.status?.containerStatuses ?? [];
-  const total = b.spec?.containers?.length ?? cs.length;
-  return total ? { ready: cs.filter((c) => c.ready).length, total } : undefined;
-}
-
-function podRestarts(b: PodBody): number | undefined {
-  // Init-container retries count too: during init they're the only restarts
-  // recorded, and a sidecar keeps accruing them afterwards.
-  const all = [...(b.status?.initContainerStatuses ?? []), ...(b.status?.containerStatuses ?? [])];
-  return all.length === 0 ? undefined : all.reduce((n, c) => n + (c.restartCount ?? 0), 0);
-}
 
 // The mockup's order: Status, Ready, Restarts, Node.
 export const podKinds = [

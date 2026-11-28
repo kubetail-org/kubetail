@@ -20,6 +20,7 @@ import { ChevronRight } from 'lucide-react';
 import { VisibleText } from '@/components/primitives/visible-text';
 import { PINNED_ICON, SECTION_ICON, useDashboardNavPlace } from '@/lib/dashboard-nav';
 import type { DashboardResource, ServerKind } from '@/lib/dashboard-resources';
+import { visibleTitle } from '@/lib/visible-text';
 
 import { NamespacePicker } from './namespace-picker';
 
@@ -30,9 +31,11 @@ type DashboardBreadcrumbBarProps = {
   label: string;
   // The kind the page shows, held through a replay of the catalog; placed in its stead.
   kind?: ServerKind;
+  // The object open in the page's detail. A cluster-scoped one's namespace is empty.
+  object?: { namespace: string; name: string };
 };
 
-export function DashboardBreadcrumbBar({ resource, label, kind }: DashboardBreadcrumbBarProps) {
+export function DashboardBreadcrumbBar({ resource, label, kind, object }: DashboardBreadcrumbBarProps) {
   const place = useDashboardNavPlace(resource, kind);
   // A pinned page's icon is its nav row's; a kind's is its section's. The resource comes
   // from the URL, so only an own key counts: `__proto__` is on every object.
@@ -56,13 +59,34 @@ export function DashboardBreadcrumbBar({ resource, label, kind }: DashboardBread
               </span>
             </li>
           )}
-          <li aria-current="page" className={cn(CRUMB, 'text-foreground')}>
+          <li
+            aria-current={object ? undefined : 'page'}
+            className={cn(CRUMB, object ? 'text-muted-foreground' : 'text-foreground')}
+          >
             {place && <ChevronRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />}
-            {/* The current page is the page's one heading, for heading navigation. */}
+            {/* The kind is the page's one heading, for heading navigation, whatever is open in it. */}
             <h1 className="truncate">
               <VisibleText text={label} />
             </h1>
           </li>
+          {object && (
+            <li aria-current="page" className={cn(CRUMB, 'text-foreground')}>
+              <ChevronRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="flex min-w-0 items-center gap-1">
+                {object.namespace && (
+                  <>
+                    <span className="min-w-0 truncate text-muted-foreground" title={visibleTitle(object.namespace)}>
+                      <VisibleText text={object.namespace} />
+                    </span>
+                    <span className="shrink-0 text-muted-foreground">/</span>
+                  </>
+                )}
+                <span className="min-w-0 truncate" title={visibleTitle(object.name)}>
+                  <VisibleText text={object.name} />
+                </span>
+              </span>
+            </li>
+          )}
         </ol>
       </nav>
       <NamespacePicker />

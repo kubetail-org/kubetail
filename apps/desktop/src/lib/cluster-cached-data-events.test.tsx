@@ -37,7 +37,8 @@ vi.mock('@/lib/clusters', async (importOriginal) => ({
 }));
 vi.mock('@/lib/active-kube-context', () => ({ useActiveKubeContext: useActiveKubeContextMock }));
 
-const { useClusterCachedDataEvents } = await import('./cluster-cached-data-events');
+const { countText, lastSeenMs, lastSeenSortValue, useClusterCachedDataEvents } =
+  await import('./cluster-cached-data-events');
 
 // Event fixtures. `at` drives lastSeen (ISO), used to assert newest-first ordering.
 function evt(uid: string, over: Partial<{ type: string; reason: string; count: number; at: string }> = {}) {
@@ -270,5 +271,24 @@ describe('useClusterCachedDataEvents', () => {
     rerender();
     expect(result.current.phase).toBe('reconnecting');
     expect(result.current.events).toHaveLength(1); // last-known held across the drop
+  });
+});
+
+describe('event readings', () => {
+  const seen = (lastSeen: string | null) => ({ lastSeen }) as Parameters<typeof lastSeenMs>[0];
+
+  it('counts a repeated event with a ×, and one seen once as 1', () => {
+    expect([countText(3), countText(1), countText(0)]).toEqual(['×3', '1', '1']);
+  });
+
+  it('reads when it was last seen, NaN when absent or unparsable', () => {
+    expect(lastSeenMs(seen('2026-07-20T10:00:00Z'))).toBe(Date.parse('2026-07-20T10:00:00Z'));
+    expect(lastSeenMs(seen(null))).toBeNaN();
+    expect(lastSeenMs(seen('soon'))).toBeNaN();
+  });
+
+  it('sorts newest first, an event never seen with no value', () => {
+    expect(lastSeenSortValue(seen('2026-07-20T10:00:00Z'))).toBe(-Date.parse('2026-07-20T10:00:00Z'));
+    expect(lastSeenSortValue(seen(null))).toBeUndefined();
   });
 });

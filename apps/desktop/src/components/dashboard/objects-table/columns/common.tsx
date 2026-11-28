@@ -35,16 +35,18 @@ export type Status = { label: string; tone: StatusTone };
 // split the slack with Name.
 export type ObjectColumn = VirtualColumn<ClusterCachedDataObject> & {
   width: number;
-  // A status column's: the tone its pill draws, which the table's tabs count.
+  // A status column's: the status its pill draws, and its tone, which the table's tabs count.
+  status?: (o: ClusterCachedDataObject) => Status | undefined;
   tone?: (o: ClusterCachedDataObject) => StatusTone;
 };
 
 // A column that reads the object's body, so a kind names its body's shape once. Only the
 // table's own actions column is pinned.
-export type KindColumn<T> = Omit<ObjectColumn, 'cell' | 'sortValue' | 'tone' | 'pinned'> & {
+export type KindColumn<T> = Omit<ObjectColumn, 'cell' | 'sortValue' | 'status' | 'tone' | 'pinned'> & {
   pinned?: false;
   cell: (b: T) => ReactNode;
   sortValue?: (b: T) => SortValue;
+  status?: (b: T) => Status | undefined;
   tone?: (b: T) => StatusTone;
 };
 
@@ -54,10 +56,11 @@ export function kind<T>(apiVersion: string, resource: string, columns: KindColum
   const body = (o: ClusterCachedDataObject) => (o.rawJSON ?? {}) as T;
   return [
     gvrKey({ apiVersion, resource }),
-    columns.map(({ cell, sortValue, tone, ...column }) => ({
+    columns.map(({ cell, sortValue, status, tone, ...column }) => ({
       ...column,
       cell: (o) => cell(body(o)),
       sortValue: sortValue && ((o) => sortValue(body(o))),
+      status: status && ((o) => status(body(o))),
       tone: tone && ((o) => tone(body(o))),
     })),
   ];
@@ -265,6 +268,7 @@ export function statusColumn<T>(header: string, width: number, read: (b: T) => S
   return {
     ...base(header, width),
     sortValue: (b) => read(b)?.label,
+    status: read,
     tone: (b) => read(b)?.tone ?? 'pending',
     cell: (b) => {
       const s = read(b);

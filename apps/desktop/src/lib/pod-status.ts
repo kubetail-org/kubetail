@@ -16,17 +16,24 @@
 // Overview share this one reading.
 import type { StatusTone } from '@/lib/cluster-health';
 
-type ContainerStatus = {
+type ContainerState = {
+  waiting?: { reason?: string };
+  terminated?: { reason?: string; exitCode?: number; signal?: number; finishedAt?: string };
+  running?: unknown;
+};
+
+export type ContainerStatus = {
   name?: string;
   ready?: boolean;
   started?: boolean;
   restartCount?: number;
-  state?: {
-    waiting?: { reason?: string };
-    terminated?: { reason?: string; exitCode?: number; signal?: number };
-    running?: unknown;
-  };
+  state?: ContainerState;
+  lastState?: ContainerState;
 };
+
+type Resources = { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } };
+
+export type ContainerSpec = { name?: string; image?: string; resources?: Resources };
 
 export type PodBody = {
   metadata?: { deletionTimestamp?: string };
@@ -34,8 +41,8 @@ export type PodBody = {
     nodeName?: string;
     serviceAccountName?: string;
     priorityClassName?: string;
-    containers?: { name?: string; image?: string }[];
-    initContainers?: { name?: string; restartPolicy?: string }[];
+    containers?: ContainerSpec[];
+    initContainers?: (ContainerSpec & { restartPolicy?: string })[];
   };
   status?: {
     phase?: string;

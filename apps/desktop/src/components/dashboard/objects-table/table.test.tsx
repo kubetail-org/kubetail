@@ -14,12 +14,20 @@
 
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import type { ClusterCachedDataObject } from '@/lib/cluster-cached-data-objects';
 import { expectCodeText, stubLayout } from '@/test-utils';
 
 import { ObjectsTable } from './table';
+import type { ObjectsTableProps } from './table';
+
+// The detail's Events card reads a watch of its own.
+vi.mock('@/lib/cluster-cached-data-events', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/cluster-cached-data-events')>()),
+  useClusterCachedDataEvents: () => ({ events: [], active: true, phase: 'live' }),
+}));
 
 // ObjectsTable is pure presentation over the rows its page hands it. `live` is a watch
 // whose snapshot has landed with these objects.
@@ -30,7 +38,15 @@ const live = (...objects: unknown[]) => ({
 });
 
 const noAction = () => {};
-const PODS = { apiVersion: 'v1', resource: 'pods', kind: 'Pod', label: 'Pods', namespaced: true, onAction: noAction };
+const PODS = {
+  apiVersion: 'v1',
+  resource: 'pods',
+  kind: 'Pod',
+  label: 'Pods',
+  namespaced: true,
+  onAction: noAction,
+  onOpen: noAction,
+};
 // A CRD kind with no registered columns — exercises the universal-columns fallback.
 const WIDGETS = {
   apiVersion: 'example.com/v1',
@@ -39,6 +55,7 @@ const WIDGETS = {
   label: 'Widgets',
   namespaced: true,
   onAction: noAction,
+  onOpen: noAction,
 };
 
 function obj(over: Record<string, unknown> = {}) {
@@ -122,6 +139,7 @@ describe('ObjectsTable', () => {
         label="Nodes"
         namespaced={false}
         onAction={noAction}
+        onOpen={noAction}
         {...live(obj({ namespace: '', name: 'node-1' }))}
       />,
     );
@@ -345,7 +363,7 @@ describe('ObjectsTable', () => {
           rawJSON: { status: { startTime: '2026-01-01T00:00:00Z', completionTime: '2026-01-01T00:01:00Z' } },
         }),
       ];
-      render(<ObjectsTable {...JOBS} {...live(...jobs)} onAction={noAction} />);
+      render(<ObjectsTable {...JOBS} {...live(...jobs)} onAction={noAction} onOpen={noAction} />);
       press('Duration');
       expect(names()).toEqual(['done', 'running']);
       act(() => {
@@ -612,6 +630,170 @@ describe('ObjectsTable', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Age' }));
       await toggle(user, 'Age');
       expect(screen.getByText(/^Sorted by/)).toHaveTextContent('Sorted by namespace');
+    });
+  });
+
+  describe('detail', () => {
+    // The page's part: it holds the open object, as `KindPage` does.
+    function Page({ initialOpen, ...props }: Omit<ObjectsTableProps, 'openUid' | 'onOpen'> & { initialOpen?: string }) {
+      const [openUid, setOpenUid] = useState(initialOpen);
+      return <ObjectsTable {...props} openUid={openUid} onOpen={setOpenUid} />;
+    }
+
+    const detail = () => screen.queryByRole('region', { name: 'Pod' });
+    const heading = () => within(detail()!).getByRole('heading', { level: 2 });
+    const footer = () => screen.getByText(/^Showing/);
+    const listRow = (name: string) => screen.getByText(name, { selector: 'button .font-mono' }).closest('button')!;
+    const running = (ready: boolean) => ({
+      status: { phase: 'Running', conditions: [{ type: 'Ready', status: ready ? 'True' : 'False' }] },
+    });
+
+    afterEach(() => localStorage.clear());
+
+    it('opens from a row’s chevron, never the right sidebar, and the list replaces the table', () => {
+      const onAction = vi.fn();
+      render(
+        <Page {...PODS} onAction={onAction} {...live(obj({ uid: 'a', name: 'web' }), obj({ uid: 'b', name: 'db' }))} />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Open web' }));
+      expect(heading()).toHaveTextContent('web');
+      expect(onAction).not.toHaveBeenCalled();
+      // No header, no picker, no sort footer beside the detail.
+      expect(screen.queryByRole('button', { name: 'Columns' })).not.toBeInTheDocument();
+      expect(screen.queryByText(/^Sorted by/)).not.toBeInTheDocument();
+      expect(footer()).toHaveTextContent('Showing 2 of 2 pods');
+      expect(listRow('web')).toHaveAttribute('aria-current', 'true');
+    });
+
+    it('opens another object from its list row', () => {
+      render(
+        <Page {...PODS} initialOpen="a" {...live(obj({ uid: 'a', name: 'web' }), obj({ uid: 'b', name: 'db' }))} />,
+      );
+      fireEvent.click(listRow('db'));
+      expect(heading()).toHaveTextContent('db');
+      expect(listRow('db')).toHaveAttribute('aria-current', 'true');
+    });
+
+    it('keeps the status tabs and the search over the list', () => {
+      render(<Page {...PODS} initialOpen="u1" {...live(obj({ rawJSON: running(true) }))} />);
+      expect(screen.getByRole('tablist', { name: 'Pods by status' }).closest('.overflow-x-auto')).toBeInTheDocument();
+      expectCodeText(screen.getByRole('searchbox'));
+    });
+
+    it('draws no tabs over the list of a kind without a status', () => {
+      render(<Page {...WIDGETS} initialOpen="u1" {...live(obj({ kind: 'Widget' }))} />);
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'Widget' })).toBeInTheDocument();
+    });
+
+    it('stays open across a tab, a search and a sort that leave it out of the list', async () => {
+      const user = userEvent.setup();
+      render(
+        <Page
+          {...PODS}
+          {...live(
+            obj({ uid: 'w', name: 'web', rawJSON: running(true) }),
+            obj({ uid: 'd', name: 'db', rawJSON: running(false) }),
+          )}
+        />,
+      );
+      await user.click(screen.getByRole('button', { name: 'Name' }));
+      await user.click(screen.getByRole('button', { name: 'Open web' }));
+      await user.click(screen.getByRole('tab', { name: /^Pending/ }));
+      fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'db' } });
+      expect(footer()).toHaveTextContent('Showing 1 of 2 pods');
+      expect(heading()).toHaveTextContent('web');
+    });
+
+    it('keeps the table’s sort in the list', () => {
+      render(<Page {...PODS} {...live(obj({ uid: 'a', name: 'a' }), obj({ uid: 'b', name: 'b' }))} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Name' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Name' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Open a' }));
+      const names = Array.from(document.querySelectorAll('button .font-mono')).map((n) => n.textContent);
+      expect(names).toEqual(['b', 'a']);
+    });
+
+    it('closes with its X, and with Escape from inside it, focus moving to the search', async () => {
+      const user = userEvent.setup();
+      render(<Page {...PODS} {...live(obj())} />);
+      await user.click(screen.getByRole('button', { name: 'Open my-pod' }));
+      expect(detail()).toHaveFocus();
+      await user.keyboard('{Escape}');
+      expect(detail()).not.toBeInTheDocument();
+      expect(screen.getByRole('searchbox')).toHaveFocus();
+      await user.click(screen.getByRole('button', { name: 'Open my-pod' }));
+      await user.click(screen.getByRole('button', { name: 'Close my-pod' }));
+      expect(detail()).not.toBeInTheDocument();
+      expect(screen.getByRole('searchbox')).toHaveFocus();
+    });
+
+    it('says the object no longer exists once a settled snapshot lacks it, holding it through a reconnect', () => {
+      const a = obj({ uid: 'a', name: 'web' });
+      const b = obj({ uid: 'b', name: 'db' });
+      const { rerender } = render(<Page {...PODS} initialOpen="a" {...live(a, b)} />);
+      rerender(
+        <Page {...PODS} initialOpen="a" objects={[b] as ClusterCachedDataObject[]} active phase="reconnecting" />,
+      );
+      expect(screen.queryByText('This object no longer exists.')).not.toBeInTheDocument();
+      rerender(<Page {...PODS} initialOpen="a" {...live(b)} />);
+      expect(screen.getByText('This object no longer exists.')).toBeInTheDocument();
+      expect(heading()).toHaveTextContent('web');
+    });
+
+    it('says the last object in scope is gone rather than that there are none', () => {
+      const { rerender } = render(<Page {...PODS} initialOpen="u1" {...live(obj())} />);
+      rerender(<Page {...PODS} initialOpen="u1" {...live()} />);
+      expect(screen.getByText('This object no longer exists.')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Close my-pod' }));
+      expect(screen.getByText('No pod objects.')).toBeInTheDocument();
+    });
+
+    it('hands the detail’s Logs to the page as the menu’s action', () => {
+      const onAction = vi.fn();
+      const pod = obj();
+      render(<Page {...PODS} initialOpen="u1" onAction={onAction} {...live(pod)} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Logs for my-pod' }));
+      expect(onAction).toHaveBeenCalledWith('logs', pod);
+    });
+
+    describe('list width', () => {
+      const KEY = 'kubetail:dashboard-objects-list-width';
+      const handle = () => screen.getByRole('separator', { name: 'Resize pods list' });
+      const pane = () => handle().parentElement!;
+      const layOut = (rowWidth: number) => {
+        Object.defineProperty(pane().parentElement!, 'clientWidth', { configurable: true, value: rowWidth });
+        vi.spyOn(pane(), 'getBoundingClientRect').mockImplementation(
+          () => ({ width: Number.parseFloat(pane().style.width) }) as DOMRect,
+        );
+      };
+      const press = (key: string) =>
+        act(() => {
+          fireEvent.keyDown(handle(), { key });
+        });
+
+      it('opens at 320px, the pane drawing half the strip beside it', () => {
+        render(<Page {...PODS} initialOpen="u1" {...live(obj())} />);
+        expect(pane().style.width).toBe('328px');
+        expect(pane().style.maxWidth).toBe('calc(100% - 368px)');
+      });
+
+      it('resizes within 240px and the width that leaves the detail 360px, and keeps it for every kind', () => {
+        render(<Page {...PODS} initialOpen="u1" {...live(obj())} />);
+        layOut(1000);
+        press('ArrowRight');
+        expect(localStorage.getItem(KEY)).toBe('336');
+        for (let i = 0; i < 30; i += 1) press('ArrowRight');
+        expect(pane().style.width).toBe('632px');
+        for (let i = 0; i < 40; i += 1) press('ArrowLeft');
+        expect(pane().style.width).toBe('248px');
+      });
+
+      it('reads the kept width back', () => {
+        localStorage.setItem(KEY, '400');
+        render(<Page {...WIDGETS} initialOpen="u1" {...live(obj({ kind: 'Widget' }))} />);
+        expect(screen.getByRole('separator', { name: 'Resize widgets list' }).parentElement!.style.width).toBe('408px');
+      });
     });
   });
 });

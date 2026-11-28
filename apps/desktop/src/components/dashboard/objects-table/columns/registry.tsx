@@ -27,7 +27,7 @@ import { readPath } from '@/lib/jsonpath';
 import { accessKinds } from './access';
 import { clusterKinds } from './cluster';
 import { DASH, Text } from './common';
-import type { ObjectColumn } from './common';
+import type { ObjectColumn, Status } from './common';
 import { configKinds } from './config';
 import { draKinds } from './dra';
 import { extensionKinds } from './extensions';
@@ -52,6 +52,11 @@ const KINDS = new Map([
 // The tone of a kind's objects, where the kind has a status column.
 export function toneForKind(gvr: GVR): ((o: ClusterCachedDataObject) => StatusTone) | undefined {
   return KINDS.get(gvrKey(gvr))?.find((c) => c.tone)?.tone;
+}
+
+// The status of a kind's objects, as its status column's pill draws it, where the kind has one.
+export function statusForKind(gvr: GVR): ((o: ClusterCachedDataObject) => Status | undefined) | undefined {
+  return KINDS.get(gvrKey(gvr))?.find((c) => c.status)?.status;
 }
 
 // Each descriptor's key: its name, not its place, so what a user chose for a column holds

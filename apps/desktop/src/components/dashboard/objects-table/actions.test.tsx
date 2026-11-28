@@ -26,29 +26,31 @@ describe('actionsColumn', () => {
   it('hands the menu’s action on with the row', async () => {
     const user = userEvent.setup();
     const onAction = vi.fn();
-    render(<>{actionsColumn({ apiVersion: 'v1', resource: 'pods' }, onAction).cell(object)}</>);
+    render(<>{actionsColumn({ apiVersion: 'v1', resource: 'pods' }, onAction, vi.fn()).cell(object)}</>);
     await user.click(screen.getByRole('button', { name: 'Actions for web-1' }));
     await user.click(await screen.findByRole('menuitem', { name: 'View logs' }));
     expect(onAction).toHaveBeenCalledWith('logs', object);
   });
 
   it('is the menu and the chevron in one pinned column, 74px wide', () => {
-    const column = actionsColumn({ apiVersion: 'v1', resource: 'pods' }, vi.fn());
+    const column = actionsColumn({ apiVersion: 'v1', resource: 'pods' }, vi.fn(), vi.fn());
     expect(column).toMatchObject({ pinned: true, width: 74 });
   });
 
-  it('opens the object on its YAML from the chevron', async () => {
+  it('opens the object from the chevron, never as an action', async () => {
     const user = userEvent.setup();
     const onAction = vi.fn();
-    render(<>{actionsColumn({ apiVersion: 'v1', resource: 'pods' }, onAction).cell(object)}</>);
+    const onOpen = vi.fn();
+    render(<>{actionsColumn({ apiVersion: 'v1', resource: 'pods' }, onAction, onOpen).cell(object)}</>);
     await user.click(screen.getByRole('button', { name: 'Open web-1' }));
-    expect(onAction).toHaveBeenCalledWith('yaml', object);
+    expect(onOpen).toHaveBeenCalledWith(object);
+    expect(onAction).not.toHaveBeenCalled();
   });
 
   // The button spells a name as its Name cell does, so two rows told apart there sound apart.
   it('names the chevron by the name as the row spells it', () => {
     const spelled = { ...object, name: 'web\u200b1' };
-    render(<>{actionsColumn({ apiVersion: 'v1', resource: 'pods' }, vi.fn()).cell(spelled)}</>);
+    render(<>{actionsColumn({ apiVersion: 'v1', resource: 'pods' }, vi.fn(), vi.fn()).cell(spelled)}</>);
     expect(screen.getByRole('button', { name: 'Open web\\u{200B}1' })).toBeInTheDocument();
   });
 });

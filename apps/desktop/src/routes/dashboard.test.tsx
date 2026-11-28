@@ -44,8 +44,23 @@ vi.mock('@/routes/_app', async () => {
 
 // The bar is covered by its own suite; this one checks what it is handed.
 vi.mock('@/components/dashboard/breadcrumb-bar', () => ({
-  DashboardBreadcrumbBar: ({ resource, label, kind }: { resource: string; label: string; kind?: ServerKind }) => (
-    <div data-testid="breadcrumb-bar" data-resource={resource} data-kind={kind?.kind}>
+  DashboardBreadcrumbBar: ({
+    resource,
+    label,
+    kind,
+    object,
+  }: {
+    resource: string;
+    label: string;
+    kind?: ServerKind;
+    object?: { namespace: string; name: string };
+  }) => (
+    <div
+      data-testid="breadcrumb-bar"
+      data-resource={resource}
+      data-kind={kind?.kind}
+      data-object={object && `${object.namespace}/${object.name}`}
+    >
       {label}
     </div>
   ),
@@ -66,11 +81,25 @@ vi.mock('@/components/dashboard/events-table', () => ({
     </>
   ),
 }));
-// The table's rows press their actions through `onAction`; one button per action stands in.
+// The table's rows press their actions through `onAction`, and open and close an object
+// through `onOpen`; a button for each stands in.
 vi.mock('@/components/dashboard/objects-table/table', () => ({
-  ObjectsTable: ({ onAction, ...props }: { onAction: (action: string, o: unknown) => void }) => (
+  ObjectsTable: ({
+    onAction,
+    onOpen,
+    ...props
+  }: {
+    onAction: (action: string, o: unknown) => void;
+    onOpen: (uid: string | undefined) => void;
+  }) => (
     <>
       <div data-testid="objects-table">{JSON.stringify(props)}</div>
+      <button type="button" onClick={() => onOpen('a')}>
+        open object a
+      </button>
+      <button type="button" onClick={() => onOpen(undefined)}>
+        close object
+      </button>
       {['yaml', 'events', 'logs'].map((action) => (
         <button
           key={action}
@@ -507,5 +536,87 @@ describe('dashboard route', () => {
     await act(() => router.navigate({ to: '/dashboard', search: { resource: 'pods' } }));
     await act(() => router.navigate({ to: '/dashboard', search: { resource: 'events' } }));
     expect(propsOf('events-table').openUid).toBeUndefined();
+  });
+
+  describe('the open object', () => {
+    const openUid = () => propsOf('objects-table').openUid;
+    const rows = (...objects: unknown[]) =>
+      useClusterCachedDataObjectsMock.mockReturnValue({ objects, active: true, phase: 'live' });
+
+    it('opens and closes without changing the URL or the history, and names it in the breadcrumb', async () => {
+      rows(pod('a', 'shop'));
+      const { router } = await render('/dashboard?resource=deployments', [KIND]);
+      const href = router.state.location.href;
+      const entries = router.history.length;
+      expect(openUid()).toBeUndefined();
+      expect(crumb()).not.toHaveAttribute('data-object');
+
+      fireEvent.click(screen.getByRole('button', { name: 'open object a' }));
+      expect(openUid()).toBe('a');
+      expect(crumb()).toHaveAttribute('data-object', 'shop/a');
+      fireEvent.click(screen.getByRole('button', { name: 'close object' }));
+      expect(openUid()).toBeUndefined();
+      expect(crumb()).not.toHaveAttribute('data-object');
+
+      expect(router.state.location.href).toBe(href);
+      expect(router.history.length).toBe(entries);
+      expect(focusObject).not.toHaveBeenCalled();
+    });
+
+    it('opens nothing for a uid the rows lack', async () => {
+      rows(pod('b', 'shop'));
+      await render('/dashboard?resource=deployments', [KIND]);
+      fireEvent.click(screen.getByRole('button', { name: 'open object a' }));
+      expect(openUid()).toBeUndefined();
+    });
+
+    it('closes when the namespace scope changes', async () => {
+      rows(pod('a', 'shop'));
+      const { router } = await render('/dashboard?resource=deployments', [KIND]);
+      fireEvent.click(screen.getByRole('button', { name: 'open object a' }));
+      await act(() => router.navigate({ to: '/dashboard', search: { resource: 'deployments', namespace: 'shop' } }));
+      expect(openUid()).toBeUndefined();
+    });
+
+    it('closes on a new kind, and stays closed on coming back', async () => {
+      const pods = { ...KIND, apiVersion: 'v1', kind: 'Pod', resource: 'pods' };
+      rows(pod('a', 'shop'));
+      const { router } = await render('/dashboard?resource=deployments', [KIND, pods]);
+      fireEvent.click(screen.getByRole('button', { name: 'open object a' }));
+      await act(() => router.navigate({ to: '/dashboard', search: { resource: 'pods' } }));
+      expect(openUid()).toBeUndefined();
+      await act(() => router.navigate({ to: '/dashboard', search: { resource: 'deployments' } }));
+      expect(openUid()).toBeUndefined();
+    });
+
+    it('closes when the cluster’s cache changes', async () => {
+      rows(pod('a', 'shop'));
+      await render('/dashboard?resource=deployments', [KIND]);
+      fireEvent.click(screen.getByRole('button', { name: 'open object a' }));
+      emit({ kinds: [KIND], active: true, cacheID: 'cache-1', phase: 'live' });
+      expect(openUid()).toBe('a');
+      emit({ kinds: [KIND], active: true, cacheID: 'cache-2', phase: 'live' });
+      expect(openUid()).toBeUndefined();
+    });
+
+    it('holds the rows and phase they last stood at through a reconnect’s replay', async () => {
+      rows(pod('a', 'shop'));
+      await render('/dashboard?resource=deployments', [KIND]);
+      fireEvent.click(screen.getByRole('button', { name: 'open object a' }));
+      useClusterCachedDataObjectsMock.mockReturnValue({ objects: [], active: true, phase: 'connecting' });
+      act(() => catalog.emit());
+      const table = propsOf('objects-table');
+      expect(table.objects.map((o: { uid: string }) => o.uid)).toEqual(['a']);
+      expect(table.phase).toBe('live');
+      expect(table.openUid).toBe('a');
+    });
+
+    it('names a cluster-scoped object without a namespace', async () => {
+      const nodes = { ...KIND, apiVersion: 'v1', kind: 'Node', resource: 'nodes', scope: 'Cluster' as const };
+      rows(pod('a', ''));
+      await render('/dashboard?resource=nodes', [nodes]);
+      fireEvent.click(screen.getByRole('button', { name: 'open object a' }));
+      expect(crumb()).toHaveAttribute('data-object', '/a');
+    });
   });
 });

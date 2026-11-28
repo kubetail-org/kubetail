@@ -22,20 +22,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { chevronColumn } from '@/components/dashboard/chevron-column';
 import { ColumnPicker } from '@/components/dashboard/column-picker';
+import { ListPane } from '@/components/dashboard/list-pane';
 import { TALL_ROW } from '@/components/dashboard/row-size';
 import { TABLE_CELLS, TABLE_HEADER } from '@/components/dashboard/table-style';
 import { VirtualTable } from '@/components/dashboard/virtual-table';
 import type { TableSort } from '@/components/dashboard/virtual-table';
-import { ResizeHandle } from '@/components/primitives/resize-handle';
 import { SearchBox } from '@/components/primitives/text-entry';
 import { VisibleText } from '@/components/primitives/visible-text';
+import { lastSeenSortValue } from '@/lib/cluster-cached-data-events';
 import type { ClusterCachedDataEvent } from '@/lib/cluster-cached-data-events';
 import type { SubscriptionPhase } from '@/lib/graphql/use-folded-subscription';
-import { usePersistedWidth } from '@/lib/persisted-width';
 import { sortRows } from '@/lib/sort-rows';
 import { arrange, useTableColumns } from '@/lib/table-columns';
 
-import { DEFAULT_SORT, EVENT_COLUMNS, OBJECT_COLUMN, lastSeenSortValue, rowKey } from './columns';
+import { DEFAULT_SORT, EVENT_COLUMNS, OBJECT_COLUMN, rowKey } from './columns';
 import type { EventColumn } from './columns';
 import { EventDetail } from './detail';
 import { EventsList } from './list';
@@ -53,15 +53,6 @@ export type EventsTableProps = {
   openUid?: string;
   onOpen: (uid: string | undefined) => void;
 };
-
-// The list pane's width. The detail keeps at least DETAIL_MIN_PX beside it, so on a row too
-// narrow for both the list goes under its minimum, to nothing if it must.
-const LIST_WIDTH = { min: 240, max: Number.POSITIVE_INFINITY, initial: 320 };
-const DETAIL_MIN_PX = 360;
-// The 16px strip between the panes, its grip centred on the list pane's edge: the pane draws
-// the strip's first half, the detail's margin the second, so the handle on that edge sits
-// under the grip.
-const HALF_STRIP_PX = 8;
 
 // A case-insensitive substring of the reason, the message or the involved object's kind,
 // name or namespace. Spaces at the ends are ignored.
@@ -111,14 +102,6 @@ export function EventsTable({ events, active, phase, namespace, openUid, onOpen 
     const first = Boolean(columns.find((c) => c.key === key)?.descFirst);
     setSort(shownSort.key === key ? { key, desc: !shownSort.desc } : { key, desc: first });
   };
-
-  const [listWidth, setListWidth] = usePersistedWidth('dashboard-events-list-width', LIST_WIDTH);
-  const listRef = useRef<HTMLDivElement>(null);
-  const listBounds = useCallback(() => {
-    const max = Math.max(0, listRef.current!.parentElement!.clientWidth - DETAIL_MIN_PX - HALF_STRIP_PX);
-    return { min: Math.min(LIST_WIDTH.min + HALF_STRIP_PX, max), max };
-  }, []);
-  const onListResize = useCallback((px: number) => setListWidth(px - HALF_STRIP_PX), [setListWidth]);
 
   // Closing the detail removes the control that had focus, so the search takes it.
   const searchRef = useRef<HTMLInputElement>(null);
@@ -184,33 +167,12 @@ export function EventsTable({ events, active, phase, namespace, openUid, onOpen 
   if (openUid !== undefined) {
     return (
       <div className="-mr-2.5 flex min-h-0 flex-1">
-        <div
-          ref={listRef}
-          className="relative flex min-w-0 shrink-0 flex-col gap-3"
-          style={{
-            width: listWidth + HALF_STRIP_PX,
-            maxWidth: `calc(100% - ${DETAIL_MIN_PX + HALF_STRIP_PX}px)`,
-            paddingRight: HALF_STRIP_PX,
-          }}
-        >
+        <ListPane widthKey="dashboard-events-list-width" resizeLabel="Resize events list">
           {/* The tabs scroll sideways in a list narrower than they are. */}
           <div className="shrink-0 overflow-x-auto">{tabs}</div>
           {search}
           <EventsList rows={rows} inScope={events.length} openUid={openUid} onOpen={onOpen} />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 -right-2 flex w-4 items-center justify-center"
-          >
-            <div className="h-8 w-1 rounded-full bg-muted-foreground" />
-          </div>
-          <ResizeHandle
-            edge="right"
-            label="Resize events list"
-            bounds={listBounds}
-            onResize={onListResize}
-            className="-right-2 w-4"
-          />
-        </div>
+        </ListPane>
         <EventDetail
           key={openUid}
           className="ml-2 min-w-0 flex-1"

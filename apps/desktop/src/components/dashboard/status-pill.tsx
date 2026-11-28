@@ -18,12 +18,13 @@ import { cn } from '@kubetail/ui/lib/utils';
 import { VisibleText } from '@/components/primitives/visible-text';
 import { HEALTH_TONE, TONE } from '@/lib/cluster-health';
 import type { StatusTone } from '@/lib/cluster-health';
+import { visibleTitle } from '@/lib/visible-text';
 
 export function StatusPill({ label, tone }: { label: string; tone: StatusTone }) {
   return (
     <span
       data-tone={tone}
-      title={label}
+      title={visibleTitle(label)}
       className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-muted px-2 py-0.5 text-xs font-medium"
     >
       <span aria-hidden className={cn('size-1.75 shrink-0 rounded-full', TONE[HEALTH_TONE[tone]].dot)} />
