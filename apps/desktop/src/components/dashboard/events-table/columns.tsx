@@ -13,30 +13,17 @@
 // limitations under the License.
 
 // The Events table's columns, and the readings of an event the list and the detail share.
-import { Age, ageSortValue, timestampMs } from '@/components/dashboard/age';
+import { Age } from '@/components/dashboard/age';
 import { StatusPill } from '@/components/dashboard/status-pill';
 import type { TableSort, VirtualColumn } from '@/components/dashboard/virtual-table';
 import { VisibleText } from '@/components/primitives/visible-text';
+import { countText, lastSeenMs, lastSeenSortValue } from '@/lib/cluster-cached-data-events';
 import type { ClusterCachedDataEvent } from '@/lib/cluster-cached-data-events';
 import { visibleTitle } from '@/lib/visible-text';
 
 export type EventColumn = VirtualColumn<ClusterCachedDataEvent>;
 
 export const rowKey = (e: ClusterCachedDataEvent) => e.uid;
-
-// An event's repetitions: `×3`, or `1` for one seen once.
-export function countText(count: number): string {
-  return count > 1 ? `×${count}` : '1';
-}
-
-export function lastSeenMs(e: ClusterCachedDataEvent): number {
-  return timestampMs(e.lastSeen);
-}
-
-// Newest first.
-export function lastSeenSortValue(e: ClusterCachedDataEvent): number | undefined {
-  return ageSortValue(lastSeenMs(e));
-}
 
 // The parts of a line joined by middle dots, an empty one left out with its separator.
 export function dotted(...parts: string[]): string {

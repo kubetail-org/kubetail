@@ -19,19 +19,16 @@ import { ChevronRight } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { Age } from '@/components/dashboard/age';
-import type { RowSize } from '@/components/dashboard/row-size';
+import { LIST_ROW } from '@/components/dashboard/row-size';
 import { VirtualTable } from '@/components/dashboard/virtual-table';
 import type { VirtualColumn } from '@/components/dashboard/virtual-table';
 import { VisibleText } from '@/components/primitives/visible-text';
+import { lastSeenMs } from '@/lib/cluster-cached-data-events';
 import type { ClusterCachedDataEvent } from '@/lib/cluster-cached-data-events';
 import { TONE } from '@/lib/cluster-health';
 import { visibleTitle } from '@/lib/visible-text';
 
-import { dotted, lastSeenMs, rowKey } from './columns';
-
-// Two 16px lines under 8px of padding each, and the row's bottom border. The button is the
-// padding, so the cell carries none.
-const LIST_ROW: RowSize = { className: 'h-12.25 [&>td]:p-0', px: 49 };
+import { dotted, rowKey } from './columns';
 
 type EventsListProps = {
   // The rows the tab and the search leave, sorted.

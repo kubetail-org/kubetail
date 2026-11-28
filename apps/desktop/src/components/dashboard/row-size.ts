@@ -27,3 +27,7 @@ export const ROW: RowSize = { className: ROW_H, px: ROW_H_PX };
 // A row of two lines, such as a name over its owner. A row's height is only a minimum, and
 // two lines under the library's cell padding would outgrow it, so its cells carry none.
 export const TALL_ROW: RowSize = { className: 'h-11 [&>td]:py-0', px: 44 };
+// A row of a list beside a detail, the whole row one button: two 16px lines under 8px of
+// padding each, and the row's bottom border. The button is the padding, so the cell carries
+// none.
+export const LIST_ROW: RowSize = { className: 'h-12.25 [&>td]:p-0', px: 49 };

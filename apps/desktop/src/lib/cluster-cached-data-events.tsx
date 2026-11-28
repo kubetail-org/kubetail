@@ -51,6 +51,22 @@ export type ClusterCachedDataEvent = NonNullable<
   ClusterCachedDataEventCollectionWatchSubscription['clusterCachedDataEventCollectionWatch']['event']
 >;
 
+// An event's repetitions: `×3`, or `1` for one seen once.
+export function countText(count: number): string {
+  return count > 1 ? `×${count}` : '1';
+}
+
+// When an event was last seen, in milliseconds: NaN when absent or unparsable.
+export function lastSeenMs(e: ClusterCachedDataEvent): number {
+  return e.lastSeen ? Date.parse(e.lastSeen) : Number.NaN;
+}
+
+// Newest first, an event never seen last.
+export function lastSeenSortValue(e: ClusterCachedDataEvent): number | undefined {
+  const ms = lastSeenMs(e);
+  return Number.isNaN(ms) ? undefined : -ms;
+}
+
 // The active context's cached events, newest first (by lastSeen), live. Paused
 // (empty) without an active cache. Provenance is just the cacheID — the variables
 // carry no kind. `unshared` is for a watch that can mount into a running one, which would
