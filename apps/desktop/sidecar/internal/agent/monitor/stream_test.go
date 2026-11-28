@@ -49,6 +49,25 @@ func feedOccurrences(t *testing.T, m *Monitor, id IncidentID) <-chan IncidentOcc
 	return st.Frames
 }
 
+func feedAlerts(t *testing.T, m *Monitor) <-chan AlertEventFeedFrame {
+	t.Helper()
+	st, err := m.SubscribeAlertEventFeed(t.Context())
+	require.NoError(t, err)
+	return st.Frames
+}
+
+func alertBookmark(f AlertEventFeedFrame) bool { return f.Type == AlertEventFeedFrameBookmark }
+
+// insertAlert stores an open incident on targetID that raised its alert minutes
+// after t0, the alert numbered minutes+1 in commit order.
+func insertAlert(t *testing.T, db *appdb.DB, targetID, id string, minutes int) {
+	t.Helper()
+	insertIncident(t, db, targetID, id, "fake.crash", 1)
+	_, err := db.Write.Exec(`UPDATE incidents SET alerted_at = ?, alert_seq = ? WHERE id = ?`,
+		t0.Add(time.Duration(minutes)*time.Minute).UnixMilli(), minutes+1, id)
+	require.NoError(t, err)
+}
+
 // untilBookmark takes frames off ch up to the Bookmark, which it leaves out.
 func untilBookmark[F any](t *testing.T, ch <-chan F, isBookmark func(F) bool) []F {
 	t.Helper()
@@ -420,6 +439,10 @@ func TestAFailedReadEndsTheSubscription(t *testing.T) {
 	require.NoError(t, err)
 	testutil.WaitClosed(t, feed.Frames, "the feed")
 	assert.Error(t, feed.Err())
+	alerts, err := m.SubscribeAlertEventFeed(t.Context())
+	require.NoError(t, err)
+	testutil.WaitClosed(t, alerts.Frames, "the alerts")
+	assert.Error(t, alerts.Err())
 }
 
 // A failed re-read ends a subscription that has delivered its snapshot.
@@ -462,20 +485,26 @@ func TestAStopEndsEverySubscription(t *testing.T) {
 	require.NoError(t, err)
 	feed, err := m.SubscribeIncidentOccurrenceEventFeed(t.Context(), "i1")
 	require.NoError(t, err)
+	alerts, err := m.SubscribeAlertEventFeed(t.Context())
+	require.NoError(t, err)
 
 	require.NoError(t, stop(context.Background()))
 
 	testutil.WaitClosed(t, targets.Frames, "the targets")
 	testutil.WaitClosed(t, incidents.Frames, "the incidents")
 	testutil.WaitClosed(t, feed.Frames, "the feed")
+	testutil.WaitClosed(t, alerts.Frames, "the alerts")
 	assert.NoError(t, targets.Err())
 	assert.NoError(t, incidents.Err())
 	assert.NoError(t, feed.Err())
+	assert.NoError(t, alerts.Err())
 	_, err = m.WatchTargetCollection(t.Context())
 	assert.ErrorIs(t, err, ErrStopping)
 	_, err = m.WatchIncidentCollection(t.Context())
 	assert.ErrorIs(t, err, ErrStopping)
 	_, err = m.SubscribeIncidentOccurrenceEventFeed(t.Context(), "i1")
+	assert.ErrorIs(t, err, ErrStopping)
+	_, err = m.SubscribeAlertEventFeed(t.Context())
 	assert.ErrorIs(t, err, ErrStopping)
 }
 
@@ -555,4 +584,145 @@ func TestATargetThatDoesNotDecodeEndsTheWatch(t *testing.T) {
 	require.NoError(t, err)
 	testutil.WaitClosed(t, st.Frames, "the watch")
 	assert.ErrorContains(t, st.Err(), "read unknown signals")
+}
+
+// A subscriber gets the retained alerts, the newest 100, in commit order, then
+// one Bookmark; with none, the Bookmark alone. An incident that raised no alert,
+// or one of a target whose integration the build lacks, is none.
+func TestTheAlertFeedSendsTheRetainedAlertsInCommitOrderThenABookmark(t *testing.T) {
+	m := newTestMonitor(t)
+	assert.Empty(t, untilBookmark(t, feedAlerts(t, m), alertBookmark), "the Bookmark alone")
+
+	other := insertOther(t, m.store.db)
+	_, err := m.store.db.Write.Exec(`UPDATE incidents SET alerted_at = ?, alert_seq = 1000 WHERE id = ?`, t0.Add(time.Hour).UnixMilli(), string(other))
+	require.NoError(t, err)
+	id := targetOf(t, m.store, "t")
+	insertIncident(t, m.store.db, id, "quiet", crash.Name, 1)
+	for n := 0; n <= keepAlerts; n++ {
+		insertAlert(t, m.store.db, id, "a"+strconv.Itoa(n), n)
+	}
+
+	got := untilBookmark(t, feedAlerts(t, m), alertBookmark)
+
+	require.Len(t, got, keepAlerts)
+	for _, f := range got {
+		assert.Equal(t, AlertEventFeedFrameAlert, f.Type)
+	}
+	assert.Equal(t, Alert{
+		IncidentID: "a100", TargetID: MonitorTargetID(id), Integration: "fake", TargetKey: "t", TargetLabel: "t",
+		SubjectLabel: "Deployment web", SignalLabel: "Gone signal", Severity: SeverityCritical, AlertedAt: t0.Add(100 * time.Minute),
+		Seq: 101,
+	}, *got[keepAlerts-1].Alert)
+	assert.Equal(t, IncidentID("a1"), got[0].Alert.IncidentID, "the oldest leaves the feed")
+}
+
+// After the Bookmark, each alert is sent as its occurrence starts, and once: a
+// re-read that finds it again, even relabelled, sends nothing.
+func TestTheAlertFeedSendsEachAlertOnceAsItIsRaised(t *testing.T) {
+	m := newTestMonitor(t)
+	id := targetOf(t, m.store, "t")
+	alerts := feedAlerts(t, m)
+	require.Empty(t, untilBookmark(t, alerts, alertBookmark))
+	c := newCommitter(t, m.store, id)
+	c.mustAt(0, nothing())
+
+	var web []start
+	for at := 5 * time.Minute; at <= 7*time.Minute; at += cadence {
+		web = append(web, c.mustAt(at, seeing(crash.Name, "web")).starts...)
+	}
+	require.Len(t, web, 1)
+	f := testutil.Recv(t, alerts, "web's alert")
+	assert.Equal(t, IncidentID(web[0].incidentID), f.Alert.IncidentID)
+	assert.Equal(t, t0.Add(7*time.Minute), f.Alert.AlertedAt)
+
+	require.NoError(t, m.store.reconcile(t.Context(), "fake", []Target{{Key: "t", Label: "T"}}))
+	var api []start
+	for at := 10 * time.Minute; at <= 12*time.Minute; at += cadence {
+		api = append(api, c.mustAt(at, seeing(crash.Name, "web", "api")).starts...)
+	}
+	require.Len(t, api, 1)
+	f = testutil.Recv(t, alerts, "api's alert")
+	assert.Equal(t, IncidentID(api[0].incidentID), f.Alert.IncidentID, "web's is not sent again")
+	assert.Equal(t, "T", f.Alert.TargetLabel)
+}
+
+// Two alerts committed in the opposite order to their wall times are both sent,
+// in the order they committed: a worker samples its time before it commits, and
+// another can commit between.
+func TestTheAlertFeedSendsAlertsInCommitOrderWhateverTheirTimes(t *testing.T) {
+	m := newTestMonitor(t)
+	require.NoError(t, m.store.reconcile(t.Context(), "fake", []Target{{Key: "early", Label: "early"}, {Key: "late", Label: "late"}}))
+	early, late := targetIDOf(t, m.store.db, "early"), targetIDOf(t, m.store.db, "late")
+	alerts := feedAlerts(t, m)
+	require.Empty(t, untilBookmark(t, alerts, alertBookmark))
+	startAt := func(c *committer, from, to time.Duration) []start {
+		var starts []start
+		for at := from; at <= to; at += cadence {
+			starts = append(starts, c.mustAt(at, seeing(crash.Name, "web")).starts...)
+		}
+		return starts
+	}
+	lateC, earlyC := newCommitter(t, m.store, late), newCommitter(t, m.store, early)
+	lateC.mustAt(0, nothing())
+	earlyC.mustAt(0, nothing())
+
+	require.Len(t, startAt(lateC, 6*time.Minute, 8*time.Minute), 1)
+	first := testutil.Recv(t, alerts, "the later alert, committed first")
+	require.Len(t, startAt(earlyC, 5*time.Minute, 7*time.Minute), 1)
+	second := testutil.Recv(t, alerts, "the earlier alert, committed second")
+
+	assert.Equal(t, MonitorTargetID(late), first.Alert.TargetID)
+	assert.Equal(t, MonitorTargetID(early), second.Alert.TargetID)
+	assert.True(t, second.Alert.AlertedAt.Before(first.Alert.AlertedAt))
+	assert.Greater(t, second.Alert.Seq, first.Alert.Seq)
+}
+
+// An alerted incident's delete frees no number: the next alert takes one above
+// it, so a subscriber that saw it still sees the next.
+func TestADeletedAlertsNumberIsNeverGivenAgain(t *testing.T) {
+	m := newTestMonitor(t)
+	id := targetOf(t, m.store, "t")
+	c := newCommitter(t, m.store, id)
+	c.mustAt(0, nothing())
+	var web []start
+	for at := 5 * time.Minute; at <= 7*time.Minute; at += cadence {
+		web = append(web, c.mustAt(at, seeing(crash.Name, "web")).starts...)
+	}
+	require.Len(t, web, 1)
+	alerts := feedAlerts(t, m)
+	first := untilBookmark(t, alerts, alertBookmark)
+	require.Len(t, first, 1)
+	_, err := m.store.db.Write.Exec(`DELETE FROM incidents`)
+	require.NoError(t, err)
+
+	var api []start
+	for at := 8 * time.Minute; at <= 10*time.Minute; at += cadence {
+		api = append(api, c.mustAt(at, seeing(crash.Name, "web", "api")).starts...)
+	}
+	require.NotEmpty(t, api)
+	f := testutil.Recv(t, alerts, "the next alert")
+	assert.Greater(t, f.Alert.Seq, first[0].Alert.Seq)
+}
+
+// An older alert that returns into the newest 100 as newer incidents are
+// deleted is not sent as new; each alert raised after it is.
+func TestTheAlertFeedSendsNoOldAlertAsNew(t *testing.T) {
+	m := newTestMonitor(t)
+	id := targetOf(t, m.store, "t")
+	for n := 0; n <= keepAlerts; n++ {
+		insertAlert(t, m.store.db, id, "a"+strconv.Itoa(n), n)
+	}
+	alerts := feedAlerts(t, m)
+	require.Len(t, untilBookmark(t, alerts, alertBookmark), keepAlerts)
+
+	_, err := m.store.db.Write.Exec(`DELETE FROM incidents WHERE id IN ('a99', 'a100')`)
+	require.NoError(t, err)
+	insertAlert(t, m.store.db, id, "new", 200)
+	m.store.db.Notify(appdb.KeyIncidents)
+	assert.Equal(t, IncidentID("new"), testutil.Recv(t, alerts, "the new alert").Alert.IncidentID)
+	insertAlert(t, m.store.db, id, "newer", 300)
+	m.store.db.Notify(appdb.KeyIncidents)
+
+	f := testutil.Recv(t, alerts, "the next alert")
+	assert.Equal(t, IncidentID("newer"), f.Alert.IncidentID, "a0 is not sent")
 }

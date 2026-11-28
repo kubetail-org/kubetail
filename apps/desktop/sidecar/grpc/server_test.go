@@ -63,7 +63,7 @@ func TestStopWaitsForAResetStreamsHandler(t *testing.T) {
 	svc.logoutEntered = make(chan struct{})
 	svc.logoutGate = make(chan struct{})
 	release := sync.OnceFunc(func() { close(svc.logoutGate) })
-	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil)
+	grpcSrv := grpcserver.NewServer(context.Background(), svc, nil, nil)
 	conn := newGRPCTestConn(t, grpcSrv)
 	t.Cleanup(release)
 

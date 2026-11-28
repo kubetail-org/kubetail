@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/appdb"
@@ -32,6 +33,8 @@ const (
 	// keepIncidents is how long an incident that is not open is kept past its
 	// last sighting.
 	keepIncidents = 30 * 24 * time.Hour
+	// keepAlerts is how many of the newest alerts the alert feed retains.
+	keepAlerts = 100
 )
 
 // ErrNoTarget is a target id that names no target, or one whose integration the
@@ -72,6 +75,7 @@ const (
 	stmtSelectServedTargets
 	stmtSelectServedIncidents
 	stmtSelectServedOccurrences
+	stmtSelectServedAlerts
 	numStmts int = iota
 )
 
@@ -151,6 +155,15 @@ var statements = []sqlstmt.Statement{
 	JOIN monitor_targets t ON t.id = i.target_id
 	WHERE o.incident_id = ? AND t.integration IN (SELECT value FROM json_each(?))
 	ORDER BY o.number DESC`),
+	// The newest keepAlerts by commit order, oldest first.
+	stmtSelectServedAlerts: sqlstmt.OnReader(`SELECT * FROM (
+	  SELECT i.id, i.target_id, t.integration, t.key, t.label, i.subject_label, i.signal_label, i.severity, i.alerted_at, i.alert_seq
+	  FROM incidents i
+	  JOIN monitor_targets t ON t.id = i.target_id
+	  WHERE i.alert_seq IS NOT NULL AND t.integration IN (SELECT value FROM json_each(?))
+	  ORDER BY i.alert_seq DESC
+	  LIMIT ` + strconv.Itoa(keepAlerts) + `
+	) ORDER BY alert_seq`),
 }
 
 // nextAlertSeq is the alert_seq the next alert takes.
@@ -666,6 +679,31 @@ func (s *store) servedOccurrences(ctx context.Context, incidentID IncidentID) ([
 	}
 	if err := rows.Err(); err != nil { // coverage:ignore a read that began fails only on a closed pool, which outlives the monitor
 		return nil, fmt.Errorf("read occurrences: %w", err)
+	}
+	return out, nil
+}
+
+// servedAlerts is the newest keepAlerts alerts of a target servedTargets holds,
+// in the order they committed.
+func (s *store) servedAlerts(ctx context.Context) ([]Alert, error) {
+	rows, err := s.set.Stmts().Query(ctx, stmtSelectServedAlerts, s.integrations)
+	if err != nil {
+		return nil, fmt.Errorf("read alerts: %w", err)
+	}
+	defer rows.Close()
+	var out []Alert
+	for rows.Next() {
+		var a Alert
+		var alertedAt int64
+		if err := rows.Scan(&a.IncidentID, &a.TargetID, &a.Integration, &a.TargetKey, &a.TargetLabel, &a.SubjectLabel,
+			&a.SignalLabel, &a.Severity, &alertedAt, &a.Seq); err != nil { // coverage:ignore the statement's columns are these types, CHECKed by the schema
+			return nil, fmt.Errorf("read alerts: %w", err)
+		}
+		a.AlertedAt = fromMillis(alertedAt)
+		out = append(out, a)
+	}
+	if err := rows.Err(); err != nil { // coverage:ignore a read that began fails only on a closed pool, which outlives the monitor
+		return nil, fmt.Errorf("read alerts: %w", err)
 	}
 	return out, nil
 }

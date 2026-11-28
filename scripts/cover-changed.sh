@@ -67,6 +67,7 @@ ignored=(
   'apps/desktop/sidecar/graph/model/models_gen.go'
   'apps/desktop/sidecar/grpc/authpb/**'
   'apps/desktop/sidecar/grpc/pokepb/**'
+  'apps/desktop/sidecar/grpc/monitorpb/**'
   'apps/desktop/sidecar/scripts/**'
   'apps/desktop/src/gql/**'
   'apps/desktop/src/routeTree.ts'
