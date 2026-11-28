@@ -33,7 +33,7 @@ minimumReleaseAgeExclude:
   - '@tauri-apps/cli-win32-arm64-msvc@2.12.4'
   - '@tauri-apps/cli-win32-ia32-msvc@2.12.4'
   - '@tauri-apps/cli-win32-x64-msvc@2.12.4'
-  - '@kubetail/ui@3.0.3'
+  - '@kubetail/ui@3.0.4'
 # Explicit, so a change in pnpm's defaults can't loosen them. The age matches
 # Dependabot's 7-day cooldown.
 minimumReleaseAge: 10080
