@@ -1094,7 +1094,7 @@ func (e errMonitor) SetEnabled(context.Context, monitor.MonitorTargetID, bool) (
 	return monitor.MonitorTarget{}, e.err
 }
 
-func (e errMonitor) Triage(context.Context, monitor.IncidentID, monitor.TriageModel) (monitor.Incident, error) {
+func (e errMonitor) Triage(context.Context, monitor.IncidentID, monitor.TriageModel, bool) (monitor.Incident, error) {
 	return monitor.Incident{}, e.err
 }
 

@@ -330,12 +330,16 @@ one package that reads a key as a cluster's id (`ClusterID`).
   advances `last_seen_at` sends none. A `KeyMonitorTargets` notice never starts a reading.
 - **A baseline per signal**: its window opens at its first judged reading (`baselines`) for its
   resolve-after, by the wall clock; a pair first seen in it starts `baseline`, which never alerts.
-  A restart takes none; the switch off and a new UID drop it. An incident alerts once, at its
-  first ordinary start (`alerted_at`), served by `SubscribeAlertEventFeed`.
-- **A triage is the user's press alone** (`Monitor.Triage`), queued per target and run through
-  its `Triager` (`monitor/kubetriage`, the one importer of `chat`). The admit and the outcome write
-  only while the incident holds the request, the admit only under its queued generation. A first
-  line of `DISMISS` dismisses; anything else is attention.
+  A restart takes none; the switch off and a new UID drop it.
+- **An incident alerts once** (`alerted_at`, by `coalesce`), as `alert.go`'s rule says: at its
+  first ordinary start, or, with the triage setting on, when its automatic triage fails or is not
+  `DISMISS`. `SubscribeAlertEventFeed` serves it.
+- **A triage is the user's press** (`Monitor.Triage`) **or the setting's** (`setting.go`): its
+  first ordinary occurrence and its third queue one in the fold's transaction. Queued per target,
+  run through its `Triager` (`monitor/kubetriage`, the one importer of `chat`). The admit and the
+  outcome write only while the incident holds the request, the admit only under its queued
+  generation and the automatic cap. A write that changes the setting fails the automatic triages not yet started.
+  A first line of `DISMISS` dismisses; anything else is attention.
 - **The reads serve the registered integrations' targets alone**, and what is under them. Each
   record is comparable (a zero value for null, JSON as stored, which the resolver decodes), so a
   watch diffs with `==`. A subscription joins `wg` through `enter`; `Close` ends it too.

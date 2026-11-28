@@ -65,7 +65,7 @@ func (c *committer) at(offset time.Duration, r Reading) (changes, error) {
 		c.ids++
 		return c.targetID + "-" + strconv.Itoa(c.ids)
 	})
-	err := c.st.commit(c.t.Context(), c.targetID, 0, ch, t0.Add(offset))
+	_, err := c.st.commit(c.t.Context(), c.targetID, 0, ch, t0.Add(offset), false)
 	if err == nil {
 		c.state = next
 	}
@@ -617,7 +617,8 @@ func TestAnIncidentAlertsAtItsFirstOrdinaryOccurrence(t *testing.T) {
 		if n > 1 {
 			ends = []end{{occurrenceID: "o" + strconv.Itoa(n-1), incidentID: "i1", at: s.startedAt, reason: EndResolved}}
 		}
-		require.NoError(t, st.commit(t.Context(), id, 0, changes{starts: []start{s}, ends: ends}, s.seenAt))
+		_, err := st.commit(t.Context(), id, 0, changes{starts: []start{s}, ends: ends}, s.seenAt, false)
+		require.NoError(t, err)
 	}
 
 	at(0, true, 1, true)
@@ -650,7 +651,8 @@ func TestAnOrdinaryIncidentStaysOrdinaryPastItsTrim(t *testing.T) {
 		} else {
 			ends = []end{{occurrenceID: "o" + strconv.Itoa(n-1), incidentID: "i1", at: s.startedAt, reason: EndResolved}}
 		}
-		require.NoError(t, st.commit(t.Context(), id, 0, changes{starts: []start{s}, ends: ends}, s.seenAt))
+		_, err := st.commit(t.Context(), id, 0, changes{starts: []start{s}, ends: ends}, s.seenAt, false)
+		require.NoError(t, err)
 	}
 
 	assert.Zero(t, count(t, st.db, `SELECT count(*) FROM incident_occurrences WHERE baseline = 0`), "the ordinary one is trimmed")

@@ -91,7 +91,7 @@ func codeOf(err error) monitor.TriageErrorCode {
 	case errors.Is(err, chat.ErrBadRequest):
 		// A brief within the cap is never refused, so a model that takes no tools.
 		return monitor.TriageCodeModelUnavailable
-	case errors.Is(err, chat.ErrStopping):
+	case errors.Is(err, chat.ErrStopping), errors.Is(err, context.Canceled):
 		return monitor.TriageCodeCancelled
 	}
 	return monitor.TriageCodeUnavailable

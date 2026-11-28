@@ -154,6 +154,9 @@ const (
 	// KeyIncidents: an incident or occurrence was opened, ended, or deleted. A fold
 	// that only advances an incident's last_seen_at notifies nothing.
 	KeyIncidents = "incidents"
+	// KeySettings: a settings row a watch serves was written: the monitoring
+	// triage model.
+	KeySettings = "settings"
 )
 
 // MessagesKey: the chat's message rows changed. Re-read and diff.

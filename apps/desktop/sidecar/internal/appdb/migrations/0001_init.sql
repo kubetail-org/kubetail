@@ -595,7 +595,8 @@ CREATE TABLE monitor_targets (
 -- alone: a worker writes only while it holds that id. triage_run_id is the
 -- request's run, linked in the transaction that inserts it; the run's result is
 -- the report. triage_verdict is set on a done triage alone, triage_error, one of
--- the monitor's fixed codes, on a failed one.
+-- the monitor's fixed codes, on a failed one. triage_trigger is who asked for it:
+-- the user's press, manual, or the triage setting, automatic.
 CREATE TABLE incidents (
   id                 TEXT    PRIMARY KEY,
   target_id          TEXT    NOT NULL REFERENCES monitor_targets(id) ON DELETE CASCADE,
@@ -617,7 +618,9 @@ CREATE TABLE incidents (
   triage_run_id      TEXT    REFERENCES agent_runs(id) ON DELETE SET NULL,
   triage_verdict     TEXT    CHECK (triage_verdict IN ('attention', 'dismiss')),
   triage_error       TEXT,
+  triage_trigger     TEXT    CHECK (triage_trigger IN ('manual', 'automatic')),
   CHECK ((alerted_at IS NULL) = (alert_seq IS NULL)),
+  CHECK ((triage_state = 'none') = (triage_trigger IS NULL)),
   CHECK ((triage_state = 'queued') = (triage_request_id IS NOT NULL)),
   CHECK ((triage_state = 'done') = (triage_verdict IS NOT NULL)),
   CHECK ((triage_state = 'failed') = (triage_error IS NOT NULL))
@@ -655,3 +658,13 @@ CREATE TABLE incident_occurrences (
 ) STRICT, WITHOUT ROWID;
 
 CREATE UNIQUE INDEX incident_occurrences_one_open ON incident_occurrences (incident_id) WHERE ended_at IS NULL;
+
+-- monitor_triage_starts: a row per automatic triage whose run was inserted, on
+-- the monitor's clock, which caps a target's automatic triages an hour. Rows
+-- past the hour are trimmed, and a target's go with it.
+CREATE TABLE monitor_triage_starts (
+  target_id  TEXT    NOT NULL REFERENCES monitor_targets(id) ON DELETE CASCADE,
+  started_at INTEGER NOT NULL
+) STRICT;
+
+CREATE INDEX monitor_triage_starts_target ON monitor_triage_starts (target_id, started_at);

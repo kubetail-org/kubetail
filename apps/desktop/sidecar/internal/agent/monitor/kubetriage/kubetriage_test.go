@@ -126,6 +126,7 @@ func TestARunThatCouldNotStartCarriesItsCode(t *testing.T) {
 		chat.ErrNoSandbox:       monitor.TriageCodeNoSandbox,
 		chat.ErrBadRequest:      monitor.TriageCodeModelUnavailable,
 		chat.ErrStopping:        monitor.TriageCodeCancelled,
+		context.Canceled:        monitor.TriageCodeCancelled,
 		chat.ErrMonitorInFlight: monitor.TriageCodeUnavailable,
 		errors.New("disk"):      monitor.TriageCodeUnavailable,
 	} {

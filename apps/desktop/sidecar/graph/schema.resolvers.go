@@ -606,7 +606,7 @@ func (r *mutationResolver) MonitorTargetEnabledSet(ctx context.Context, id monit
 // IncidentTriage is the resolver for the incidentTriage field. The triage's
 // progress reaches the webview through the incidents watch.
 func (r *mutationResolver) IncidentTriage(ctx context.Context, id monitor.IncidentID, providerID string, modelID string, effort *string) (*monitor.Incident, error) {
-	i, err := r.Monitor.Triage(ctx, id, monitor.TriageModel{ProviderID: providerID, ModelID: modelID, Effort: valueOf(effort)})
+	i, err := r.Monitor.Triage(ctx, id, monitor.TriageModel{ProviderID: providerID, ModelID: modelID, Effort: valueOf(effort)}, false)
 	if err != nil {
 		return nil, monitorErr(err)
 	}
