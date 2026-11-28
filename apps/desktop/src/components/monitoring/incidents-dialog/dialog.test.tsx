@@ -337,6 +337,49 @@ describe('IncidentsDialog', () => {
     expect(screen.getByRole('button', { name: /default\/api/, pressed: true })).toBeInTheDocument();
   });
 
+  it('selects a pressed incident the held lists lack once the live lists bring it', async () => {
+    const { rerenderOn } = await openIncidentsDialog('i-prod');
+    update({ targets: null, incidents: null });
+    rerenderOn('i-new');
+    await act(async () => {});
+    expect(filter()).toHaveTextContent('prod');
+    expect(screen.getByText('Select an incident to see its occurrences.')).toBeInTheDocument();
+
+    const fresh = incidentRecord({ id: 'i-new', targetID: 't-dev', subjectLabel: 'Deployment default/jobs' });
+    update({ targets: [dev, prod], incidents: [onProd, onDev, fresh] });
+    expect(filter()).toHaveTextContent('dev');
+    expect(screen.getByRole('button', { name: /default\/jobs/, pressed: true })).toBeInTheDocument();
+  });
+
+  it('opens on an incident the held lists hold, or on none, at once while they are held', async () => {
+    const { rerenderOn } = await openIncidentsDialog('i-prod');
+    update({ targets: null, incidents: null });
+    rerenderOn('i-dev');
+    await act(async () => {});
+    expect(filter()).toHaveTextContent('dev');
+    expect(screen.getByRole('button', { name: /default\/api/, pressed: true })).toBeInTheDocument();
+
+    rerenderOn(undefined);
+    await act(async () => {});
+    update({ targets: [dev, prod], incidents: [onProd, onDev] });
+    expect(filter()).toHaveTextContent('prod');
+    expect(screen.getByText('Select an incident to see its occurrences.')).toBeInTheDocument();
+  });
+
+  it('drops a pressed incident once the live lists lack it too', async () => {
+    const { rerenderOn } = await openIncidentsDialog('i-prod');
+    update({ targets: null, incidents: null });
+    rerenderOn('i-gone');
+    await act(async () => {});
+    update({ targets: [dev, prod], incidents: [onProd, onDev] });
+
+    update({ targets: null, incidents: null });
+    const late = incidentRecord({ id: 'i-gone', targetID: 't-dev', subjectLabel: 'Deployment default/jobs' });
+    update({ targets: [dev, prod], incidents: [onProd, onDev, late] });
+    expect(filter()).toHaveTextContent('prod');
+    expect(screen.getByText('Select an incident to see its occurrences.')).toBeInTheDocument();
+  });
+
   it("reopens after a close on its window's filter, with nothing selected", async () => {
     const user = userEvent.setup();
     const { rerenderOn } = await openIncidentsDialog('i-dev');
