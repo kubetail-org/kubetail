@@ -68,6 +68,7 @@ func wallClock() time.Time { return time.Now().Round(0).Truncate(time.Millisecon
 
 func newMonitor(db *appdb.DB, clock func() time.Time, backstop time.Duration, regs ...Registration) (*Monitor, error) {
 	m := &Monitor{byName: map[string]*registration{}, clock: clock, backstop: backstop}
+	names := make([]string, 0, len(regs))
 	for _, r := range regs {
 		if _, dup := m.byName[r.Name]; dup {
 			return nil, fmt.Errorf("monitor: integration %q is registered twice", r.Name)
@@ -87,8 +88,9 @@ func newMonitor(db *appdb.DB, clock func() time.Time, backstop time.Duration, re
 		}
 		m.regs = append(m.regs, reg)
 		m.byName[r.Name] = reg
+		names = append(names, r.Name)
 	}
-	st, err := openStore(db, clock)
+	st, err := openStore(db, clock, names)
 	if err != nil {
 		return nil, err
 	}
@@ -118,18 +120,6 @@ func (m *Monitor) Start(context.Context) (func(context.Context) error, error) {
 
 // Close releases the monitor's statements.
 func (m *Monitor) Close() error { return m.store.close() }
-
-// SetEnabled turns a target's monitoring on or off, in its own transaction.
-// ErrNoTarget for no such target.
-func (m *Monitor) SetEnabled(ctx context.Context, targetID string, enabled bool) error {
-	return m.store.setEnabled(ctx, targetID, enabled)
-}
-
-// TargetID is the id of an integration's target by its key; ErrNoTarget while
-// the reconcile has given the key none.
-func (m *Monitor) TargetID(ctx context.Context, integration, key string) (string, error) {
-	return m.store.targetID(ctx, integration, key)
-}
 
 // reconcileLoop keeps reg's target rows its listing: at start, on each notice,
 // on the backstop, and one cadence after a listing fails. It listens before its

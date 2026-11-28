@@ -119,8 +119,8 @@ func TestAReadingTheSwitchMovedUnderKeepsNoMemory(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, m.Close()) })
 	id := targetOf(t, m.store, "t")
-	require.NoError(t, m.SetEnabled(t.Context(), id, false))
-	require.NoError(t, m.SetEnabled(t.Context(), id, true))
+	require.NoError(t, errOf(m.SetEnabled(t.Context(), MonitorTargetID(id), false)))
+	require.NoError(t, errOf(m.SetEnabled(t.Context(), MonitorTargetID(id), true)))
 
 	state := m.readOnce(t.Context(), m.regs[0], id, Target{Key: "t", Label: "t"}, 0, nil)
 
@@ -157,7 +157,7 @@ func TestNewRefusesABadRegistration(t *testing.T) {
 func TestAListedTargetIsReadOnItsCadence(t *testing.T) {
 	db := appdbtest.Open(t)
 	fake := newFake(Target{Key: "k1", Label: "Target one"})
-	m := startMonitor(t, db, time.Hour, fake)
+	startMonitor(t, db, time.Hour, fake)
 
 	assert.Equal(t, Target{Key: "k1", Label: "Target one"}, testutil.Recv(t, fake.reads, "a reading"))
 	testutil.Recv(t, fake.reads, "the next reading, a cadence later")
@@ -171,9 +171,7 @@ func TestAListedTargetIsReadOnItsCadence(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return count(t, db, `SELECT count(*) FROM incident_occurrences WHERE end_reason = 'resolved' AND detail = '{"pod":"web-0"}'`) == 1
 	}, testutil.Timeout, loopCadence)
-	id, err := m.TargetID(t.Context(), "fake", "k1")
-	require.NoError(t, err)
-	assert.NotEmpty(t, id)
+	assert.NotEmpty(t, targetIDOf(t, db, "k1"))
 }
 
 // A listing that fails deletes no target and is tried again a cadence later,
@@ -298,18 +296,17 @@ func TestTheSwitchStopsReadingsAndStartsTheWindowsOver(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return count(t, db, `SELECT count(*) FROM incident_occurrences WHERE ended_at IS NULL`) == 1
 	}, testutil.Timeout, loopCadence)
-	id, err := m.TargetID(t.Context(), "fake", "k1")
-	require.NoError(t, err)
+	id := targetIDOf(t, db, "k1")
 
-	require.NoError(t, m.SetEnabled(t.Context(), id, false))
-	require.NoError(t, m.SetEnabled(t.Context(), id, true))
+	require.NoError(t, errOf(m.SetEnabled(t.Context(), MonitorTargetID(id), false)))
+	require.NoError(t, errOf(m.SetEnabled(t.Context(), MonitorTargetID(id), true)))
 
 	require.Eventually(t, func() bool {
 		return count(t, db, `SELECT count(*) FROM incident_occurrences WHERE number = 2 AND ended_at IS NULL`) == 1
 	}, testutil.Timeout, loopCadence, "the windows started over")
 	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM incident_occurrences WHERE number = 1 AND end_reason = 'stopped'`))
 
-	require.NoError(t, m.SetEnabled(t.Context(), id, false))
+	require.NoError(t, errOf(m.SetEnabled(t.Context(), MonitorTargetID(id), false)))
 	require.Eventually(t, func() bool {
 		for {
 			select {

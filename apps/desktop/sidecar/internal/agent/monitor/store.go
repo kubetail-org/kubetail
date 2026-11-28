@@ -34,7 +34,8 @@ const (
 	keepIncidents = 30 * 24 * time.Hour
 )
 
-// ErrNoTarget is a target id, or an integration's key, that names no target.
+// ErrNoTarget is a target id that names no target, or one whose integration the
+// build lacks.
 var ErrNoTarget = errors.New("monitor: no such target")
 
 // errDiscarded is a fold whose target moved under its reading: switched,
@@ -49,7 +50,6 @@ const (
 	stmtRelabelTarget
 	stmtDeleteTarget
 	stmtSelectMonitoredTargets
-	stmtSelectTargetID
 	stmtSelectTargetState
 	stmtSelectOpenOccurrences
 	stmtSelectRecentIncidents
@@ -63,7 +63,7 @@ const (
 	stmtEndOccurrence
 	stmtSetIncidentSeen
 	stmtSetIncidentsSeen
-	stmtSelectTargetEnabled
+	stmtSelectServedTarget
 	stmtSetTargetEnabled
 	stmtStopTargetOccurrences
 	stmtDeleteOldIncidents
@@ -78,7 +78,6 @@ var statements = []sqlstmt.Statement{
 	// The cascade takes the target's incidents and their occurrences.
 	stmtDeleteTarget:           sqlstmt.OnWriter(`DELETE FROM monitor_targets WHERE id = ?`),
 	stmtSelectMonitoredTargets: sqlstmt.OnReader(`SELECT id, integration, key, label, generation FROM monitor_targets WHERE enabled = 1`),
-	stmtSelectTargetID:         sqlstmt.OnReader(`SELECT id FROM monitor_targets WHERE integration = ? AND key = ?`),
 
 	stmtSelectTargetState: sqlstmt.OnReader(`SELECT current_uid, unknown_signals, last_read_at IS NOT NULL FROM monitor_targets WHERE id = ?`),
 	stmtSelectOpenOccurrences: sqlstmt.OnReader(`SELECT o.id, o.incident_id, o.started_at, i.target_uid, i.signal, i.subject_key, i.last_seen_at, i.occurrence_count
@@ -106,7 +105,8 @@ var statements = []sqlstmt.Statement{
 	stmtSetIncidentSeen:  sqlstmt.OnWriter(`UPDATE incidents SET last_seen_at = ? WHERE id = ?`),
 	stmtSetIncidentsSeen: sqlstmt.OnWriter(`UPDATE incidents SET last_seen_at = ? WHERE id IN (SELECT value FROM json_each(?))`),
 
-	stmtSelectTargetEnabled: sqlstmt.OnWriter(`SELECT enabled FROM monitor_targets WHERE id = ?`),
+	stmtSelectServedTarget: sqlstmt.OnWriter(`SELECT ` + servedTargetColumns + ` FROM monitor_targets
+	WHERE id = ? AND integration IN (SELECT value FROM json_each(?))`),
 	stmtSetTargetEnabled: sqlstmt.OnWriter(`UPDATE monitor_targets SET enabled = ?, generation = generation + 1, updated_at = ?
 	WHERE id = ?`),
 	// Each at its last sighting, never before its start.
@@ -117,6 +117,9 @@ var statements = []sqlstmt.Statement{
 	AND NOT EXISTS (SELECT 1 FROM incident_occurrences o WHERE o.incident_id = incidents.id AND o.ended_at IS NULL)`),
 }
 
+// servedTargetColumns is what storedTarget scans, in its order.
+const servedTargetColumns = `id, integration, key, label, enabled, coalesce(current_uid, ''), unknown_signals, last_read_at IS NOT NULL`
+
 type stmts = sqlstmt.Stmts[stmtID]
 
 // store is the monitor's tables in app.db.
@@ -124,6 +127,9 @@ type store struct {
 	db    *appdb.DB
 	set   *sqlstmt.Set[stmtID]
 	clock func() time.Time
+	// integrations is the names of the integrations the build registers, as a
+	// JSON array: the served reads hold their targets alone.
+	integrations string
 }
 
 // targetRow is a monitored target as the loop reads it. The id, the switch and
@@ -133,12 +139,13 @@ type targetRow struct {
 	generation                  int64
 }
 
-func openStore(db *appdb.DB, clock func() time.Time) (*store, error) {
+func openStore(db *appdb.DB, clock func() time.Time, integrations []string) (*store, error) {
 	set, err := sqlstmt.Prepare[stmtID](context.Background(), db.Write.DB, db.Read.DB, statements)
 	if err != nil {
 		return nil, fmt.Errorf("prepare monitor statements: %w", err)
 	}
-	return &store{db: db, set: set, clock: clock}, nil
+	names, _ := json.Marshal(integrations) // a slice of strings always marshals
+	return &store{db: db, set: set, clock: clock, integrations: string(names)}, nil
 }
 
 func (s *store) close() error { return s.set.Close() }
@@ -239,19 +246,6 @@ func (s *store) monitored(ctx context.Context) ([]targetRow, error) {
 		return nil, fmt.Errorf("read monitored targets: %w", err)
 	}
 	return out, nil
-}
-
-// targetID is the id of integration's target key, ErrNoTarget for none.
-func (s *store) targetID(ctx context.Context, integration, key string) (string, error) {
-	var id string
-	err := s.set.Stmts().QueryRow(ctx, stmtSelectTargetID, integration, key).Scan(&id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", ErrNoTarget
-	}
-	if err != nil {
-		return "", fmt.Errorf("read target id: %w", err)
-	}
-	return id, nil
 }
 
 // seed is a target's state as app.db holds it, for its first fold since the
@@ -429,25 +423,27 @@ func writeStart(ctx context.Context, st stmts, targetID string, s start) error {
 // setEnabled is the switch, in its own transaction: off ends the target's open
 // occurrences as stopped, each at its last sighting; either way the generation
 // moves, so a reading begun before it commits nothing. A switch to the state the
-// target holds writes nothing. ErrNoTarget for no such target.
-func (s *store) setEnabled(ctx context.Context, targetID string, enabled bool) error {
+// target holds writes nothing. It answers the target as the switch left it;
+// ErrNoTarget for no such target, or one whose integration the build lacks.
+func (s *store) setEnabled(ctx context.Context, targetID string, enabled bool) (storedTarget, error) {
+	var row storedTarget
 	switched, stopped := false, false
 	err := s.set.InTx(ctx, func(st stmts) error {
 		switched, stopped = false, false
-		var held bool
-		err := st.QueryRow(ctx, stmtSelectTargetEnabled, targetID).Scan(&held)
+		var err error
+		row, err = scanStoredTarget(st.QueryRow(ctx, stmtSelectServedTarget, targetID, s.integrations))
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			return ErrNoTarget
 		case err != nil:
 			return fmt.Errorf("read target: %w", err)
-		case held == enabled:
+		case row.enabled == enabled:
 			return nil
 		}
 		if _, err := st.Exec(ctx, stmtSetTargetEnabled, enabled, s.clock().UnixMilli(), targetID); err != nil {
 			return fmt.Errorf("switch target: %w", err)
 		}
-		switched = true
+		row.enabled, switched = enabled, true
 		if enabled {
 			return nil
 		}
@@ -460,7 +456,7 @@ func (s *store) setEnabled(ctx context.Context, targetID string, enabled bool) e
 		return nil
 	})
 	if err != nil {
-		return err
+		return storedTarget{}, err
 	}
 	if switched {
 		s.db.Notify(appdb.KeyMonitorTargets)
@@ -468,7 +464,7 @@ func (s *store) setEnabled(ctx context.Context, targetID string, enabled bool) e
 	if stopped {
 		s.db.Notify(appdb.KeyIncidents)
 	}
-	return nil
+	return row, nil
 }
 
 // sweep deletes every incident that is not open and was last seen more than
@@ -494,3 +490,21 @@ func nonNil(m map[string]string) map[string]string {
 
 // fromMillis is a stored time, on the wall clock alone.
 func fromMillis(ms int64) time.Time { return time.UnixMilli(ms).UTC() }
+
+// storedTarget is a served target's row, as the served reads scan it.
+type storedTarget struct {
+	id, integration, key, label string
+	enabled                     bool
+	uid                         string // "" before a reading named one
+	unknown                     string // monitor_targets.unknown_signals
+	read                        bool   // last_read_at is set
+}
+
+// scanner is what *sql.Row and *sql.Rows share.
+type scanner interface{ Scan(dest ...any) error }
+
+func scanStoredTarget(r scanner) (storedTarget, error) {
+	var t storedTarget
+	err := r.Scan(&t.id, &t.integration, &t.key, &t.label, &t.enabled, &t.uid, &t.unknown, &t.read)
+	return t, err
+}
