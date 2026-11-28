@@ -416,6 +416,7 @@ func (rt *Runtime) resolver() *graph.Resolver {
 		Console:             console,
 		Logs:                rt.Logs,
 		CloudTargets:        rt.CloudTargets,
+		Monitor:             rt.Monitor,
 	}
 }
 

@@ -204,7 +204,8 @@ writer of the end.** → [ADR](../../../docs/adr/2026-09-25-an-agent-is-a-tool-i
 [background agents](../../../docs/security/2026-09-25-background-agents.md).
 
 **A monitor run is a run of the chat service** (`RunMonitor`): one per cluster
-(`ErrMonitorInFlight`), refused without a sandbox, with monitoring off or a gone cluster. It runs in
+(`ErrMonitorInFlight`), refused without a sandbox or for a gone cluster, and `ErrMonitoringOff`
+when the caller's `Admit`, called inside the run's insert, refuses. It runs in
 `monitorSession()`, told the card alone (never memory), offered `MonitorBox`, which keeps `LogsRead`
 and drops `LogsView` and `LogsWatch`; nothing it asks is approved. →
 [ADR](../../../docs/adr/2026-10-05-a-monitor-run-is-a-run-of-the-chat-service.md),

@@ -203,10 +203,6 @@ type Clusters interface {
 	SetEnabled(ctx context.Context, id ClusterID, enabled bool) (*Cluster, error)
 	// SetSyncEnabled toggles a cluster's sync and returns the updated record.
 	SetSyncEnabled(ctx context.Context, id ClusterID, enabled bool) (*Cluster, error)
-	// SetMonitoringEnabled toggles the background monitor's leave to run against the
-	// cluster and returns the updated record. The toggle is stored and served; nothing
-	// runs on it yet.
-	SetMonitoringEnabled(ctx context.Context, id ClusterID, enabled bool) (*Cluster, error)
 	// SetDefault makes a cluster the user's default, clearing the one before, or stops
 	// it being the default, and returns the updated record. A call that changes nothing
 	// writes nothing. Making a cluster the default is refused (ErrCannotBeDefault) unless

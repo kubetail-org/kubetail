@@ -32,8 +32,8 @@
 --
 -- name is the display name the user set; NULL shows the context name instead.
 -- enabled and sync_enabled default on, so a found context appears in the picker
--- without being switched on first; monitoring_enabled defaults off, since it lets
--- the background monitor spend model calls on the cluster.
+-- without being switched on first. Whether the monitor reads the cluster is its
+-- target's switch, monitor_targets.enabled.
 -- updated_at moves on every user edit and never on a reconcile.
 --
 -- delete_requested_at is set when the user deletes the cluster. The row stays,
@@ -55,7 +55,6 @@ CREATE TABLE clusters (
   name                TEXT,
   enabled             INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
   sync_enabled        INTEGER NOT NULL DEFAULT 1 CHECK (sync_enabled IN (0, 1)),
-  monitoring_enabled  INTEGER NOT NULL DEFAULT 0 CHECK (monitoring_enabled IN (0, 1)),
   created_at          INTEGER NOT NULL,
   updated_at          INTEGER NOT NULL,
   delete_requested_at INTEGER,

@@ -19,6 +19,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,7 +68,6 @@ func startMonitorService(t *testing.T, card string, offered ...tools.Tool) *serv
 // file in its folder, and answers the gate and where the run's result arrives.
 func heldMonitor(t *testing.T, s *service, clusterID apimeta.ClusterID) (chan struct{}, chan MonitorResult) {
 	t.Helper()
-	setMonitoring(t, s.db, clusterID, true)
 	root, err := s.monitorDir(clusterID).Root(true)
 	require.NoError(t, err)
 	require.NoError(t, root.WriteFile("notes.txt", []byte("x"), 0o600))
@@ -77,7 +77,7 @@ func heldMonitor(t *testing.T, s *service, clusterID apimeta.ClusterID) (chan st
 	fakeOf(s).SetGate(gate)
 	done := make(chan MonitorResult, 1)
 	go func() {
-		res, err := s.RunMonitor(context.Background(), clusterID, fakeTarget(s), "look")
+		res, err := s.RunMonitor(context.Background(), clusterID, fakeTarget(s), "look", admitted)
 		assert.NoError(t, err)
 		done <- res
 	}()
@@ -121,10 +121,9 @@ func TestRunMonitorRecordsARun(t *testing.T) {
 		kindTool{testTool{name: "Memory"}, tools.ActionMemory},
 		kindTool{testTool{name: "WebFetch"}, tools.ActionFetch},
 		kindTool{testTool{name: "TaskStop"}, tools.ActionStop})
-	setMonitoring(t, s.db, "7", true)
 	fakeOf(s).SetToolCalls(llm.StagedCall("echo", `{"x":1}`))
 
-	res, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look at the pods")
+	res, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look at the pods", admitted)
 	require.NoError(t, err)
 
 	assert.Equal(t, RunSucceeded, res.Status)
@@ -155,13 +154,14 @@ func TestRunMonitorRecordsARun(t *testing.T) {
 }
 
 // A monitor run is refused before anything is written: on a machine with no
-// sandbox, on a cluster marked or not watched, for a brief it cannot take or a
-// model that takes no tools, and while the cluster already has one.
+// sandbox, on a cluster marked, one its caller's admit refuses, for a brief it
+// cannot take or a model that takes no tools, and while the cluster already has one.
 func TestRunMonitorRefuses(t *testing.T) {
 	t.Parallel()
 
 	for name, c := range map[string]struct {
 		setup func(t *testing.T, s *service)
+		admit Admit
 		brief string
 		model string
 		want  error
@@ -171,14 +171,13 @@ func TestRunMonitorRefuses(t *testing.T) {
 			want:  ErrNoSandbox,
 		},
 		"a marked cluster":      {setup: func(t *testing.T, s *service) { markCluster(t, s.db, "7") }, want: ErrClusterGone},
-		"monitoring off":        {setup: func(t *testing.T, s *service) { setMonitoring(t, s.db, "7", false) }, want: ErrMonitoringOff},
+		"monitoring off":        {admit: refused, want: ErrMonitoringOff},
 		"an empty brief":        {brief: " \n", want: ErrBadRequest},
 		"a brief too long":      {brief: strings.Repeat("x", maxMonitorBriefLen+1), want: ErrBadRequest},
 		"a model with no tools": {model: "fake-no-tools", want: ErrBadRequest},
 	} {
 		t.Run(name, func(t *testing.T) {
 			s := startMonitorService(t, "", testTool{name: "echo"})
-			setMonitoring(t, s.db, "7", true)
 			if c.setup != nil {
 				c.setup(t, s)
 			}
@@ -189,8 +188,12 @@ func TestRunMonitorRefuses(t *testing.T) {
 				target, err = s.llmSvc.Resolve("fake", c.model, "")
 				require.NoError(t, err)
 			}
+			admit := c.admit
+			if admit == nil {
+				admit = admitted
+			}
 
-			_, err := s.RunMonitor(t.Context(), "7", target, brief)
+			_, err := s.RunMonitor(t.Context(), "7", target, brief, admit)
 
 			assert.ErrorIs(t, err, c.want)
 			assert.Zero(t, tableCount(t, s.db, "agent_runs"))
@@ -204,17 +207,16 @@ func TestRunMonitorHoldsOneRunPerCluster(t *testing.T) {
 	t.Parallel()
 
 	s := startMonitorService(t, "", testTool{name: "echo"})
-	setMonitoring(t, s.db, "8", true)
 	gate, first := heldMonitor(t, s, "7")
 
-	_, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look")
+	_, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look", admitted)
 	assert.ErrorIs(t, err, ErrMonitorInFlight)
-	_, err = s.RunMonitor(t.Context(), "8", fakeTarget(s), "look")
+	_, err = s.RunMonitor(t.Context(), "8", fakeTarget(s), "look", admitted)
 	assert.NoError(t, err)
 
 	close(gate)
 	testutil.Recv(t, first, "the first run")
-	_, err = s.RunMonitor(t.Context(), "7", fakeTarget(s), "look")
+	_, err = s.RunMonitor(t.Context(), "7", fakeTarget(s), "look", admitted)
 	assert.NoError(t, err, "the slot is free once the run has ended")
 }
 
@@ -226,13 +228,12 @@ func TestAMonitorCallThatAsksIsDenied(t *testing.T) {
 	reader, err := read.New(nil, t.TempDir())
 	require.NoError(t, err)
 	s := startMonitorService(t, "", reader)
-	setMonitoring(t, s.db, "7", true)
 	outside := filepath.Join(t.TempDir(), "notes.txt")
 	require.NoError(t, os.WriteFile(outside, []byte("x"), 0o600))
 	in, _ := json.Marshal(map[string]string{"file_path": outside})
 	fakeOf(s).SetToolCalls(llm.StagedCall(read.Name, string(in)))
 
-	res, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look")
+	res, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look", admitted)
 	require.NoError(t, err)
 
 	assert.Equal(t, RunSucceeded, res.Status)
@@ -292,10 +293,9 @@ func TestAMonitorBackgroundCommandIsRefused(t *testing.T) {
 	t.Parallel()
 
 	s := startMonitorService(t, "", startsTask{testTool{name: "bg"}})
-	setMonitoring(t, s.db, "7", true)
 	fakeOf(s).SetToolCalls(llm.StagedCall("bg", `{}`))
 
-	res, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look")
+	res, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look", admitted)
 	require.NoError(t, err)
 
 	calls := toolCallRows(t, s.db, res.RunID)
@@ -351,10 +351,9 @@ func TestAStoppingServiceRunsNoMonitor(t *testing.T) {
 	t.Parallel()
 
 	s := startMonitorService(t, "", testTool{name: "echo"})
-	setMonitoring(t, s.db, "7", true)
 	require.NoError(t, s.stop(t.Context()))
 
-	_, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look")
+	_, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look", admitted)
 
 	assert.ErrorIs(t, err, ErrStopping)
 	assert.Zero(t, tableCount(t, s.db, "agent_runs"))
@@ -365,12 +364,12 @@ func TestAMonitorRunWhoseClusterCannotBeReadWritesNothing(t *testing.T) {
 	t.Parallel()
 
 	s := startMonitorService(t, "", testTool{name: "echo"})
-	_, err := s.db.Write.Exec(`ALTER TABLE clusters RENAME COLUMN monitoring_enabled TO renamed`)
+	_, err := s.db.Write.Exec(`ALTER TABLE clusters RENAME COLUMN delete_requested_at TO renamed`)
 	require.NoError(t, err)
 
-	_, err = s.RunMonitor(t.Context(), "7", fakeTarget(s), "look")
+	_, err = s.RunMonitor(t.Context(), "7", fakeTarget(s), "look", admitted)
 
-	assert.ErrorContains(t, err, "cluster monitoring")
+	assert.ErrorContains(t, err, "live cluster")
 	assert.Zero(t, tableCount(t, s.db, "agent_runs"))
 	assert.Zero(t, fakeOf(s).Asked())
 }
@@ -381,12 +380,11 @@ func TestAMonitorSettleTheStoreRefusesLeavesTheRunRunning(t *testing.T) {
 	t.Parallel()
 
 	s := startMonitorService(t, "", testTool{name: "echo"})
-	setMonitoring(t, s.db, "7", true)
 	_, err := s.db.Write.Exec(`CREATE TRIGGER refuse BEFORE UPDATE OF status ON agent_runs WHEN NEW.status = 'succeeded'
 		BEGIN SELECT RAISE(ABORT, 'refused'); END`)
 	require.NoError(t, err)
 
-	res, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look")
+	res, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look", admitted)
 	require.NoError(t, err)
 
 	assert.Equal(t, RunSucceeded, res.Status)
@@ -398,10 +396,9 @@ func TestAMonitorRunFollowsTheToolSettings(t *testing.T) {
 	t.Parallel()
 
 	s := startMonitorService(t, "card-7", testTool{name: "echo"}, testTool{name: "other"})
-	setMonitoring(t, s.db, "7", true)
 	setToolEnabled(t, s, "echo", false)
 
-	res, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look at the pods")
+	res, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look at the pods", admitted)
 	require.NoError(t, err)
 	assert.Equal(t, RunSucceeded, res.Status)
 	assert.Equal(t, []string{"other"}, offered(fakeOf(s).LastRequest()))
@@ -412,11 +409,60 @@ func TestAMonitorRunThatCannotReadTheToolSettingsIsRefused(t *testing.T) {
 	t.Parallel()
 
 	s := startMonitorService(t, "card-7", testTool{name: "echo"})
-	setMonitoring(t, s.db, "7", true)
 	_, err := s.db.Write.Exec(`DROP TABLE settings`)
 	require.NoError(t, err)
 
-	_, err = s.RunMonitor(t.Context(), "7", fakeTarget(s), "look at the pods")
+	_, err = s.RunMonitor(t.Context(), "7", fakeTarget(s), "look at the pods", admitted)
 	assert.ErrorContains(t, err, "disabled tools")
 	assert.Empty(t, fakeOf(s).Requests(), "no model asked")
+}
+
+// The admit runs inside the transaction that inserts the run, after the insert,
+// handed the run's id: a switch turned off after the caller read it on is refused with
+// ErrMonitoringOff, and what the admit wrote rolls back with the refusal. An
+// admit's error is the run's, with nothing written.
+func TestRunMonitorAdmitsInsideTheInsert(t *testing.T) {
+	t.Parallel()
+
+	s := startMonitorService(t, "", testTool{name: "echo"})
+	_, err := s.db.Write.Exec(`CREATE TABLE switch (on_ INTEGER NOT NULL, run_id TEXT REFERENCES agent_runs (id))`)
+	require.NoError(t, err)
+	_, err = s.db.Write.Exec(`INSERT INTO switch (on_) VALUES (1)`)
+	require.NoError(t, err)
+	var seen []RunID
+	admit := func(ctx context.Context, tx *sql.Tx, runID RunID) (bool, error) {
+		seen = append(seen, runID)
+		if _, err := tx.ExecContext(ctx, `UPDATE switch SET run_id = ?`, string(runID)); err != nil {
+			return false, err
+		}
+		var on bool
+		err := tx.QueryRowContext(ctx, `SELECT on_ FROM switch`).Scan(&on)
+		return on, err
+	}
+	var on bool
+	require.NoError(t, s.db.Read.QueryRow(`SELECT on_ FROM switch`).Scan(&on))
+	require.True(t, on, "the caller reads the switch on")
+	_, err = s.db.Write.Exec(`UPDATE switch SET on_ = 0`)
+	require.NoError(t, err)
+
+	_, err = s.RunMonitor(t.Context(), "7", fakeTarget(s), "look", admit)
+
+	require.ErrorIs(t, err, ErrMonitoringOff)
+	assert.Zero(t, tableCount(t, s.db, "agent_runs"))
+	var written sql.NullString
+	require.NoError(t, s.db.Read.QueryRow(`SELECT run_id FROM switch`).Scan(&written))
+	assert.False(t, written.Valid, "the admit's write rolls back with the refusal")
+
+	_, err = s.db.Write.Exec(`UPDATE switch SET on_ = 1`)
+	require.NoError(t, err)
+	res, err := s.RunMonitor(t.Context(), "7", fakeTarget(s), "look", admit)
+	require.NoError(t, err)
+	assert.Equal(t, seen[len(seen)-1], res.RunID, "the admit is handed the run it admits")
+	require.NoError(t, s.db.Read.QueryRow(`SELECT run_id FROM switch`).Scan(&written))
+	assert.Equal(t, string(res.RunID), written.String, "and commits with it")
+
+	failed := errors.New("unreadable")
+	_, err = s.RunMonitor(t.Context(), "7", fakeTarget(s), "look", func(context.Context, *sql.Tx, RunID) (bool, error) { return false, failed })
+	assert.ErrorIs(t, err, failed)
+	assert.Equal(t, 1, tableCount(t, s.db, "agent_runs"))
 }

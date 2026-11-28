@@ -375,7 +375,7 @@ func TestTheChecksRefuseValuesOutsideTheirLists(t *testing.T) {
 }
 
 // The clusters table's defaults: a row inserted with nothing but its identity and
-// stamps is enabled, syncing, and not monitored; the source claim is unique.
+// stamps is enabled and syncing; the source claim is unique.
 func TestClustersTableDefaultsAndClaim(t *testing.T) {
 	db, err := Open(filepath.Join(t.TempDir(), "app.db"), 0)
 	require.NoError(t, err)
@@ -387,11 +387,11 @@ func TestClustersTableDefaultsAndClaim(t *testing.T) {
 	_, err = db.Write.Exec(insert, NewID())
 	require.ErrorContains(t, err, "UNIQUE")
 
-	var enabled, syncEnabled, monitoringEnabled int
+	var enabled, syncEnabled int
 	var deleteRequestedAt *int64
-	require.NoError(t, db.Read.QueryRow(`SELECT enabled, sync_enabled, monitoring_enabled, delete_requested_at FROM clusters`).
-		Scan(&enabled, &syncEnabled, &monitoringEnabled, &deleteRequestedAt))
-	require.Equal(t, []int{1, 1, 0}, []int{enabled, syncEnabled, monitoringEnabled})
+	require.NoError(t, db.Read.QueryRow(`SELECT enabled, sync_enabled, delete_requested_at FROM clusters`).
+		Scan(&enabled, &syncEnabled, &deleteRequestedAt))
+	require.Equal(t, []int{1, 1}, []int{enabled, syncEnabled})
 	require.Nil(t, deleteRequestedAt)
 }
 
@@ -473,7 +473,7 @@ func TestOpenRefusesANewerFile(t *testing.T) {
 // line in the PR that writes it. Once a desktop release carries a migration, every
 // installed app.db has run it, so its line never changes again.
 var shippedMigrations = map[string]string{
-	"0001_init.sql": "172100b3e83483480015b23e9caba13404cdd9f8abd4a3943ef56d5ad559061e",
+	"0001_init.sql": "e498860fbc544bc39756de67c246324b2e2612782ac72bfb9218ecc73172d65a",
 }
 
 func TestAShippedMigrationIsNeverEdited(t *testing.T) {

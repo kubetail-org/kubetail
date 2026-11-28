@@ -125,9 +125,11 @@ type ClusterPrincipal struct {
 // projected off the SQL row. Nothing here is observed, and nothing here is stored in
 // beehive — the runtime spec below carries only what the passes act on.
 type ClusterSpec struct {
-	Name              *string
-	Enabled           bool
-	SyncEnabled       bool
+	Name        *string
+	Enabled     bool
+	SyncEnabled bool
+	// MonitoringEnabled is the cluster's monitor target's switch, which gates
+	// detection; true until the monitor has given the cluster a target.
 	MonitoringEnabled bool
 	// IsDefault marks the user's default cluster, which a new window opens on. At most
 	// one record is the default.
@@ -470,7 +472,8 @@ func (a clustersAPI) WatchCollectionByID(ctx context.Context, id ClusterID) (*St
 // landing before one reread surface as the Deleted alone, and a row created and
 // removed between two reads produces no frame.
 func (a clustersAPI) WatchCollection(ctx context.Context) (*Stream[ClusterCollectionWatchFrame], error) {
-	rows := a.s.db.ListenForChanges(appdb.KeyClusters)
+	// KeyMonitorTargets too: a record's monitoring switch is its monitor target's.
+	rows := a.s.db.ListenForChanges(appdb.KeyClusters, appdb.KeyMonitorTargets)
 	objs, err := a.s.clusterClient.WatchList(ctx)
 	if err != nil {
 		rows.Close()
@@ -595,10 +598,6 @@ func (a clustersAPI) SetEnabled(ctx context.Context, id ClusterID, enabled bool)
 
 func (a clustersAPI) SetSyncEnabled(ctx context.Context, id ClusterID, enabled bool) (*Cluster, error) {
 	return a.setToggle(ctx, stmtSetClusterSyncEnabled, id, enabled)
-}
-
-func (a clustersAPI) SetMonitoringEnabled(ctx context.Context, id ClusterID, enabled bool) (*Cluster, error) {
-	return a.setToggle(ctx, stmtSetClusterMonitoringEnabled, id, enabled)
 }
 
 func (a clustersAPI) SetDefault(ctx context.Context, id ClusterID, isDefault bool) (*Cluster, error) {

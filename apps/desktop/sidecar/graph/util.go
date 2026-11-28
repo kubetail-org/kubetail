@@ -29,6 +29,7 @@ import (
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph/model"
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/apimeta"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/llm"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/kubeproxy"
@@ -139,6 +140,8 @@ var clusterRefusals = []struct {
 	{cluster.ErrDeclaredBySource, gqlerrors.ErrConflict},
 	{cluster.ErrNotConnectable, gqlerrors.ErrConflict},
 	{cluster.ErrCannotBeDefault, gqlerrors.ErrValidationError},
+	// A cluster the monitor's reconcile has yet to give a target.
+	{monitor.ErrNoTarget, gqlerrors.ErrRecordNotFound},
 }
 
 // clusterErr is what every cluster mutation returns an error through.
