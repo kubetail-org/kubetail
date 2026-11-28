@@ -233,6 +233,18 @@ Every row of the model that no test enforces, and every residual an enforced row
 - [MODEL-54](model-providers.md#model-54), By decision. A Cancel leaves a background agent running. Residual: The model can speak again after a Cancel, when an agent the send launched ends after it.
 - [MODEL-55](model-providers.md#model-55), By decision. A subagent's `TaskStop` reaches only its own tasks.
 
+## Monitoring
+
+- [MON-5](monitoring.md#mon-5), residual. The cap is per target, so many targets can each spend 6 an hour.
+- [MON-8](monitoring.md#mon-8), residual. A connection vouches for the server a probe last reached over it, as for a chat.
+- [MON-9](monitoring.md#mon-9), residual. The fence keeps the structure alone: a model can still act on what a value says, inside the read-only session.
+- [MON-15](monitoring.md#mon-15), Held by review. No model output reaches an OS notification.
+- [MON-16](monitoring.md#mon-16), Built. macOS asks for notification permission once, and shows and reports a press through its notification center. Residual: Checked by hand in a signed build: the center serves no unsigned app.
+- [MON-17](monitoring.md#mon-17), By decision. Every cluster's target is monitored by default.
+- [MON-18](monitoring.md#mon-18), By decision. A label within its bounds is shown as the cluster wrote it. Residual: A cluster can name a workload so its notification reads as another's.
+- [MON-19](monitoring.md#mon-19), By decision. The OS keeps the notifications it showed in its history. Residual: They outlive the incident's 30-day retention.
+- [MON-20](monitoring.md#mon-20), By decision. An automatic triage that answers `DISMISS` raises no notification. Residual: A model misled by a cluster's text can silence a real incident's notification; the incident stays listed with its report.
+
 ## The sandbox: files and the fence
 
 - [SBX-1](sandbox-files.md#sbx-1), By decision. A command the sandbox confines runs without asking, in the foreground or the background, on macOS and Linux.

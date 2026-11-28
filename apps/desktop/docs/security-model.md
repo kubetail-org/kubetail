@@ -231,12 +231,13 @@ must reproduce. A row's **Residual** is what its protection leaves open.
 | [Logs](security-model/logs.md) | 33 | 0 | 0 | 2 | 0 | 0 |
 | [Memory](security-model/memory.md) | 9 | 0 | 2 | 3 | 0 | 0 |
 | [Model providers and what leaves the machine](security-model/model-providers.md) | 20 | 0 | 0 | 18 | 0 | 17 |
+| [Monitoring](security-model/monitoring.md) | 14 | 1 | 1 | 4 | 0 | 0 |
 | [The sandbox: files and the fence](security-model/sandbox-files.md) | 41 | 0 | 0 | 6 | 0 | 0 |
 | [The sandbox: network and the run's door](security-model/sandbox-network.md) | 16 | 0 | 0 | 5 | 0 | 0 |
 | [The sandbox: environment, PATH and processes](security-model/sandbox-process.md) | 28 | 0 | 0 | 14 | 0 | 0 |
 | [Supply chain, release and updates](security-model/supply-chain.md) | 14 | 4 | 9 | 8 | 3 | 0 |
 | [The webview and the windows](security-model/webview.md) | 16 | 0 | 0 | 2 | 0 | 0 |
-| **All** | 431 | 17 | 12 | 143 | 6 | 17 |
+| **All** | 445 | 18 | 13 | 147 | 6 | 17 |
 <!-- index:stop -->
 
 `make lint-desktop` checks every row against the code: each cited test and file exists,

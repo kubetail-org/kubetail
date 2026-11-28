@@ -217,3 +217,12 @@ What differs here:
 | 2026-11-26 | [Write the read contracts once and each surface's rules beside them](2026-11-26-write-the-read-contracts-once-and-each-surfaces-rules-beside-them.md) | cross-cutting | Accepted |
 | 2026-11-26 | [A reload reads the latest host.json from the window's sessionStorage](2026-11-26-a-reload-reads-the-latest-host-json-from-session-storage.md) | cross-cutting | Accepted |
 | 2026-11-27 | [A new chat starts with its default, and a message can leave the sandbox for its turn](2026-11-27-a-new-chat-starts-with-its-default-and-a-message-can-leave-the-sandbox-for-its-turn.md) | cross-cutting | Accepted |
+| 2026-11-28 | [Detect failures without a model, and triage on request](2026-11-28-detect-failures-without-a-model-and-triage-on-request.md) | cross-cutting | Accepted |
+| 2026-11-28 | [Keep each integration behind one interface, under a core that knows none](2026-11-28-the-monitor-core-knows-no-integration.md) | sidecar | Accepted |
+| 2026-11-28 | [Let an integration list its targets, and keep their rows in the core](2026-11-28-an-integration-lists-its-targets-and-the-core-keeps-their-rows.md) | sidecar | Accepted |
+| 2026-11-28 | [Make an incident a target, a subject and a signal, holding occurrences](2026-11-28-an-incident-is-a-target-a-subject-and-a-signal-and-holds-occurrences.md) | sidecar | Accepted |
+| 2026-11-28 | [Keep what every incident has in columns, and the rest in the subject's attributes](2026-11-28-incidents-hold-what-every-incident-has-and-the-subjects-attributes-the-rest.md) | sidecar | Accepted |
+| 2026-11-28 | [Give a target one UID at a time, and an incident the UID it opened under](2026-11-28-a-target-holds-one-uid-and-an-incident-belongs-to-the-uid-it-opened-under.md) | sidecar | Accepted |
+| 2026-11-28 | [End an occurrence as resolved, stopped or stale](2026-11-28-an-occurrence-ends-as-resolved-stopped-or-stale.md) | sidecar | Accepted |
+| 2026-11-28 | [Raise an alert from the host, with fixed text](2026-11-28-the-host-raises-an-alert-with-fixed-text.md) | cross-cutting | Accepted |
+| 2026-11-28 | [Gate detection with the target's switch, and unattended runs with the triage setting](2026-11-28-the-target-switch-gates-detection-and-the-triage-setting-gates-unattended-runs.md) | cross-cutting | Accepted |

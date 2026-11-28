@@ -315,7 +315,11 @@ reverse direction is not caught, so `TestLLMDialectBindsEveryMember` walks `llm.
 ## Monitor (`internal/agent/monitor`)
 
 A `Registration` per integration; `monitor/kubesignals` is the one, a target per cluster, and the
-one package that reads a key as a cluster's id (`ClusterID`).
+one package that reads a key as a cluster's id (`ClusterID`). → ADRs: [no model to
+detect](../../../docs/adr/2026-11-28-detect-failures-without-a-model-and-triage-on-request.md),
+[the core](../../../docs/adr/2026-11-28-the-monitor-core-knows-no-integration.md),
+[incidents](../../../docs/adr/2026-11-28-an-incident-is-a-target-a-subject-and-a-signal-and-holds-occurrences.md),
+[the gates](../../../docs/adr/2026-11-28-the-target-switch-gates-detection-and-the-triage-setting-gates-unattended-runs.md).
 
 - **The core knows no integration**: it never parses a target's key, nor reads a subject's
   attributes or a `detail` but to fence them into a triage's brief, and is tested over a fake
