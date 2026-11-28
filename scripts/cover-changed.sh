@@ -76,6 +76,7 @@ ignored=(
   'apps/desktop/src-tauri/src/main.rs'
   'apps/desktop/src-tauri/src/app_menu/macos.rs'
   'apps/desktop/src-tauri/src/dock_menu/macos.rs'
+  'apps/desktop/src-tauri/src/alerts/macos.rs'
   'apps/desktop/src-tauri/src/wake/linux.rs'
   'apps/desktop/src-tauri/src/wake/windows.rs'
   'apps/desktop/src-tauri/src/updater/platform.rs'

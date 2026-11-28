@@ -232,6 +232,13 @@ pub fn run() {
         logging::process_subscriber(std::io::stderr, ansi, logging::env_filter());
     subscriber.init();
 
+    // Alerts raised before this are in the bell, not notified.
+    let launched_at_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| {
+            i64::try_from(since.as_millis()).unwrap_or(i64::MAX)
+        });
+
     let mut builder = tauri::Builder::default();
 
     // Single-instance must be registered before all other plugins so a second
@@ -266,6 +273,12 @@ pub fn run() {
     #[cfg(any(target_os = "macos", windows))]
     {
         builder = builder.plugin(crate::updater::platform::plugin());
+    }
+
+    // The alerts' notifications; no capability grants it, so no page sends one.
+    #[cfg(not(target_os = "macos"))]
+    {
+        builder = builder.plugin(tauri_plugin_notification::init());
     }
 
     let app = builder
@@ -305,6 +318,20 @@ pub fn run() {
             // AuthStateWatch stream.
             let watch = tray::watch_auth_state(app.handle().clone(), rebuild_tray_menu);
             tauri::async_runtime::spawn(watch);
+
+            // Notify the monitor's alerts, with a window open or none. macOS
+            // first reads the permission, asking for it at the first launch;
+            // the plugin needs its press handler before it shows anything.
+            #[cfg(target_os = "macos")]
+            crate::alerts::macos::install(app.handle());
+            #[cfg(not(target_os = "macos"))]
+            crate::alerts::listen_for_presses(app.handle());
+            let handle = app.handle().clone();
+            let alerts =
+                crate::alerts::watch(app.handle().clone(), launched_at_ms, move |notice| {
+                    crate::alerts::show(&handle, notice)
+                });
+            tauri::async_runtime::spawn(alerts);
 
             #[cfg(any(target_os = "macos", windows))]
             crate::updater::platform::spawn_update_checker(app.handle(), rebuild_tray_menu);

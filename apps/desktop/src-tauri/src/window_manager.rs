@@ -36,7 +36,9 @@ use std::sync::{Mutex, MutexGuard};
 
 use tauri::webview::NewWindowResponse;
 use tauri::window::{Color, Monitor};
-use tauri::{AppHandle, Manager, Runtime, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{
+    AppHandle, Emitter, Manager, Runtime, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+};
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
 
@@ -404,6 +406,18 @@ struct LogGroups {
     last: HashMap<String, Frame>,
 }
 
+/// The event that tells an app window's page a notification's press waits
+/// for it, to take with `notification_press_take`. It carries nothing.
+pub const PRESS_WAITING_EVENT: &str = "notification-press-waiting";
+
+/// A notification's press, waiting for its window's page: the incident to open
+/// the Incidents dialog on, or none for a summary.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct Press {
+    #[serde(rename = "incidentID")]
+    pub incident_id: Option<String>,
+}
+
 /// Unminimizes, shows and focuses `window`.
 fn surface<R: Runtime>(window: &WebviewWindow<R>) -> Result<()> {
     // A minimized window won't surface on show()/set_focus() alone.
@@ -471,6 +485,14 @@ pub struct WindowManager {
     /// a closed window drops normally and is simply not found next lookup.
     last_built: Mutex<Option<String>>,
 
+    /// The app window last focused, which a notification's press surfaces.
+    last_focused: Mutex<Option<String>>,
+
+    /// Each app window's newest press its page has not taken, by label. Held
+    /// until the page takes it, since a page registers its listener only after
+    /// it loads, and reloads lose what it held.
+    presses: Mutex<HashMap<String, Press>>,
+
     /// The app-wide shutdown signal, cancelled once a quit begins. Every path
     /// that opens or shows a window ends in this type's two methods, which open
     /// nothing after it and hide what they presented as it began: a window
@@ -510,6 +532,8 @@ impl WindowManager {
         Self {
             next_id: AtomicU64::new(0),
             last_built: Mutex::new(None),
+            last_focused: Mutex::new(None),
+            presses: Mutex::new(HashMap::new()),
             shutdown,
             monitors: Box::new(monitors),
             main_frame: Mutex::new(None),
@@ -530,15 +554,82 @@ impl WindowManager {
     /// Create a fresh window with a unique label (`window-1`, `window-2`, …) —
     /// never reuses an existing one. Opens nothing once a quit has begun.
     pub fn new_window<R: Runtime>(&self, app: &AppHandle<R>) -> Result<()> {
-        let label = self.next_label();
+        self.new_window_labelled(app, &self.next_label())?;
+        Ok(())
+    }
+
+    /// [`Self::new_window`] as `label`, a label [`Self::next_label`] minted.
+    fn new_window_labelled<R: Runtime>(
+        &self,
+        app: &AppHandle<R>,
+        label: &str,
+    ) -> Result<Option<WebviewWindow<R>>> {
         let placed = self
             .placement(app, None, &APP_WINDOW)
             .map(|frame| SavedFrame {
                 frame,
                 maximized: false,
             });
-        self.open(app, &label, &APP_WINDOW, placed)?;
-        Ok(())
+        self.open(app, label, &APP_WINDOW, placed)
+    }
+
+    /// A notification's press: surfaces the app window last focused, else the
+    /// main window, else any, else opens one, and leaves the press for its page
+    /// to take ([`Self::take_press`]), telling an open page in
+    /// [`PRESS_WAITING_EVENT`]. `None` opens the Incidents dialog with nothing
+    /// selected.
+    pub fn open_incident<R: Runtime>(
+        &self,
+        app: &AppHandle<R>,
+        incident_id: Option<&str>,
+    ) -> Result<()> {
+        let last_focused = self
+            .last_focused
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone();
+        // The window last focused, else the main window, else any app window:
+        // a window destroyed or never focused leaves no record to follow.
+        let window = last_focused
+            .and_then(|label| app.get_webview_window(&label))
+            .or_else(|| app.get_webview_window(MAIN_LABEL))
+            .or_else(|| {
+                app.webview_windows()
+                    .into_values()
+                    .find(|w| is_app_label(w.label()))
+            });
+        let press = Press {
+            incident_id: incident_id.map(str::to_string),
+        };
+        match window {
+            Some(window) => {
+                if self.surface_window(app, window.label())? {
+                    self.presses().insert(window.label().to_string(), press);
+                    window.emit_to(window.label(), PRESS_WAITING_EVENT, ())?;
+                }
+                Ok(())
+            }
+            None => {
+                // Waiting before the build, so the page finds it however soon it
+                // asks.
+                let label = self.next_label();
+                self.presses().insert(label.clone(), press);
+                let built = self.new_window_labelled(app, &label);
+                if !matches!(built, Ok(Some(_))) {
+                    self.presses().remove(&label);
+                }
+                built.map(drop)
+            }
+        }
+    }
+
+    /// Takes the press waiting for `label`'s page, if one is.
+    pub fn take_press(&self, label: &str) -> Option<Press> {
+        self.presses().remove(label)
+    }
+
+    fn presses(&self) -> MutexGuard<'_, HashMap<String, Press>> {
+        self.presses.lock().unwrap_or_else(|p| p.into_inner())
     }
 
     /// Builds the log window `label` for the app window `anchor`, at
@@ -824,6 +915,9 @@ impl WindowManager {
         if is_logs_label(label) {
             self.log_window_seen(app, label);
         }
+        if is_app_label(label) {
+            *self.last_focused.lock().unwrap_or_else(|p| p.into_inner()) = Some(label.to_string());
+        }
     }
 
     fn log_window_seen<R: Runtime>(&self, app: &AppHandle<R>, label: &str) {
@@ -863,6 +957,12 @@ impl WindowManager {
         if label == MAIN_LABEL {
             self.save_main_frame();
         }
+        let mut last_focused = self.last_focused.lock().unwrap_or_else(|p| p.into_inner());
+        if last_focused.as_deref() == Some(label) {
+            *last_focused = None;
+        }
+        drop(last_focused);
+        self.presses().remove(label);
         // Its log windows leave too, so one focused before its own destroy
         // cannot bring the group back.
         let mut groups = self.log_groups();
@@ -1026,8 +1126,9 @@ impl WindowManager {
 #[cfg(test)]
 mod tests {
     use super::{
-        background_color_for, cascade_position, covers, fit_size, fits, is_app_origin,
-        next_in_group, refuse_new_window, warn_on_error, Frame, WindowManager, APP_WINDOW,
+        background_color_for, cascade_position, covers, fit_size, fits, is_app_label,
+        is_app_origin, next_in_group, refuse_new_window, warn_on_error, Frame, Press,
+        WindowManager, APP_WINDOW,
     };
     use crate::host_file::ColorSchemePreference;
     use crate::logging::captured;
@@ -1244,6 +1345,130 @@ mod tests {
         manager().show_main_window(app.handle()).unwrap();
 
         assert!(app.get_webview_window("main").is_some());
+    }
+
+    /// A press surfaces the app window last focused, a log window's focus
+    /// aside, leaves the press for its page and tells it; a later press
+    /// replaces one not yet taken, and a take clears it.
+    #[test]
+    fn a_press_waits_in_the_app_window_last_focused() {
+        use tauri::Listener;
+
+        let scratch = Scratch::new();
+        let app = mock_app(scratch.path(), SidecarService::without_process(None));
+        let wm = manager();
+        window(&app, "main");
+        let focused = window(&app, "window-7");
+        window(&app, "logs-8");
+        wm.window_focused(app.handle(), "window-7");
+        wm.window_focused(app.handle(), "logs-8");
+        let (tx, rx) = std::sync::mpsc::channel();
+        focused.listen(super::PRESS_WAITING_EVENT, move |event| {
+            tx.send(event.payload().to_string()).unwrap();
+        });
+
+        wm.open_incident(app.handle(), Some("0193")).unwrap();
+        rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+        wm.open_incident(app.handle(), None).unwrap();
+        rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+
+        assert_eq!(app.webview_windows().len(), 3, "nothing opened");
+        assert_eq!(wm.take_press("main"), None);
+        assert_eq!(
+            wm.take_press("window-7"),
+            Some(Press { incident_id: None }),
+            "the newer press"
+        );
+        assert_eq!(wm.take_press("window-7"), None, "taking clears it");
+    }
+
+    /// With no app window focused a press surfaces the main window, else
+    /// another app window.
+    #[test]
+    fn a_press_falls_back_to_the_main_window_then_any() {
+        let scratch = Scratch::new();
+        let app = mock_app(scratch.path(), SidecarService::without_process(None));
+        window(&app, "window-3");
+        let wm = manager();
+        wm.open_incident(app.handle(), Some("0193")).unwrap();
+        assert_eq!(
+            wm.take_press("window-3"),
+            Some(Press {
+                incident_id: Some("0193".to_string())
+            })
+        );
+
+        window(&app, "main");
+        wm.open_incident(app.handle(), Some("0194")).unwrap();
+        assert!(wm.take_press("main").is_some());
+        assert_eq!(app.webview_windows().len(), 2, "nothing opened");
+    }
+
+    /// With no app window a press builds one, its press already waiting, so
+    /// a summary's press opens the dialog in a window it builds. The press is
+    /// gone with the window.
+    #[test]
+    fn a_press_with_no_window_builds_one_its_press_waiting() {
+        let scratch = Scratch::new();
+        let app = mock_app(scratch.path(), SidecarService::without_process(None));
+        window(&app, "logs-1");
+        let wm = manager();
+
+        wm.open_incident(app.handle(), None).unwrap();
+
+        let built: Vec<String> = app
+            .webview_windows()
+            .into_keys()
+            .filter(|label| is_app_label(label))
+            .collect();
+        assert_eq!(built.len(), 1, "{built:?}");
+        wm.open_incident(app.handle(), Some("0193")).unwrap();
+        wm.window_destroyed(&built[0]);
+        assert_eq!(wm.take_press(&built[0]), None, "gone with its window");
+    }
+
+    /// A press that builds no window, as a quit begins, leaves no press.
+    #[test]
+    fn a_press_that_builds_no_window_leaves_none() {
+        let scratch = Scratch::new();
+        let app = mock_app(scratch.path(), SidecarService::without_process(None));
+        let shutdown = CancellationToken::new();
+        let wm = WindowManager::new(shutdown.clone(), OneMonitor(None), None);
+        shutdown.cancel();
+
+        wm.open_incident(app.handle(), Some("0193")).unwrap();
+
+        assert!(app.webview_windows().is_empty());
+        assert!(wm.presses().is_empty());
+    }
+
+    /// A press while quitting surfaces nothing and sends nothing.
+    #[test]
+    fn a_press_while_quitting_reaches_no_window() {
+        let scratch = Scratch::new();
+        let app = mock_app(scratch.path(), SidecarService::without_process(None));
+        window(&app, "main");
+        let shutdown = CancellationToken::new();
+        let wm = WindowManager::new(shutdown.clone(), OneMonitor(None), None);
+        shutdown.cancel();
+
+        wm.open_incident(app.handle(), Some("0193")).unwrap();
+
+        assert_eq!(app.webview_windows().len(), 1);
+        assert_eq!(wm.take_press("main"), None);
+    }
+
+    /// A destroyed window is no longer the one last focused.
+    #[test]
+    fn a_destroyed_window_is_not_the_last_focused() {
+        let scratch = Scratch::new();
+        let app = mock_app(scratch.path(), SidecarService::without_process(None));
+        let wm = manager();
+        wm.window_focused(app.handle(), "window-7");
+        wm.window_destroyed("window-3");
+        assert_eq!(wm.last_focused.lock().unwrap().as_deref(), Some("window-7"));
+        wm.window_destroyed("window-7");
+        assert_eq!(*wm.last_focused.lock().unwrap(), None);
     }
 
     #[test]
@@ -1734,6 +1959,8 @@ mod tests {
                 "allow-log-window-open",
                 "allow-log-window-focus",
                 "allow-log-window-close-all",
+                "allow-notification-permission-state-watch",
+                "allow-notification-press-take",
             ],
             "the app window holds what it calls and nothing else — add a permission here only with the consumer that needs it"
         );
@@ -1741,6 +1968,26 @@ mod tests {
             capability["windows"],
             serde_json::json!(["main", "window-*"])
         );
+    }
+
+    /// The notification plugin is the host's alone: a page that could send a
+    /// notification could show the OS any text as Kubetail.
+    #[test]
+    fn no_window_may_send_a_notification() {
+        for (name, file) in [
+            ("default", include_str!("../capabilities/default.json")),
+            ("logs", include_str!("../capabilities/logs.json")),
+        ] {
+            let capability: serde_json::Value =
+                serde_json::from_str(file).expect("valid capability JSON");
+            let permissions = capability["permissions"].as_array().expect("a list");
+            assert!(
+                permissions
+                    .iter()
+                    .all(|p| !p.as_str().unwrap_or_default().starts_with("notification:")),
+                "{name} grants a notification permission"
+            );
+        }
     }
 
     #[test]
