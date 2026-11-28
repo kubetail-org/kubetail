@@ -12,21 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { act, renderHook } from '@testing-library/react';
+import { act, render, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Cluster } from '@/lib/clusters';
-import type { Incident, IncidentOccurrence, MonitorTarget } from '@/lib/incidents';
+import type { Incident, IncidentOccurrence, MonitorTarget, MonitorTargetEnabledSet } from '@/lib/incidents';
 import { clusterRecord, incidentRecord, monitorTargetRecord, occurrenceRecord } from '@/test-utils';
 
 // Stand in for useFoldedSubscription: keep each operation's reducer and accumulator, and
 // fold frames through the reducer directly.
 type Fold = { reduce: (prev: unknown, frames: unknown[]) => unknown; acc: unknown; args: Record<string, unknown> };
-const { folds, useFoldedSubscriptionMock, useQueryMock, state } = vi.hoisted(() => ({
+const { folds, useFoldedSubscriptionMock, useQueryMock, sendEnabled, state } = vi.hoisted(() => ({
   folds: new Map<string, Fold>(),
   useFoldedSubscriptionMock: vi.fn(),
   useQueryMock: vi.fn(),
+  sendEnabled: vi.fn(),
   state: { clusters: null, signals: undefined } as { clusters: Cluster[] | null; signals: unknown },
 }));
 vi.mock('@/lib/graphql/use-folded-subscription', async (importOriginal) => ({
@@ -36,6 +37,7 @@ vi.mock('@/lib/graphql/use-folded-subscription', async (importOriginal) => ({
 vi.mock('urql', async (importOriginal) => ({
   ...(await importOriginal<typeof import('urql')>()),
   useQuery: useQueryMock,
+  useMutation: () => [{}, sendEnabled],
 }));
 vi.mock('@/lib/clusters', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/clusters')>()),
@@ -49,6 +51,7 @@ const {
   useIncidentOccurrenceEventFeed,
   useIncidents,
   useMonitorSignals,
+  useMonitorTargetEnabledSet,
   useMonitorTargets,
 } = await import('./incidents');
 
@@ -235,6 +238,7 @@ describe('IncidentsProvider', () => {
 
   it('refuses to work outside its provider', () => {
     expect(() => renderHook(() => useMonitorTargets())).toThrow(/inside <IncidentsProvider>/);
+    expect(() => renderHook(() => useMonitorTargetEnabledSet())).toThrow(/inside <IncidentsProvider>/);
   });
 });
 
@@ -376,5 +380,110 @@ describe('incidentState', () => {
       at: '2026-11-02T00:00:00Z',
     });
     expect(incidentState(incidentRecord({ ...ended, lastEndReason: 'Stopped' })).label).toBe('Last seen');
+  });
+});
+
+describe('useMonitorTargetEnabledSet', () => {
+  // A mutation answer the test releases.
+  function staged() {
+    let answer!: (result: unknown) => void;
+    sendEnabled.mockReturnValueOnce(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    return (result: unknown = {}) => act(async () => answer(result));
+  }
+  const refused = (message: string) => ({ error: { graphQLErrors: [{ message }], message } });
+
+  it('sends the switch and holds the target in flight until the mutation answers', async () => {
+    const answer = staged();
+    const { result } = renderHook(() => useMonitorTargetEnabledSet(), { wrapper });
+
+    act(() => void result.current.set('t1', false));
+    expect(sendEnabled).toHaveBeenCalledWith({ id: 't1', enabled: false });
+    expect(result.current.changing).toEqual(new Set(['t1']));
+
+    await answer();
+    expect(result.current.changing).toEqual(new Set());
+  });
+
+  it('sends nothing for a target already in flight', async () => {
+    const answer = staged();
+    const { result } = renderHook(() => useMonitorTargetEnabledSet(), { wrapper });
+
+    act(() => {
+      void result.current.set('t1', false);
+      void result.current.set('t1', true);
+    });
+    expect(sendEnabled).toHaveBeenCalledTimes(1);
+
+    await answer();
+    sendEnabled.mockResolvedValueOnce({});
+    await act(() => result.current.set('t1', true));
+    expect(sendEnabled).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a refusal on its own target until that target's next press", async () => {
+    sendEnabled.mockResolvedValueOnce(refused('Record not found')).mockResolvedValueOnce(refused('Unreachable'));
+    const { result } = renderHook(() => useMonitorTargetEnabledSet(), { wrapper });
+
+    await act(() => result.current.set('t1', false));
+    await act(() => result.current.set('t2', false));
+    expect(result.current.errors).toEqual(
+      new Map([
+        ['t1', 'Record not found'],
+        ['t2', 'Unreachable'],
+      ]),
+    );
+
+    const answer = staged();
+    act(() => void result.current.set('t1', false));
+    expect(result.current.errors).toEqual(new Map([['t2', 'Unreachable']]));
+    // An answer that took brings back no refusal.
+    await answer();
+    expect(result.current.errors).toEqual(new Map([['t2', 'Unreachable']]));
+  });
+
+  it('keeps a switch in flight and its refusal while no switch is drawn', async () => {
+    const answer = staged();
+    let enabledSet!: MonitorTargetEnabledSet;
+    function Switches() {
+      enabledSet = useMonitorTargetEnabledSet();
+      return null;
+    }
+    const { rerender } = render(
+      <IncidentsProvider>
+        <Switches />
+      </IncidentsProvider>,
+    );
+
+    act(() => void enabledSet.set('t1', false));
+    rerender(<IncidentsProvider>{null}</IncidentsProvider>);
+    rerender(
+      <IncidentsProvider>
+        <Switches />
+      </IncidentsProvider>,
+    );
+    expect(enabledSet.changing).toEqual(new Set(['t1']));
+    act(() => void enabledSet.set('t1', false));
+    expect(sendEnabled).toHaveBeenCalledTimes(1);
+
+    rerender(<IncidentsProvider>{null}</IncidentsProvider>);
+    await answer(refused('Unreachable'));
+    rerender(
+      <IncidentsProvider>
+        <Switches />
+      </IncidentsProvider>,
+    );
+    expect(enabledSet.changing).toEqual(new Set());
+    expect(enabledSet.errors).toEqual(new Map([['t1', 'Unreachable']]));
+  });
+
+  it('keeps the same set across renders', () => {
+    const { result, rerender } = renderHook(() => useMonitorTargetEnabledSet(), { wrapper });
+    const { set } = result.current;
+    rerender();
+    expect(result.current.set).toBe(set);
   });
 });
