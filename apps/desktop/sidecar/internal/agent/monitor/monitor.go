@@ -32,6 +32,7 @@ import (
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/appdb"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/drain"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/workqueue"
 )
 
 // reconcileEvery is the backstop under each integration's change notices, and
@@ -54,6 +55,12 @@ type Monitor struct {
 	cancel context.CancelFunc
 	mu     sync.Mutex
 	wg     sync.WaitGroup
+
+	// triages is the targets with triages waiting, which waiting holds in the order
+	// asked, under triageMu.
+	triages  *workqueue.Queue[string]
+	triageMu sync.Mutex
+	waiting  map[string][]triageRequest
 }
 
 // registration is a Registration and the names of its signals.
@@ -74,7 +81,10 @@ func New(db *appdb.DB, regs ...Registration) (*Monitor, error) {
 func wallClock() time.Time { return time.Now().Round(0).Truncate(time.Millisecond) }
 
 func newMonitor(db *appdb.DB, clock func() time.Time, backstop time.Duration, regs ...Registration) (*Monitor, error) {
-	m := &Monitor{byName: map[string]*registration{}, clock: clock, backstop: backstop}
+	m := &Monitor{
+		byName: map[string]*registration{}, clock: clock, backstop: backstop,
+		triages: workqueue.New[string](), waiting: map[string][]triageRequest{},
+	}
 	names := make([]string, 0, len(regs))
 	for _, r := range regs {
 		if _, dup := m.byName[r.Name]; dup {
@@ -102,6 +112,10 @@ func newMonitor(db *appdb.DB, clock func() time.Time, backstop time.Duration, re
 		return nil, err
 	}
 	m.store = st
+	// Before any triage is queued: one still queued was the last process's.
+	if err := st.failStrandedTriages(context.Background()); err != nil { // coverage:ignore the statement runs on the schema app.db was just migrated to
+		return nil, errors.Join(err, st.close())
+	}
 	// A subscription may open before Start: a request can arrive first.
 	m.ctx, m.cancel = context.WithCancel(context.Background())
 	return m, nil
@@ -123,6 +137,9 @@ func (m *Monitor) Start(context.Context) (func(context.Context) error, error) {
 	})
 	for _, reg := range m.regs {
 		m.wg.Go(func() { m.reconcileLoop(m.ctx, reg) })
+	}
+	for range triageWorkers {
+		m.wg.Go(func() { m.triageLoop(m.ctx) })
 	}
 	return func(ctx context.Context) error {
 		m.halt()

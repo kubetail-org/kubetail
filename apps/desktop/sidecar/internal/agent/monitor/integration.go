@@ -27,6 +27,7 @@ type Registration struct {
 	Cadence     time.Duration // how often one of its targets is read
 	Signals     []Signal      // each signal it can find
 	Integration Integration
+	Triager     Triager // nil for an integration that cannot triage
 }
 
 // Integration lists and reads the targets of one system, such as Kubernetes.
