@@ -1,0 +1,100 @@
+# Workloads that trip the desktop monitor's pod signals, one Deployment each.
+#
+#   ns=alerts-$(date +%s); kubectl create namespace $ns
+#   kubectl apply -n $ns -f hack/manifests/monitor-alerts.yaml
+#   kubectl apply -n $ns -f hack/manifests/monitor-alerts.yaml -l kubetail.dev/signal=crash-loop
+#   kubectl delete namespace $ns
+#
+# Crash loop and image pull open an incident after 2 minutes, pod pending after
+# 5. An incident resolves 5 minutes after its Deployment is deleted.
+#
+# The monitor keys an incident by the Deployment, not its pods, so re-creating
+# the pods continues the same incident. A fresh namespace is a fresh subject.
+# A subject first seen within 5 minutes of the monitor's first reading of the
+# cluster is baseline and never alerts.
+#
+# Node not ready needs a node to go down. On kind:
+#
+#   docker pause kind-worker2
+#   docker unpause kind-worker2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crash-loop
+  labels:
+    app.kubernetes.io/name: crash-loop
+    app.kubernetes.io/instance: kubetail-dev
+    kubetail.dev/signal: crash-loop
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: crash-loop
+      app.kubernetes.io/instance: kubetail-dev
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: crash-loop
+        app.kubernetes.io/instance: kubetail-dev
+    spec:
+      containers:
+        - name: crash-loop
+          image: docker.io/library/busybox:1.37.0
+          command: ["sh", "-c", "echo 'fatal: cannot connect to database' >&2; exit 1"]
+          resources: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-pull
+  labels:
+    app.kubernetes.io/name: image-pull
+    app.kubernetes.io/instance: kubetail-dev
+    kubetail.dev/signal: image-pull
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: image-pull
+      app.kubernetes.io/instance: kubetail-dev
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: image-pull
+        app.kubernetes.io/instance: kubetail-dev
+    spec:
+      containers:
+        - name: image-pull
+          # .invalid never resolves, so the pull fails without reaching a registry.
+          image: registry.invalid/kubetail/does-not-exist:0.0.0
+          resources: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-pending
+  labels:
+    app.kubernetes.io/name: pod-pending
+    app.kubernetes.io/instance: kubetail-dev
+    kubetail.dev/signal: pod-pending
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pod-pending
+      app.kubernetes.io/instance: kubetail-dev
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pod-pending
+        app.kubernetes.io/instance: kubetail-dev
+    spec:
+      # No node carries this label, so the scheduler never places the Pod.
+      nodeSelector:
+        kubetail.dev/never-scheduled: "true"
+      containers:
+        - name: pod-pending
+          image: docker.io/library/busybox:1.37.0
+          command: ["sleep", "infinity"]
+          resources: {}
