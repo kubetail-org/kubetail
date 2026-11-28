@@ -29,7 +29,7 @@ import (
 
 func openTestStore(t *testing.T) *store {
 	t.Helper()
-	st, err := openStore(appdbtest.Open(t), func() time.Time { return t0 })
+	st, err := openStore(appdbtest.Open(t), func() time.Time { return t0 }, []string{"fake"})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, st.close()) })
 	return st
@@ -39,9 +39,7 @@ func openTestStore(t *testing.T) *store {
 func targetOf(t *testing.T, st *store, key string) string {
 	t.Helper()
 	require.NoError(t, st.reconcile(t.Context(), "fake", []Target{{Key: key, Label: key}}))
-	id, err := st.targetID(t.Context(), "fake", key)
-	require.NoError(t, err)
-	return id
+	return targetIDOf(t, st.db, key)
 }
 
 // committer folds readings over one stored target and commits each fold.
@@ -80,6 +78,14 @@ func (c *committer) mustAt(offset time.Duration, r Reading) changes {
 	return ch
 }
 
+// targetIDOf is the id of the fake integration's target key.
+func targetIDOf(t *testing.T, db *appdb.DB, key string) string {
+	t.Helper()
+	var id string
+	require.NoError(t, db.Read.QueryRow(`SELECT id FROM monitor_targets WHERE integration = 'fake' AND key = ?`, key).Scan(&id))
+	return id
+}
+
 // count is query's one integer, read from db.
 func count(t *testing.T, db *appdb.DB, query string, args ...any) int {
 	t.Helper()
@@ -106,9 +112,7 @@ func TestTheReconcileKeepsTheRowsTheListing(t *testing.T) {
 	require.NoError(t, st.reconcile(ctx, "fake", []Target{{Key: "a", Label: "A"}, {Key: "b", Label: "B"}}))
 	testutil.Recv(t, sub.Chan(), "the new rows")
 	assert.Equal(t, 2, count(t, st.db, `SELECT count(*) FROM monitor_targets WHERE integration = 'fake' AND enabled = 1`))
-	b, err := st.targetID(ctx, "fake", "b")
-	require.NoError(t, err)
-	c := newCommitter(t, st, b)
+	c := newCommitter(t, st, targetIDOf(t, st.db, "b"))
 	c.mustAt(0, seeing(flip.Name, "web"))
 	testutil.Recv(t, sub.Chan(), "the fold's first reading")
 	testutil.Recv(t, incidents.Chan(), "the fold's incident")
@@ -122,8 +126,7 @@ func TestTheReconcileKeepsTheRowsTheListing(t *testing.T) {
 	testutil.Recv(t, sub.Chan(), "the relabel and the delete")
 	testutil.Recv(t, incidents.Chan(), "the delete's cascade")
 	assert.Equal(t, 1, count(t, st.db, `SELECT count(*) FROM monitor_targets WHERE integration = 'fake' AND key = 'a' AND label = 'A2'`))
-	_, err = st.targetID(ctx, "fake", "b")
-	assert.ErrorIs(t, err, ErrNoTarget)
+	assert.Zero(t, count(t, st.db, `SELECT count(*) FROM monitor_targets WHERE key = 'b'`))
 	assert.Zero(t, count(t, st.db, `SELECT count(*) FROM incidents`), "the delete takes its incidents")
 	assert.Equal(t, 1, count(t, st.db, `SELECT count(*) FROM monitor_targets WHERE integration = 'other'`))
 }
@@ -193,8 +196,8 @@ func TestAFoldCommitsOnlyUnderItsGeneration(t *testing.T) {
 	st := openTestStore(t)
 	id := targetOf(t, st, "t")
 	c := newCommitter(t, st, id)
-	require.NoError(t, st.setEnabled(t.Context(), id, false))
-	require.NoError(t, st.setEnabled(t.Context(), id, true))
+	require.NoError(t, errOf(st.setEnabled(t.Context(), id, false)))
+	require.NoError(t, errOf(st.setEnabled(t.Context(), id, true)))
 
 	_, err := c.at(0, seeing(flip.Name, "web"))
 
@@ -219,7 +222,7 @@ func TestTheSwitchStopsATargetInItsOwnTransaction(t *testing.T) {
 	incidents := st.db.ListenForChanges(appdb.KeyIncidents)
 	defer incidents.Close()
 
-	require.NoError(t, st.setEnabled(t.Context(), id, false))
+	require.NoError(t, errOf(st.setEnabled(t.Context(), id, false)))
 
 	testutil.Recv(t, incidents.Chan(), "the stop")
 	var endedAt int64
@@ -229,10 +232,10 @@ func TestTheSwitchStopsATargetInItsOwnTransaction(t *testing.T) {
 	assert.Equal(t, "stopped", reason)
 	targets := st.db.ListenForChanges(appdb.KeyMonitorTargets)
 	defer targets.Close()
-	require.NoError(t, st.setEnabled(t.Context(), id, false))
+	require.NoError(t, errOf(st.setEnabled(t.Context(), id, false)))
 	assert.Equal(t, 1, count(t, st.db, `SELECT generation FROM monitor_targets`), "a repeat moves nothing")
 	testutil.NoRecv(t, targets.Chan(), 20*time.Millisecond, "and notifies nothing")
-	assert.ErrorIs(t, st.setEnabled(t.Context(), "nope", true), ErrNoTarget)
+	assert.ErrorIs(t, errOf(st.setEnabled(t.Context(), "nope", true)), ErrNoTarget)
 }
 
 // A target's first fold since a start seeds a pair for each open occurrence,
@@ -296,7 +299,7 @@ func TestARestartPicksUpTheOpenOccurrences(t *testing.T) {
 	late.ids = 100
 	ch = late.mustAt(30*time.Hour, seeing(crash.Name, "web"))
 	require.Len(t, ch.ends, 1)
-	assert.Equal(t, endStale, ch.ends[0].reason)
+	assert.Equal(t, EndStale, ch.ends[0].reason)
 }
 
 // The sweep deletes an incident that is not open and was last seen more than 30
@@ -427,11 +430,11 @@ func TestTheSwitchAndTheSeedReportAFailedStatement(t *testing.T) {
 	c.mustAt(0, seeing(flip.Name, "web"))
 
 	refuse(t, st, `BEFORE UPDATE OF ended_at ON incident_occurrences`)
-	assert.ErrorContains(t, st.setEnabled(t.Context(), id, false), "stop occurrences")
+	assert.ErrorContains(t, errOf(st.setEnabled(t.Context(), id, false)), "stop occurrences")
 	_, err := st.db.Write.Exec(`DROP TRIGGER refuse`)
 	require.NoError(t, err)
 	refuse(t, st, `BEFORE UPDATE OF enabled ON monitor_targets`)
-	assert.ErrorContains(t, st.setEnabled(t.Context(), id, false), "switch target")
+	assert.ErrorContains(t, errOf(st.setEnabled(t.Context(), id, false)), "switch target")
 
 	_, err = st.db.Write.Exec(`ALTER TABLE incident_occurrences RENAME COLUMN started_at TO renamed`)
 	require.NoError(t, err)
@@ -470,8 +473,6 @@ func TestTheStoreReportsAFailedStatement(t *testing.T) {
 			}, "write target"},
 		"a delete": {`CREATE TRIGGER refuse BEFORE DELETE ON monitor_targets BEGIN SELECT RAISE(ABORT, 'refused'); END`,
 			func(st *store, _ string) error { return st.reconcile(t.Context(), "fake", nil) }, "delete target"},
-		"a target id": {`ALTER TABLE monitor_targets RENAME COLUMN key TO renamed`,
-			func(st *store, _ string) error { _, err := st.targetID(t.Context(), "fake", "t"); return err }, "read target id"},
 		"the monitored targets": {`ALTER TABLE monitor_targets RENAME COLUMN generation TO renamed`,
 			func(st *store, _ string) error { _, err := st.monitored(t.Context()); return err }, "read monitored targets"},
 		"a target's state": {`ALTER TABLE monitor_targets RENAME COLUMN current_uid TO renamed`,
@@ -481,7 +482,7 @@ func TestTheStoreReportsAFailedStatement(t *testing.T) {
 		"the recent incidents": {`ALTER TABLE incidents RENAME COLUMN occurrence_count TO renamed`,
 			func(st *store, id string) error { _, err := st.seed(t.Context(), id, t0); return err }, "read recent incidents"},
 		"the switch's read": {`ALTER TABLE monitor_targets RENAME COLUMN enabled TO renamed`,
-			func(st *store, id string) error { return st.setEnabled(t.Context(), id, false) }, "read target"},
+			func(st *store, id string) error { return errOf(st.setEnabled(t.Context(), id, false)) }, "read target"},
 		"the sweep": {`ALTER TABLE incidents RENAME COLUMN last_seen_at TO renamed`,
 			func(st *store, _ string) error { return st.sweep(t.Context(), t0) }, "delete old incidents"},
 	} {
@@ -506,3 +507,6 @@ func TestOpenStoreRefusesASchemaItCannotPrepareOn(t *testing.T) {
 
 	assert.ErrorContains(t, err, "prepare monitor statements")
 }
+
+// errOf is a call's error alone.
+func errOf[T any](_ T, err error) error { return err }

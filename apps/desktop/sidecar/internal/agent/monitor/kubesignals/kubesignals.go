@@ -28,8 +28,7 @@ import (
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster"
 )
 
-// Name is the integration's name, as monitor_targets.integration holds it. The
-// cluster service's clusterColumns spells it, and TargetKey, in SQL.
+// Name is the integration's name, as monitor_targets.integration holds it.
 const Name = "kubernetes"
 
 // cadence is how often a cluster is read.

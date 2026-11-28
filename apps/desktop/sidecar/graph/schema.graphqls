@@ -284,8 +284,6 @@ type ClusterSpec {
   enabled: Boolean!
   "Whether cache syncing is enabled. Disabling stops sync and freezes the cache. Only meaningful while enabled."
   syncEnabled: Boolean!
-  "Whether the monitor watches this cluster for failures: its monitor target's switch, which gates detection. On by default, since reading the cluster's cache spends no model call; on for a cluster the monitor has yet to give a target."
-  monitoringEnabled: Boolean!
   "Whether the user picked this cluster as the default: a new window opens on it. At most one cluster is the default."
   isDefault: Boolean!
   "Where this record comes from and how its credentials resolve."
@@ -2365,6 +2363,194 @@ type SandboxConsole {
   run: SandboxConsoleRun
 }
 
+# --- Monitoring ---
+# What the monitor finds with no model: its targets, their signals, and the
+# incidents each signal opened, with their occurrences. Every label, attribute
+# and detail is text a target returned or an integration wrote, to draw as text.
+
+"The identity of a monitor target (a UUID string on the wire). Use values returned by the server verbatim."
+scalar MonitorTargetID
+
+"The identity of an incident (a UUID string on the wire). Use values returned by the server verbatim."
+scalar IncidentID
+
+"The identity of one occurrence of an incident (a UUID string on the wire). Use values returned by the server verbatim."
+scalar IncidentOccurrenceID
+
+"The system a target belongs to. The webview draws each value's name."
+enum MonitorIntegration {
+  Kubernetes
+}
+
+"What a target's last reading could judge."
+enum MonitorReadState {
+  "No reading has committed yet."
+  NeverRead
+  "Every signal was judged."
+  Ok
+  "Some signals could not be judged; `unknownSignals` names them."
+  Partial
+  "No signal could be judged; `unknownSignals` names each."
+  Failed
+}
+
+"Why a signal could not be judged at a target's last reading."
+enum MonitorReadError {
+  "The target is still loading."
+  NotReady
+  "The user switched the read off."
+  Disabled
+  "The target did not answer."
+  Unavailable
+  "The target refused the read."
+  PermissionDenied
+  "The target refused the credentials."
+  Unauthenticated
+  "The target asked the reader to wait."
+  RateLimited
+  "The target cannot answer this signal at all."
+  Unsupported
+  "The answer was cut at its bound."
+  Truncated
+  "The reading outlived its cadence."
+  Timeout
+  "The reading broke the monitor's bounds."
+  Invalid
+}
+
+"How loud a signal's incidents are."
+enum MonitorSeverity {
+  Critical
+  Warning
+  Info
+}
+
+"How an occurrence ended."
+enum IncidentOccurrenceEndReason {
+  "Its signal was judged absent for its resolve-after window."
+  Resolved
+  "The user switched the read off, or the target reached another server."
+  Stopped
+  "Nothing saw it for 24 hours."
+  Stale
+}
+
+"One signal a target's last reading could not judge. Its label is the `MonitorSignal` of the same `name`."
+type MonitorUnknownSignal {
+  name: String!
+  reason: MonitorReadError!
+}
+
+"""
+One thing the monitor reads: for Kubernetes, a cluster. Its switch gates detection
+alone, which spends no model call.
+"""
+type MonitorTarget {
+  id: MonitorTargetID!
+  integration: MonitorIntegration!
+  "One line naming the target, written by its integration: for a cluster, its name."
+  label: String!
+  "The cluster the target reads. Null for a target of another integration."
+  clusterID: ClusterID
+  "What the target reached at its last reading: for a cluster, its server's UID. Null until a reading names one."
+  currentUID: String
+  "Whether the monitor reads the target. On by default."
+  enabled: Boolean!
+  readState: MonitorReadState!
+  "Each signal the last reading could not judge, sorted by name. Empty while `readState` is `NeverRead` or `Ok`."
+  unknownSignals: [MonitorUnknownSignal!]!
+}
+
+type MonitorTargetCollectionWatchFrame {
+  type: CollectionWatchFrameType!
+  "The affected target. On `Deleted`, its last-known state; remove by `id`. Null on `Bookmark`."
+  target: MonitorTarget
+}
+
+"One signal an integration can find. A record names a signal by `name`, with its label beside it."
+type MonitorSignal {
+  "Carries its integration's prefix: `kubernetes.crash_loop`."
+  name: String!
+  integration: MonitorIntegration!
+  label: String!
+  severity: MonitorSeverity!
+}
+
+"One label and its value, of an integration's own: drawn as key–value text."
+type MonitorAttribute {
+  label: String!
+  value: String!
+}
+
+"""
+A target under one UID, a subject and a signal, and the occurrences it has held.
+Open while its newest occurrence has not ended.
+"""
+type Incident {
+  id: IncidentID!
+  targetID: MonitorTargetID!
+  "The UID the target reached when the incident opened."
+  targetUID: String!
+  "One line naming the subject: `Deployment default/web`."
+  subjectLabel: String!
+  "The subject's attributes, of its integration's own, sorted by label."
+  subjectAttributes: [MonitorAttribute!]!
+  "The signal's name. A signal this build lacks is still served, with the label and severity stored when the incident opened."
+  signal: String!
+  signalLabel: String!
+  severity: MonitorSeverity!
+  firstSeenAt: Time!
+  open: Boolean!
+  "Every occurrence the incident has had, the trimmed ones included."
+  occurrenceCount: Int!
+  "The start of its newest occurrence."
+  lastStartedAt: Time!
+  "The last time a reading saw its signal. Null while open."
+  lastSeenAt: Time
+  "How its newest occurrence ended. Null while open."
+  lastEndReason: IncidentOccurrenceEndReason
+}
+
+type IncidentCollectionWatchFrame {
+  type: CollectionWatchFrameType!
+  "The affected incident. On `Deleted`, its last-known state; remove by `id`. Null on `Bookmark`."
+  incident: Incident
+}
+
+"One stretch an incident's signal held."
+type IncidentOccurrence {
+  id: IncidentOccurrenceID!
+  incidentID: IncidentID!
+  "Its order within the incident: newest is highest. Never reused."
+  number: Int!
+  startedAt: Time!
+  "When it ended, at its last sighting. Null while open."
+  endedAt: Time
+  "Null while open."
+  endReason: IncidentOccurrenceEndReason
+  "What the reading that started it saw, of its integration's own, sorted by label: drawn as key–value text."
+  detail: [MonitorAttribute!]!
+}
+
+"""
+Classifies one frame on an incident's occurrence feed. An occurrence is upserted by
+`id`; a trimmed or deleted one is never announced, so there is no `Deleted`.
+"""
+enum IncidentOccurrenceEventFeedFrameType {
+  "An occurrence to upsert by `IncidentOccurrence.id`."
+  Occurrence
+  "Closes the on-subscribe snapshot; sent once, carrying no occurrence."
+  Bookmark
+}
+
+type IncidentOccurrenceEventFeedFrame {
+  type: IncidentOccurrenceEventFeedFrameType!
+  "The feed's incident, on every frame, the `Bookmark` included. Drop a frame whose id is not the one now subscribed to."
+  incidentID: IncidentID!
+  "Null on `Bookmark`."
+  occurrence: IncidentOccurrence
+}
+
 # --- Root operations ---
 # Every root field, grouped by the noun it belongs to.
 
@@ -2387,6 +2573,10 @@ type Query {
 
   "A Get of one scope's variables in the order added, a refused one with its refusal: a cluster's, or with no `clusterID` every cluster's. A command gets every cluster's, its chat's cluster's value in place of one of the same name, of the targets that reach it."
   envVarsGet(clusterID: ClusterID): [EnvVar!]!
+
+  # --- Monitoring ---
+  "A List of every signal this build can find, in a fixed order. The list is fixed for the life of the process: keep it by `name` and join labels from it."
+  monitorSignalList: [MonitorSignal!]!
 
   "A Get of the permission modes and rules, as Settings shows them."
   permissionSettingsGet: PermissionSettings!
@@ -2416,9 +2606,6 @@ type Mutation {
 
   "Enable or disable syncing for a cluster. Disabling stops sync and freezes the cache. Returns the updated cluster."
   clusterSyncEnabledSet(id: ClusterID!, syncEnabled: Boolean!): Cluster!
-
-  "Turn the monitor's detection on this cluster on or off: its monitor target's switch. Turning it off ends the target's open occurrences. Refused (KUBETAIL_RECORD_NOT_FOUND) for a cluster the monitor has yet to give a target. Returns the cluster."
-  clusterMonitoringEnabledSet(id: ClusterID!, monitoringEnabled: Boolean!): Cluster!
 
   "Make a cluster the default, or stop it being one. Setting it clears the previous default, whose change arrives on `clusterCollectionWatch`; a call that changes nothing writes nothing. Refused (KUBETAIL_RECORD_NOT_FOUND) for a cluster marked for deletion, as every toggle is, and (KUBETAIL_VALIDATION_ERROR), when setting, for a disabled, archived or cloud cluster. Returns the cluster."
   clusterDefaultSet(id: ClusterID!, isDefault: Boolean!): Cluster!
@@ -2491,6 +2678,10 @@ type Mutation {
 
   "Remove a scope's variable, a refused one too. Refused KUBETAIL_VALIDATION_ERROR, with the reason, for a name not set. Returns the scope's list as it stands now."
   envVarRemove(clusterID: ClusterID, name: String!): [EnvVar!]!
+
+  # --- Monitoring ---
+  "Turn the monitor's reading of a target on or off. Off ends the target's open occurrences as `Stopped` before it returns; a switch to the state the target holds changes nothing. Refused (KUBETAIL_RECORD_NOT_FOUND) for an unknown id. Returns the target as `monitorTargetCollectionWatch` then delivers it."
+  monitorTargetEnabledSet(id: MonitorTargetID!, enabled: Boolean!): MonitorTarget!
 
   # --- Memory ---
   "Create a memory, or rewrite one by `id`; a rewrite can rename it and move it between one cluster and every cluster. Written by the user. Refused `KUBETAIL_MEMORY_NAME_TAKEN` for a name the target scope holds, `KUBETAIL_MEMORY_FULL` for a scope with no room for the memory, `KUBETAIL_MEMORY_SECRET` for a credential, `KUBETAIL_VALIDATION_ERROR` for a note out of shape, and `KUBETAIL_RECORD_NOT_FOUND` for an unknown id or a missing cluster."
@@ -2657,6 +2848,16 @@ type Subscription {
   `Deleted` and its messages' come from two pumps and land in either order.
   """
   chatMessageCollectionWatch(chatID: ChatID!): ChatMessageCollectionWatchFrame!
+
+  # --- Monitoring ---
+  "A collection watch of every monitor target, keyed by `target.id`, joined onto clusters by `clusterID`. A target of a cluster awaiting deletion stays an ordinary item until its row goes."
+  monitorTargetCollectionWatch: MonitorTargetCollectionWatchFrame!
+
+  "A collection watch of every target's incidents, keyed by `incident.id`, joined onto targets by `targetID`. A new or ended occurrence arrives as a `Modified` of its incident; a signal that holds sends nothing."
+  incidentCollectionWatch: IncidentCollectionWatchFrame!
+
+  "An event feed of one incident's occurrences: the newest 100, highest `number` first, then one `Bookmark`, then each occurrence that starts or ends, upserted by `id`. Bookmark-only for an id naming no incident. Its incident's delete sends nothing here: `incidentCollectionWatch` delivers the `Deleted`."
+  incidentOccurrenceEventFeed(incidentID: IncidentID!): IncidentOccurrenceEventFeedFrame!
 
   # --- Memory ---
   "A collection watch of what one cluster's chats see, keyed by `memory.id`: its own memories and every cluster's. A move between scopes arrives as `Added` or `Deleted` on each cluster it enters or leaves."

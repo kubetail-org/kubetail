@@ -35,11 +35,7 @@ const (
 )
 
 // clusterColumns is the column list every read scans, in scanClusterRow's order.
-// The monitoring switch is the cluster's monitor target's, on until the monitor
-// has made one. 'kubernetes' and the key's being the cluster's id are
-// kubesignals.Name and TargetKey's, which this package cannot import.
 const clusterColumns = `id, source, source_key, name, enabled, sync_enabled,
-	coalesce((SELECT t.enabled FROM monitor_targets t WHERE t.integration = 'kubernetes' AND t.key = clusters.id), 1),
 	is_default, created_at, updated_at, delete_requested_at`
 
 // Every write that may touch nothing RETURNs what it wrote, so the row — or no

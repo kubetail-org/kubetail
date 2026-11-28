@@ -1085,31 +1085,23 @@ type errAuth struct {
 
 func (e errAuth) Disconnect(context.Context) error { return e.err }
 
-// fakeMonitor is the monitor's switch over one target per key it holds, each
-// switch recorded; err fails every call.
-type fakeMonitor struct {
-	mu       sync.Mutex
-	targets  map[string]string // key to target id
-	switched map[string]bool
-	err      error
+// errMonitor fails every monitoring call with err.
+type errMonitor struct{ err error }
+
+func (errMonitor) ListSignals() []monitor.MonitorSignal { return nil }
+
+func (e errMonitor) SetEnabled(context.Context, monitor.MonitorTargetID, bool) (monitor.MonitorTarget, error) {
+	return monitor.MonitorTarget{}, e.err
 }
 
-func (f *fakeMonitor) TargetID(_ context.Context, integration, key string) (string, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.err != nil {
-		return "", f.err
-	}
-	id, ok := f.targets[integration+"/"+key]
-	if !ok {
-		return "", monitor.ErrNoTarget
-	}
-	return id, nil
+func (e errMonitor) WatchTargetCollection(context.Context) (*monitor.Stream[monitor.MonitorTargetCollectionWatchFrame], error) {
+	return nil, e.err
 }
 
-func (f *fakeMonitor) SetEnabled(_ context.Context, targetID string, enabled bool) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.switched[targetID] = enabled
-	return nil
+func (e errMonitor) WatchIncidentCollection(context.Context) (*monitor.Stream[monitor.IncidentCollectionWatchFrame], error) {
+	return nil, e.err
+}
+
+func (e errMonitor) SubscribeIncidentOccurrenceEventFeed(context.Context, monitor.IncidentID) (*monitor.Stream[monitor.IncidentOccurrenceEventFeedFrame], error) {
+	return nil, e.err
 }
