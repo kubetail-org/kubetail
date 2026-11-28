@@ -56,8 +56,10 @@ const (
 	stmtClaimFold
 	stmtSetTargetUID
 	stmtSetUnknownSignals
+	stmtSetBaselines
 	stmtInsertIncident
 	stmtJoinIncident
+	stmtAdvanceAlertSeq
 	stmtInsertOccurrence
 	stmtTrimOccurrences
 	stmtEndOccurrence
@@ -82,7 +84,7 @@ var statements = []sqlstmt.Statement{
 	stmtDeleteTarget:           sqlstmt.OnWriter(`DELETE FROM monitor_targets WHERE id = ?`),
 	stmtSelectMonitoredTargets: sqlstmt.OnReader(`SELECT id, integration, key, label, generation FROM monitor_targets WHERE enabled = 1`),
 
-	stmtSelectTargetState: sqlstmt.OnReader(`SELECT current_uid, unknown_signals, last_read_at IS NOT NULL FROM monitor_targets WHERE id = ?`),
+	stmtSelectTargetState: sqlstmt.OnReader(`SELECT current_uid, unknown_signals, baselines, last_read_at IS NOT NULL FROM monitor_targets WHERE id = ?`),
 	stmtSelectOpenOccurrences: sqlstmt.OnReader(`SELECT o.id, o.incident_id, o.started_at, i.target_uid, i.signal, i.subject_key, i.last_seen_at, i.occurrence_count
 	FROM incidents i JOIN incident_occurrences o ON o.incident_id = i.id AND o.ended_at IS NULL
 	WHERE i.target_id = ?`),
@@ -97,12 +99,24 @@ var statements = []sqlstmt.Statement{
 	WHERE id = ? AND generation = ? AND enabled = 1`),
 	stmtSetTargetUID:      sqlstmt.OnWriter(`UPDATE monitor_targets SET current_uid = ? WHERE id = ?`),
 	stmtSetUnknownSignals: sqlstmt.OnWriter(`UPDATE monitor_targets SET unknown_signals = ? WHERE id = ?`),
+	stmtSetBaselines:      sqlstmt.OnWriter(`UPDATE monitor_targets SET baselines = ? WHERE id = ?`),
+	// An alert takes the number after monitor_alert_seq's last, which
+	// stmtAdvanceAlertSeq then records. app.db has one writer connection, so the
+	// numbers follow the order the transactions commit, whatever their clocks say.
 	stmtInsertIncident: sqlstmt.OnWriter(`INSERT INTO incidents (id, target_id, target_uid, subject_key, subject_label,
-	  subject_attributes, signal, signal_label, severity, first_seen_at, last_seen_at, occurrence_count)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`),
-	stmtJoinIncident:     sqlstmt.OnWriter(`UPDATE incidents SET occurrence_count = ?, last_seen_at = ? WHERE id = ?`),
-	stmtInsertOccurrence: sqlstmt.OnWriter(`INSERT INTO incident_occurrences (id, incident_id, number, started_at, detail) VALUES (?, ?, ?, ?, ?)`),
-	stmtTrimOccurrences:  sqlstmt.OnWriter(`DELETE FROM incident_occurrences WHERE incident_id = ? AND number <= ?`),
+	  subject_attributes, signal, signal_label, severity, first_seen_at, last_seen_at, occurrence_count, baseline, alerted_at, alert_seq)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, CASE WHEN ? IS NOT NULL THEN ` + nextAlertSeq + ` END)`),
+	// An ordinary occurrence clears baseline for good and raises the incident's one
+	// alert, if it has none; a baseline one passes NULL and changes neither.
+	stmtJoinIncident: sqlstmt.OnWriter(`UPDATE incidents SET occurrence_count = ?, last_seen_at = ?, baseline = baseline AND ?,
+	  alert_seq = CASE WHEN alerted_at IS NULL AND ? IS NOT NULL THEN ` + nextAlertSeq + ` ELSE alert_seq END,
+	  alerted_at = coalesce(alerted_at, ?) WHERE id = ?`),
+	stmtAdvanceAlertSeq: sqlstmt.OnWriter(`INSERT INTO monitor_alert_seq (id, last)
+	SELECT 1, alert_seq FROM incidents WHERE id = ? AND alert_seq IS NOT NULL
+	ON CONFLICT (id) DO UPDATE SET last = max(last, excluded.last)`),
+	stmtInsertOccurrence: sqlstmt.OnWriter(`INSERT INTO incident_occurrences (id, incident_id, number, started_at, detail, baseline)
+	VALUES (?, ?, ?, ?, ?, ?)`),
+	stmtTrimOccurrences: sqlstmt.OnWriter(`DELETE FROM incident_occurrences WHERE incident_id = ? AND number <= ?`),
 	stmtEndOccurrence: sqlstmt.OnWriter(`UPDATE incident_occurrences SET ended_at = ?, end_reason = ?
 	WHERE id = ? AND ended_at IS NULL`),
 	stmtSetIncidentSeen:  sqlstmt.OnWriter(`UPDATE incidents SET last_seen_at = ? WHERE id = ?`),
@@ -126,7 +140,7 @@ var statements = []sqlstmt.Statement{
 	// Each incident with its newest occurrence, which says whether it is open: the
 	// one numbered its occurrence_count.
 	stmtSelectServedIncidents: sqlstmt.OnReader(`SELECT i.id, i.target_id, i.target_uid, i.subject_label, i.subject_attributes,
-	  i.signal, i.signal_label, i.severity, i.first_seen_at, i.last_seen_at, i.occurrence_count, o.started_at, o.end_reason
+	  i.signal, i.signal_label, i.severity, i.first_seen_at, i.last_seen_at, i.occurrence_count, o.started_at, o.end_reason, i.baseline
 	FROM incidents i
 	JOIN monitor_targets t ON t.id = i.target_id
 	JOIN incident_occurrences o ON o.incident_id = i.id AND o.number = i.occurrence_count
@@ -138,6 +152,9 @@ var statements = []sqlstmt.Statement{
 	WHERE o.incident_id = ? AND t.integration IN (SELECT value FROM json_each(?))
 	ORDER BY o.number DESC`),
 }
+
+// nextAlertSeq is the alert_seq the next alert takes.
+const nextAlertSeq = `(SELECT coalesce(max(last), 0) + 1 FROM monitor_alert_seq)`
 
 // servedTargetColumns is what storedTarget scans, in its order.
 const servedTargetColumns = `id, integration, key, label, enabled, coalesce(current_uid, ''), unknown_signals, last_read_at IS NOT NULL`
@@ -277,8 +294,8 @@ func (s *store) monitored(ctx context.Context) ([]targetRow, error) {
 func (s *store) seed(ctx context.Context, targetID string, now time.Time) (targetState, error) {
 	state := targetState{pairs: map[pairKey]pair{}, incidents: map[incidentKey]incidentRef{}}
 	var uid sql.NullString
-	var unknown string
-	err := s.set.Stmts().QueryRow(ctx, stmtSelectTargetState, targetID).Scan(&uid, &unknown, &state.read)
+	var unknown, baselines string
+	err := s.set.Stmts().QueryRow(ctx, stmtSelectTargetState, targetID).Scan(&uid, &unknown, &baselines, &state.read)
 	if errors.Is(err, sql.ErrNoRows) {
 		return targetState{}, ErrNoTarget
 	}
@@ -288,6 +305,9 @@ func (s *store) seed(ctx context.Context, targetID string, now time.Time) (targe
 	state.uid = uid.String
 	if err := json.Unmarshal([]byte(unknown), &state.unknown); err != nil {
 		return targetState{}, fmt.Errorf("read unknown signals: %w", err)
+	}
+	if state.baselines, err = decodeBaselines(baselines); err != nil {
+		return targetState{}, err
 	}
 
 	if err := s.seedIncidents(ctx, &state, targetID, now); err != nil {
@@ -354,6 +374,29 @@ func (s *store) seedOpenOccurrences(ctx context.Context, state *targetState, tar
 	return nil
 }
 
+// decodeBaselines is monitor_targets.baselines, each signal's time in ms.
+func decodeBaselines(stored string) (map[string]time.Time, error) {
+	var ms map[string]int64
+	if err := json.Unmarshal([]byte(stored), &ms); err != nil {
+		return nil, fmt.Errorf("read baselines: %w", err)
+	}
+	out := make(map[string]time.Time, len(ms))
+	for name, at := range ms {
+		out[name] = fromMillis(at)
+	}
+	return out, nil
+}
+
+// encodeBaselines is baselines as monitor_targets.baselines holds them.
+func encodeBaselines(baselines map[string]time.Time) string {
+	ms := make(map[string]int64, len(baselines))
+	for name, at := range baselines {
+		ms[name] = at.UnixMilli()
+	}
+	b, _ := json.Marshal(ms) // a map of numbers always marshals
+	return string(b)
+}
+
 // commit writes one fold's changes in one transaction, under the generation its
 // reading started under: errDiscarded for a target switched or gone since. It
 // notifies after the commit, each key whose served rows moved.
@@ -380,8 +423,8 @@ func (s *store) commit(ctx context.Context, targetID string, generation int64, c
 	return nil
 }
 
-// writeChanges writes ch inside a fold's transaction: the UID and unknown
-// signals, then the ends, the starts and the sightings.
+// writeChanges writes ch inside a fold's transaction: the UID, unknown signals
+// and baselines, then the ends, the starts and the sightings.
 func writeChanges(ctx context.Context, st stmts, targetID string, ch changes) error {
 	if ch.uid != "" {
 		if _, err := st.Exec(ctx, stmtSetTargetUID, ch.uid, targetID); err != nil {
@@ -392,6 +435,11 @@ func writeChanges(ctx context.Context, st stmts, targetID string, ch changes) er
 		b, _ := json.Marshal(ch.unknown) // a map of strings always marshals
 		if _, err := st.Exec(ctx, stmtSetUnknownSignals, string(b), targetID); err != nil {
 			return fmt.Errorf("write unknown signals: %w", err)
+		}
+	}
+	if ch.baselines != nil {
+		if _, err := st.Exec(ctx, stmtSetBaselines, encodeBaselines(ch.baselines), targetID); err != nil {
+			return fmt.Errorf("write baselines: %w", err)
 		}
 	}
 	for _, e := range ch.ends {
@@ -417,21 +465,29 @@ func writeChanges(ctx context.Context, st stmts, targetID string, ch changes) er
 }
 
 // writeStart inserts one occurrence, opening its incident or joining it, and
-// trims the incident to its newest keepOccurrences.
+// trims the incident to its newest keepOccurrences. An occurrence that is not
+// baseline raises its incident's alert, at most once an incident.
 func writeStart(ctx context.Context, st stmts, targetID string, s start) error {
+	alertedAt := sql.NullInt64{Int64: s.seenAt.UnixMilli(), Valid: !s.baseline}
 	var err error
 	if inc := s.open; inc != nil {
 		attributes, _ := json.Marshal(nonNil(inc.subject.Attributes)) // a map of strings always marshals
 		_, err = st.Exec(ctx, stmtInsertIncident, s.incidentID, targetID, inc.uid, inc.subject.Key, inc.subject.Label,
-			string(attributes), inc.signal.Name, inc.signal.Label, string(inc.signal.Severity), s.startedAt.UnixMilli(), s.seenAt.UnixMilli())
+			string(attributes), inc.signal.Name, inc.signal.Label, string(inc.signal.Severity), s.startedAt.UnixMilli(), s.seenAt.UnixMilli(),
+			s.baseline, alertedAt, alertedAt)
 	} else {
-		_, err = st.Exec(ctx, stmtJoinIncident, s.number, s.seenAt.UnixMilli(), s.incidentID)
+		_, err = st.Exec(ctx, stmtJoinIncident, s.number, s.seenAt.UnixMilli(), s.baseline, alertedAt, alertedAt, s.incidentID)
 	}
 	if err != nil {
 		return fmt.Errorf("write incident: %w", err)
 	}
+	if alertedAt.Valid {
+		if _, err := st.Exec(ctx, stmtAdvanceAlertSeq, s.incidentID); err != nil {
+			return fmt.Errorf("write alert seq: %w", err)
+		}
+	}
 	detail, _ := json.Marshal(nonNil(s.detail)) // a map of strings always marshals
-	if _, err := st.Exec(ctx, stmtInsertOccurrence, s.occurrenceID, s.incidentID, s.number, s.startedAt.UnixMilli(), string(detail)); err != nil {
+	if _, err := st.Exec(ctx, stmtInsertOccurrence, s.occurrenceID, s.incidentID, s.number, s.startedAt.UnixMilli(), string(detail), s.baseline); err != nil {
 		return fmt.Errorf("write occurrence: %w", err)
 	}
 	if s.number > keepOccurrences {
@@ -443,10 +499,11 @@ func writeStart(ctx context.Context, st stmts, targetID string, s start) error {
 }
 
 // setEnabled is the switch, in its own transaction: off ends the target's open
-// occurrences as stopped, each at its last sighting; either way the generation
-// moves, so a reading begun before it commits nothing. A switch to the state the
-// target holds writes nothing. It answers the target as the switch left it;
-// ErrNoTarget for no such target, or one whose integration the build lacks.
+// occurrences as stopped, each at its last sighting, and empties its baselines,
+// so the next reading takes a new one; either way the generation moves, so a
+// reading begun before it commits nothing. A switch to the state the target
+// holds writes nothing. It answers the target as the switch left it; ErrNoTarget
+// for no such target, or one whose integration the build lacks.
 func (s *store) setEnabled(ctx context.Context, targetID string, enabled bool) (storedTarget, error) {
 	var row storedTarget
 	switched, stopped := false, false
@@ -475,6 +532,9 @@ func (s *store) setEnabled(ctx context.Context, targetID string, enabled bool) (
 		}
 		n, _ := res.RowsAffected()
 		stopped = n > 0
+		if _, err := st.Exec(ctx, stmtSetBaselines, "{}", targetID); err != nil {
+			return fmt.Errorf("drop baselines: %w", err)
+		}
 		return nil
 	})
 	if err != nil {
@@ -565,7 +625,7 @@ func (s *store) servedIncidents(ctx context.Context) ([]Incident, error) {
 		var firstSeen, lastSeen, lastStarted int64
 		var reason sql.NullString
 		if err := rows.Scan(&i.ID, &i.TargetID, &i.TargetUID, &i.SubjectLabel, &i.AttributesJSON, &i.Signal, &i.SignalLabel,
-			&i.Severity, &firstSeen, &lastSeen, &i.OccurrenceCount, &lastStarted, &reason); err != nil { // coverage:ignore the statement's columns are these types, CHECKed by the schema
+			&i.Severity, &firstSeen, &lastSeen, &i.OccurrenceCount, &lastStarted, &reason, &i.Baseline); err != nil { // coverage:ignore the statement's columns are these types, CHECKed by the schema
 			return nil, fmt.Errorf("read incidents: %w", err)
 		}
 		i.FirstSeenAt, i.LastStartedAt = fromMillis(firstSeen), fromMillis(lastStarted)

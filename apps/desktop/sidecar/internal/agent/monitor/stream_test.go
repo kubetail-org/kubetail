@@ -248,8 +248,8 @@ func TestTheIncidentWatchSendsEveryIncidentThenABookmark(t *testing.T) {
 		SubjectLabel: "Deployment web", AttributesJSON: `{"name":"web"}`,
 		Signal: flip.Name, SignalLabel: "Flip", Severity: SeverityInfo,
 		FirstSeenAt: t0, OccurrenceCount: 1, LastStartedAt: t0,
-		LastSeenAt: t0, LastEndReason: EndResolved,
-	}, resolved)
+		LastSeenAt: t0, LastEndReason: EndResolved, Baseline: true,
+	}, resolved, "found at the target's first reading")
 	gone := got["fake.gone"]
 	assert.Equal(t, "Gone signal", gone.SignalLabel)
 	assert.Equal(t, SeverityCritical, gone.Severity)

@@ -15,6 +15,7 @@
 package monitor
 
 import (
+	"database/sql"
 	"strconv"
 	"testing"
 	"time"
@@ -366,6 +367,7 @@ func TestEachWriteOfAFoldThatFailsFailsItsCommit(t *testing.T) {
 			fold:   func(c *committer) error { _, err := c.at(30*time.Second, unknown(CodeTimeout)); return err },
 			want:   "write unknown signals",
 		},
+		"the baselines": {when: `BEFORE UPDATE OF baselines ON monitor_targets`, want: "write baselines"},
 		"an end": {
 			before: func(c *committer) { c.mustAt(0, seeing(flip.Name, "web")) },
 			when:   `BEFORE UPDATE OF ended_at ON incident_occurrences`,
@@ -385,6 +387,12 @@ func TestEachWriteOfAFoldThatFailsFailsItsCommit(t *testing.T) {
 			want:   "write last seen",
 		},
 		"an incident": {when: `BEFORE INSERT ON incidents`, want: "write incident"},
+		"an alert's number": {
+			before: func(c *committer) { c.mustAt(0, nothing()) },
+			when:   `BEFORE INSERT ON monitor_alert_seq`,
+			fold:   func(c *committer) error { _, err := c.at(6*time.Minute, seeing(flip.Name, "web")); return err },
+			want:   "write alert seq",
+		},
 		"the trim": {
 			before: func(c *committer) {
 				for i := range keepOccurrences {
@@ -421,8 +429,8 @@ func TestEachWriteOfAFoldThatFailsFailsItsCommit(t *testing.T) {
 	}
 }
 
-// The switch's writes that fail fail it, and a seed that cannot read the open
-// occurrences fails.
+// The switch's writes that fail fail it, and a seed that cannot decode the
+// baselines or read the open occurrences fails.
 func TestTheSwitchAndTheSeedReportAFailedStatement(t *testing.T) {
 	st := openTestStore(t)
 	id := targetOf(t, st, "t")
@@ -435,6 +443,19 @@ func TestTheSwitchAndTheSeedReportAFailedStatement(t *testing.T) {
 	require.NoError(t, err)
 	refuse(t, st, `BEFORE UPDATE OF enabled ON monitor_targets`)
 	assert.ErrorContains(t, errOf(st.setEnabled(t.Context(), id, false)), "switch target")
+	_, err = st.db.Write.Exec(`DROP TRIGGER refuse`)
+	require.NoError(t, err)
+	refuse(t, st, `BEFORE UPDATE OF baselines ON monitor_targets`)
+	assert.ErrorContains(t, errOf(st.setEnabled(t.Context(), id, false)), "drop baselines")
+	_, err = st.db.Write.Exec(`DROP TRIGGER refuse`)
+	require.NoError(t, err)
+
+	_, err = st.db.Write.Exec(`UPDATE monitor_targets SET baselines = '{"fake.crash":"soon"}'`)
+	require.NoError(t, err)
+	_, err = st.seed(t.Context(), id, t0)
+	assert.ErrorContains(t, err, "read baselines")
+	_, err = st.db.Write.Exec(`UPDATE monitor_targets SET baselines = '{}'`)
+	require.NoError(t, err)
 
 	_, err = st.db.Write.Exec(`ALTER TABLE incident_occurrences RENAME COLUMN started_at TO renamed`)
 	require.NoError(t, err)
@@ -510,3 +531,152 @@ func TestOpenStoreRefusesASchemaItCannotPrepareOn(t *testing.T) {
 
 // errOf is a call's error alone.
 func errOf[T any](_ T, err error) error { return err }
+
+// incidentAlert is an incident's baseline flag and its alerted_at, -1 for none.
+func incidentAlert(t *testing.T, db *appdb.DB, id string) (bool, int64) {
+	t.Helper()
+	var baseline bool
+	var alertedAt sql.NullInt64
+	require.NoError(t, db.Read.QueryRow(`SELECT baseline, alerted_at FROM incidents WHERE id = ?`, id).Scan(&baseline, &alertedAt))
+	if !alertedAt.Valid {
+		return baseline, -1
+	}
+	return baseline, alertedAt.Int64
+}
+
+// The baselines a fold writes are what the next seed reads; the switch off empties
+// them in its own transaction, so the next reading takes a new baseline.
+func TestTheBaselinesOutliveARestartAndNotTheSwitch(t *testing.T) {
+	st := openTestStore(t)
+	id := targetOf(t, st, "t")
+	newCommitter(t, st, id).mustAt(0, nothing())
+
+	state, err := st.seed(t.Context(), id, t0.Add(time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, map[string]time.Time{crash.Name: t0, flip.Name: t0}, state.baselines)
+
+	_, err = st.setEnabled(t.Context(), id, false)
+	require.NoError(t, err)
+	state, err = st.seed(t.Context(), id, t0.Add(time.Minute))
+	require.NoError(t, err)
+	assert.Empty(t, state.baselines)
+}
+
+// A restart inside the window marks again what it sees, so a crash loop present
+// since the first reading opens a baseline incident; one first seen after a
+// healthy window, or still waiting out its open-after when a restart after the
+// window loses its mark, opens an ordinary incident and alerts at its start.
+func TestARestartTakesNoBaseline(t *testing.T) {
+	st := openTestStore(t)
+	id := targetOf(t, st, "t")
+	c := newCommitter(t, st, id)
+	c.mustAt(0, seeing(crash.Name, "web"))
+
+	restarted := newCommitter(t, st, id)
+	restarted.ids = 100
+	var started []start
+	for at := time.Minute; at <= 3*time.Minute; at += cadence {
+		started = append(started, restarted.mustAt(at, seeing(crash.Name, "web")).starts...)
+	}
+	require.Len(t, started, 1)
+	baseline, alertedAt := incidentAlert(t, st.db, started[0].incidentID)
+	assert.True(t, baseline, "seen since the first reading")
+	assert.Equal(t, int64(-1), alertedAt)
+
+	late := newCommitter(t, st, id)
+	late.ids = 200
+	started = nil
+	for at := 4*time.Minute + 30*time.Second; at <= 9*time.Minute; at += cadence {
+		if at == 5*time.Minute {
+			late = newCommitter(t, st, id) // a restart after the window drops api's mark
+			late.ids = 300
+		}
+		started = append(started, late.mustAt(at, seeing(crash.Name, "web", "api")).starts...)
+	}
+	require.Len(t, started, 1)
+	baseline, alertedAt = incidentAlert(t, st.db, started[0].incidentID)
+	assert.False(t, baseline, "api waited out its open-after across the restart")
+	assert.Equal(t, started[0].seenAt.UnixMilli(), alertedAt)
+}
+
+// An incident opened by a baseline occurrence raises no alert, and stays baseline
+// through later baseline occurrences; its first ordinary one clears the flag and
+// raises its alert, which no later occurrence raises again. Each occurrence keeps
+// its own mark.
+func TestAnIncidentAlertsAtItsFirstOrdinaryOccurrence(t *testing.T) {
+	st := openTestStore(t)
+	id := targetOf(t, st, "t")
+	at := func(minutes int, baseline bool, n int, open bool) {
+		t.Helper()
+		s := start{occurrenceID: "o" + strconv.Itoa(n), incidentID: "i1", number: n, baseline: baseline,
+			startedAt: t0.Add(time.Duration(minutes) * time.Minute), seenAt: t0.Add(time.Duration(minutes) * time.Minute)}
+		if open {
+			s.open = &newIncident{uid: "u1", subject: Subject{Key: "web"}, signal: crash}
+		}
+		ends := []end(nil)
+		if n > 1 {
+			ends = []end{{occurrenceID: "o" + strconv.Itoa(n-1), incidentID: "i1", at: s.startedAt, reason: EndResolved}}
+		}
+		require.NoError(t, st.commit(t.Context(), id, 0, changes{starts: []start{s}, ends: ends}, s.seenAt))
+	}
+
+	at(0, true, 1, true)
+	at(10, true, 2, false)
+	baseline, alertedAt := incidentAlert(t, st.db, "i1")
+	assert.True(t, baseline)
+	assert.Equal(t, int64(-1), alertedAt)
+
+	at(20, false, 3, false)
+	at(30, false, 4, false)
+	baseline, alertedAt = incidentAlert(t, st.db, "i1")
+	assert.False(t, baseline)
+	assert.Equal(t, t0.Add(20*time.Minute).UnixMilli(), alertedAt)
+	assert.Equal(t, 1, count(t, st.db, `SELECT alert_seq FROM incidents WHERE id = 'i1'`), "numbered once, at its alert")
+	assert.Equal(t, 1, count(t, st.db, `SELECT last FROM monitor_alert_seq`))
+	assert.Equal(t, 2, count(t, st.db, `SELECT count(*) FROM incident_occurrences WHERE baseline = 1`))
+}
+
+// An incident opened ordinary alerts at its open; one whose ordinary occurrence is
+// trimmed away under 100 later baseline ones stays ordinary.
+func TestAnOrdinaryIncidentStaysOrdinaryPastItsTrim(t *testing.T) {
+	st := openTestStore(t)
+	id := targetOf(t, st, "t")
+	for n := 1; n <= keepOccurrences+1; n++ {
+		s := start{occurrenceID: "o" + strconv.Itoa(n), incidentID: "i1", number: n, baseline: n > 1,
+			startedAt: t0.Add(time.Duration(n) * time.Minute), seenAt: t0.Add(time.Duration(n) * time.Minute)}
+		var ends []end
+		if n == 1 {
+			s.open = &newIncident{uid: "u1", subject: Subject{Key: "web"}, signal: crash}
+		} else {
+			ends = []end{{occurrenceID: "o" + strconv.Itoa(n-1), incidentID: "i1", at: s.startedAt, reason: EndResolved}}
+		}
+		require.NoError(t, st.commit(t.Context(), id, 0, changes{starts: []start{s}, ends: ends}, s.seenAt))
+	}
+
+	assert.Zero(t, count(t, st.db, `SELECT count(*) FROM incident_occurrences WHERE baseline = 0`), "the ordinary one is trimmed")
+	baseline, alertedAt := incidentAlert(t, st.db, "i1")
+	assert.False(t, baseline)
+	assert.Equal(t, t0.Add(time.Minute).UnixMilli(), alertedAt)
+	incidents, err := st.servedIncidents(t.Context())
+	require.NoError(t, err)
+	require.Len(t, incidents, 1)
+	assert.False(t, incidents[0].Baseline)
+}
+
+// A container running at the target's first reading and crash looping from the
+// next, inside the window, opens a baseline incident that raises no alert.
+func TestABaselineCatchesAFailureItsFirstReadingMissed(t *testing.T) {
+	st := openTestStore(t)
+	c := newCommitter(t, st, targetOf(t, st, "t"))
+	c.mustAt(0, nothing())
+
+	var started []start
+	for at := 30 * time.Second; at <= 3*time.Minute; at += cadence {
+		started = append(started, c.mustAt(at, seeing(crash.Name, "web")).starts...)
+	}
+
+	require.Len(t, started, 1)
+	baseline, alertedAt := incidentAlert(t, st.db, started[0].incidentID)
+	assert.True(t, baseline)
+	assert.Equal(t, int64(-1), alertedAt)
+}

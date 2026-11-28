@@ -82,6 +82,7 @@ type Incident struct {
 	LastStartedAt   time.Time // its newest occurrence's start
 	LastSeenAt      time.Time // zero while open
 	LastEndReason   EndReason // "" while open
+	Baseline        bool      // no occurrence of it has been ordinary yet
 }
 
 // IncidentOccurrence is an occurrence as the occurrence feed serves it.
