@@ -81,11 +81,11 @@ service MonitorService {
 
 | Task | Status | PR |
 | --- | --- | --- |
-| 1. Baseline | Planned | — |
-| 2. Raise | Planned | — |
-| 3. Feed | Planned | — |
-| 4. Host | Planned | — |
-| 5. Permission | Planned | — |
+| 1. Baseline | In review | — |
+| 2. Raise | In review | — |
+| 3. Feed | In review | — |
+| 4. Host | In review | — |
+| 5. Permission | In review | — |
 | 6. Notifications in a packaged build | Planned | — |
 
 1. **Baseline.** The three columns, the pair's mark, the window and the fold's rule with its restart and UID cases, the delete on turning monitoring off, the `baseline` field, the list's mark and the bell's filter.
