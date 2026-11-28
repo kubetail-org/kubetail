@@ -1094,8 +1094,14 @@ func (e errMonitor) SetEnabled(context.Context, monitor.MonitorTargetID, bool) (
 	return monitor.MonitorTarget{}, e.err
 }
 
-func (e errMonitor) Triage(context.Context, monitor.IncidentID, monitor.TriageModel) (monitor.Incident, error) {
+func (e errMonitor) Triage(context.Context, monitor.IncidentID, monitor.TriageModel, bool) (monitor.Incident, error) {
 	return monitor.Incident{}, e.err
+}
+
+func (e errMonitor) SetTriageModel(context.Context, *monitor.TriageModel) error { return e.err }
+
+func (e errMonitor) WatchTriageModelState(context.Context) (*monitor.Stream[*monitor.TriageModel], error) {
+	return nil, e.err
 }
 
 func (e errMonitor) WatchTargetCollection(context.Context) (*monitor.Stream[monitor.MonitorTargetCollectionWatchFrame], error) {

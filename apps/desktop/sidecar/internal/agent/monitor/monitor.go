@@ -352,7 +352,8 @@ func (m *Monitor) readOnce(ctx context.Context, reg *registration, targetID stri
 		state = &seeded
 	}
 	next, ch := fold(*state, reg, r, now, appdb.NewID)
-	switch err := m.store.commit(ctx, targetID, generation, ch, now); {
+	queued, err := m.store.commit(ctx, targetID, generation, ch, now, reg.Triager != nil)
+	switch {
 	case errors.Is(err, errDiscarded):
 		return nil
 	case err != nil:
@@ -361,5 +362,6 @@ func (m *Monitor) readOnce(ctx context.Context, reg *registration, targetID stri
 		}
 		return state
 	}
+	m.enqueue(queued...)
 	return &next
 }

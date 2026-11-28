@@ -105,7 +105,9 @@ type Resolver struct {
 type MonitorService interface {
 	ListSignals() []monitor.MonitorSignal
 	SetEnabled(ctx context.Context, id monitor.MonitorTargetID, enabled bool) (monitor.MonitorTarget, error)
-	Triage(ctx context.Context, id monitor.IncidentID, model monitor.TriageModel) (monitor.Incident, error)
+	Triage(ctx context.Context, id monitor.IncidentID, model monitor.TriageModel, always bool) (monitor.Incident, error)
+	SetTriageModel(ctx context.Context, model *monitor.TriageModel) error
+	WatchTriageModelState(ctx context.Context) (*monitor.Stream[*monitor.TriageModel], error)
 	WatchTargetCollection(ctx context.Context) (*monitor.Stream[monitor.MonitorTargetCollectionWatchFrame], error)
 	WatchIncidentCollection(ctx context.Context) (*monitor.Stream[monitor.IncidentCollectionWatchFrame], error)
 	SubscribeIncidentOccurrenceEventFeed(ctx context.Context, id monitor.IncidentID) (*monitor.Stream[monitor.IncidentOccurrenceEventFeedFrame], error)

@@ -169,6 +169,7 @@ func requireTables(t *testing.T, db *sql.DB) {
 		"messages wr=0 strict=1",
 		"monitor_alert_seq wr=0 strict=1",
 		"monitor_targets wr=0 strict=1",
+		"monitor_triage_starts wr=0 strict=1",
 		"oauth_connections wr=1 strict=1",
 		"permission_modes wr=0 strict=1",
 		"permission_rules wr=0 strict=1",
@@ -209,6 +210,7 @@ func requireTables(t *testing.T, db *sql.DB) {
 		"CREATE UNIQUE INDEX llm_calls_run_idx ON llm_calls (run_id, seq)",
 		"CREATE UNIQUE INDEX memories_name ON memories (ifnull(cluster_id, ''), name)",
 		"CREATE INDEX messages_run_idx ON messages (run_id)",
+		"CREATE INDEX monitor_triage_starts_target ON monitor_triage_starts (target_id, started_at)",
 		"CREATE INDEX permission_rules_chat_idx ON permission_rules (chat_id, created_at, id)",
 		"CREATE UNIQUE INDEX settings_scope_key ON settings (ifnull(cluster_id, ''), key)",
 		"CREATE UNIQUE INDEX tool_calls_llm_call_idx ON tool_calls (llm_call_id, seq)",
@@ -443,10 +445,13 @@ func TestTheMonitorTablesHoldWhatTheirChecksAllow(t *testing.T) {
 	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'done', triage_verdict = 'shrug'`), "CHECK")
 	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'failed'`), "CHECK", "a failed triage has its error")
 	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_run_id = 'nope'`), "FOREIGN KEY")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_trigger = 'manual'`), "CHECK", "a triage never asked for has no trigger")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'failed', triage_error = 'x'`), "CHECK", "and one asked for has one")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'failed', triage_error = 'x', triage_trigger = 'whim'`), "CHECK")
 	require.NoError(t, exec(`INSERT INTO clusters (id, source, created_at, updated_at) VALUES ('c1', 'kubeconfig', 0, 0)`))
 	require.NoError(t, exec(`INSERT INTO agent_runs (id, agent_type, app_version, trigger, cluster_id, provider, model, dialect, created_at)
 		VALUES ('r1', 'monitor', 'test', 'monitor', 'c1', 'fake', 'fake', 'fake', 0)`))
-	require.NoError(t, exec(`UPDATE incidents SET triage_state = 'done', triage_verdict = 'dismiss', triage_run_id = 'r1'`))
+	require.NoError(t, exec(`UPDATE incidents SET triage_state = 'done', triage_verdict = 'dismiss', triage_run_id = 'r1', triage_trigger = 'automatic'`))
 	require.NoError(t, exec(`DELETE FROM agent_runs WHERE id = 'r1'`))
 	var runID *string
 	require.NoError(t, db.Read.QueryRow(`SELECT triage_run_id FROM incidents`).Scan(&runID))
@@ -462,10 +467,15 @@ func TestTheMonitorTablesHoldWhatTheirChecksAllow(t *testing.T) {
 	assert.ErrorContains(t, exec(occurrence, "o7", 7, 30, "gone"), "CHECK")
 	assert.ErrorContains(t, exec(`UPDATE incident_occurrences SET baseline = 2`), "CHECK")
 
+	const start = `INSERT INTO monitor_triage_starts (target_id, started_at) VALUES (?, 0)`
+	require.NoError(t, exec(start, "t1"))
+	assert.ErrorContains(t, exec(start, "nope"), "FOREIGN KEY")
+
 	require.NoError(t, exec(`DELETE FROM monitor_targets WHERE id = 't1'`))
 	var left int
-	require.NoError(t, db.Read.QueryRow(`SELECT (SELECT count(*) FROM incidents) + (SELECT count(*) FROM incident_occurrences)`).Scan(&left))
-	assert.Zero(t, left, "a target's delete takes its incidents and their occurrences")
+	require.NoError(t, db.Read.QueryRow(`SELECT (SELECT count(*) FROM incidents) + (SELECT count(*) FROM incident_occurrences)
+		+ (SELECT count(*) FROM monitor_triage_starts)`).Scan(&left))
+	assert.Zero(t, left, "a target's delete takes its incidents, their occurrences and its triage starts")
 }
 
 // A data dir that cannot hold app.db fails the open — both when the parent path
@@ -502,7 +512,7 @@ func TestOpenRefusesANewerFile(t *testing.T) {
 // line in the PR that writes it. Once a desktop release carries a migration, every
 // installed app.db has run it, so its line never changes again.
 var shippedMigrations = map[string]string{
-	"0001_init.sql": "d2e4130fb7014bb754b1b64e302c29ed223478ff3ff74b1dac1e1fc597b5aff0",
+	"0001_init.sql": "a8088d63acaf0e947af95c501b2b7edf528931ced283a07498763b7407f70ff4",
 }
 
 func TestAShippedMigrationIsNeverEdited(t *testing.T) {

@@ -127,6 +127,20 @@ describe('NotificationButton', () => {
     ]);
   });
 
+  it('marks an incident its triage dismissed', async () => {
+    state.incidents = [
+      incidentRecord({
+        id: 'dismissed',
+        targetID: 't-prod',
+        triage: { ...incidentRecord().triage, state: 'Done', verdict: 'Dismiss' },
+      }),
+      incidentRecord({ id: 'other', targetID: 't-dev' }),
+    ];
+    const bell = await openBell();
+    const items = within(within(bell).getByRole('list')).getAllByRole('button');
+    expect(items.filter((i) => i.textContent.includes('Dismissed by triage'))).toHaveLength(1);
+  });
+
   it('opens the dialog on a pressed incident, and with none from View all', async () => {
     const bell = await openBell();
     await userEvent.click(within(bell).getAllByRole('button', { name: /default\/api/ })[0]);

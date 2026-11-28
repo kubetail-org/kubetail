@@ -384,6 +384,15 @@ models:
         value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeInterrupted
       Unavailable:
         value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeUnavailable
+      CapReached:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeCapReached
+      SettingChanged:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeSettingChanged
+  MonitoringTriageModel:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageModel
+    fields:
+      effort:
+        resolver: true
   IncidentCollectionWatchFrame:
     model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.IncidentCollectionWatchFrame
   IncidentOccurrence:

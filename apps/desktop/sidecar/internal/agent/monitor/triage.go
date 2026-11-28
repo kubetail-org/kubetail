@@ -24,9 +24,15 @@ import (
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/appdb"
 )
 
-// triageWorkers is how many targets are triaged at once. One target's triages
-// run in turn, since a cluster takes one monitor run at a time.
-const triageWorkers = 4
+const (
+	// triageWorkers is how many targets are triaged at once. One target's
+	// triages run in turn, since a cluster takes one monitor run at a time.
+	triageWorkers = 4
+	// maxAutomaticTriagesPerHour caps the automatic triages that start on one
+	// target an hour. Settings' Monitoring tab states it
+	// (MAX_AUTOMATIC_TRIAGES_PER_HOUR in src/lib/incidents.tsx).
+	maxAutomaticTriagesPerHour = 6
+)
 
 // Triager runs one triage of a target: a model's run over the target that reads
 // it and changes nothing. An integration that can triage sets one on its
@@ -81,6 +87,8 @@ const (
 	TriageCodeCancelled        TriageErrorCode = "cancelled"         // the run was cancelled, as the app stopped
 	TriageCodeInterrupted      TriageErrorCode = "interrupted"       // the app stopped before the triage ended
 	TriageCodeUnavailable      TriageErrorCode = "unavailable"       // the run could not start for another reason
+	TriageCodeCapReached       TriageErrorCode = "cap_reached"       // the target's automatic triages of the hour were spent
+	TriageCodeSettingChanged   TriageErrorCode = "setting_changed"   // the triage setting was written before its run started
 )
 
 // TriageError is a triage that could not start, and its code.
@@ -144,6 +152,7 @@ var (
 // transaction that queued it.
 type triageRequest struct {
 	id          string
+	trigger     triageTrigger
 	incidentID  IncidentID
 	targetID    string
 	integration string
@@ -154,31 +163,42 @@ type triageRequest struct {
 	model       TriageModel
 }
 
-// Triage queues a triage of incident id on model and answers the incident as the
-// watch then delivers it. ErrNoIncident for an incident the reads do not serve,
-// ErrTriageQueued for one already queued, ErrCannotTriage for one whose
-// integration cannot triage, ErrTargetMoved for one its target has moved off;
-// ErrStopping once the monitor stops. The triage runs after the target's earlier
-// ones, and only the user's press calls this.
-func (m *Monitor) Triage(ctx context.Context, id IncidentID, model TriageModel) (Incident, error) {
+// Triage queues the user's triage of incident id on model and answers the
+// incident as the watch then delivers it; with always, it writes model as the
+// triage setting in the same transaction. ErrNoIncident for an incident the reads
+// do not serve, ErrTriageQueued for one already queued, ErrCannotTriage for one
+// whose integration cannot triage, ErrTargetMoved for one its target has moved
+// off, ErrInvalidTriageModel for a model with no ids to set; ErrStopping once the
+// monitor stops. The triage runs after the target's earlier ones.
+func (m *Monitor) Triage(ctx context.Context, id IncidentID, model TriageModel, always bool) (Incident, error) {
 	if err := m.enter(); err != nil {
 		return Incident{}, err
 	}
 	defer m.wg.Done()
-	req, err := m.store.queueTriage(ctx, id, appdb.NewID(), m.canTriage)
+	var setting *TriageModel
+	if always {
+		setting = &model
+	}
+	req, err := m.store.queueTriage(ctx, id, appdb.NewID(), m.canTriage, setting)
 	if err != nil {
 		return Incident{}, err
 	}
 	req.model = model
-	// Read before the worker can take the request, so the answer is the triage as
-	// queued, with no run of its own yet. The triage is queued whatever becomes of
-	// the caller, so its answer is too.
-	queued, err := m.store.servedIncident(context.WithoutCancel(ctx), id)
-	m.triageMu.Lock()
-	m.waiting[req.targetID] = append(m.waiting[req.targetID], req)
-	m.triageMu.Unlock()
-	m.triages.Add(req.targetID)
-	return queued, err
+	// The triage is queued whatever becomes of the caller, so its answer is too.
+	// Read before the queue takes it, so no run is inserted under the answer.
+	i, err := m.store.servedIncident(context.WithoutCancel(ctx), id)
+	m.enqueue(req)
+	return i, err
+}
+
+// enqueue hands triages queued in app.db to their targets' queues.
+func (m *Monitor) enqueue(reqs ...triageRequest) {
+	for _, req := range reqs {
+		m.triageMu.Lock()
+		m.waiting[req.targetID] = append(m.waiting[req.targetID], req)
+		m.triageMu.Unlock()
+		m.triages.Add(req.targetID)
+	}
 }
 
 // canTriage is whether integration has a Triager.
@@ -225,16 +245,28 @@ func (m *Monitor) nextTriage(targetID string) (triageRequest, bool) {
 // runTriage runs one triage through its integration's Triager and writes how it
 // ended, unless a newer request holds the incident.
 func (m *Monitor) runTriage(ctx context.Context, req triageRequest) {
-	admit := func(ctx context.Context, tx *sql.Tx, runID string) (bool, error) {
-		return m.store.admitTriage(ctx, tx, req, runID)
+	// The run's service answers every refusal alike, so the admit keeps its own.
+	var refusal TriageErrorCode
+	admit := func(ctx context.Context, tx *sql.Tx, runID string) (admitted bool, err error) {
+		refusal, err = m.store.admitTriage(ctx, tx, req, runID)
+		return err == nil && refusal == "", err
 	}
 	res, err := m.byName[req.integration].Triager.Triage(ctx, req.target, req.uid, req.brief, req.model, admit)
 	if err != nil && ctx.Err() == nil {
 		slog.Info("monitor: a triage did not start", "integration", req.integration, "err", err)
 	}
-	// The outcome is written as the monitor stops too. A triage the stop leaves
-	// untaken stays queued, and the next start marks it interrupted.
-	if err := m.store.finishTriage(context.WithoutCancel(ctx), req, outcomeOf(res, err)); err != nil { // coverage:ignore a write on the writer fails only on a closed pool, which outlives the monitor
+	outcome := outcomeOf(res, err)
+	if refusal != "" {
+		outcome = failedOutcome(refusal)
+	}
+	// An automatic triage the stop cut off is left queued, whatever error its cut
+	// surfaced as: the next start fails it and alerts, after the host's launch,
+	// which shows the alert then. A triage the stop leaves untaken stays queued too.
+	if ctx.Err() != nil && req.trigger == triggerAutomatic && (err != nil || outcome.code == TriageCodeCancelled) {
+		return
+	}
+	// The outcome is written as the monitor stops too.
+	if err := m.store.finishTriage(context.WithoutCancel(ctx), req, outcome); err != nil { // coverage:ignore a write on the writer fails only on a closed pool, which outlives the monitor
 		slog.Warn("monitor: a triage's outcome was not written; the next start fails it", "err", err)
 	}
 }

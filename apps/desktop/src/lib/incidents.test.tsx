@@ -22,6 +22,7 @@ import type {
   IncidentOccurrence,
   MonitorTarget,
   MonitorTargetEnabledSet,
+  MonitoringTriageModelOff,
   IncidentTriageRequest,
 } from '@/lib/incidents';
 import { clusterRecord, incidentRecord, mockTauriCore, monitorTargetRecord, occurrenceRecord } from '@/test-utils';
@@ -63,6 +64,8 @@ const {
   useIncidents,
   useMonitorSignals,
   useIncidentTriage,
+  useMonitoringTriageModel,
+  useMonitoringTriageModelOff,
   useMonitorTargetEnabledSet,
   useMonitorTargets,
   useNotificationPermission,
@@ -412,10 +415,16 @@ describe('useIncidentTriage', () => {
     );
     const { result } = renderHook(() => useIncidentTriage(), { wrapper });
 
-    act(() => void result.current.triage('i1', pick));
-    act(() => void result.current.triage('i1', pick));
+    act(() => void result.current.triage('i1', pick, false));
+    act(() => void result.current.triage('i1', pick, false));
     expect(sendEnabled).toHaveBeenCalledTimes(1);
-    expect(sendEnabled).toHaveBeenCalledWith({ id: 'i1', providerID: 'anthropic', modelID: 'claude', effort: 'high' });
+    expect(sendEnabled).toHaveBeenCalledWith({
+      id: 'i1',
+      providerID: 'anthropic',
+      modelID: 'claude',
+      effort: 'high',
+      always: false,
+    });
     expect(result.current.sending).toEqual(new Set(['i1']));
 
     await act(async () => answer({}));
@@ -427,16 +436,17 @@ describe('useIncidentTriage', () => {
     sendEnabled.mockResolvedValueOnce({ error: { graphQLErrors: [{ message: 'Validation error' }], message: 'x' } });
     const { result } = renderHook(() => useIncidentTriage(), { wrapper });
 
-    await act(async () => result.current.triage('i1', pick));
+    await act(async () => result.current.triage('i1', pick, false));
     expect(result.current.errors).toEqual(new Map([['i1', 'Validation error']]));
 
     sendEnabled.mockResolvedValueOnce({});
-    await act(async () => result.current.triage('i1', { ...pick, effort: '' }));
+    await act(async () => result.current.triage('i1', { ...pick, effort: '' }, true));
     expect(sendEnabled).toHaveBeenLastCalledWith({
       id: 'i1',
       providerID: 'anthropic',
       modelID: 'claude',
       effort: null,
+      always: true,
     });
     expect(result.current.errors).toEqual(new Map());
   });
@@ -459,7 +469,7 @@ describe('useIncidentTriage', () => {
       </IncidentsProvider>,
     );
 
-    act(() => void request.triage('i1', pick));
+    act(() => void request.triage('i1', pick, false));
     rerender(<IncidentsProvider>{null}</IncidentsProvider>);
     await act(async () => answer({ error: { graphQLErrors: [{ message: 'Validation error' }], message: 'x' } }));
     rerender(
@@ -468,6 +478,64 @@ describe('useIncidentTriage', () => {
       </IncidentsProvider>,
     );
     expect(request.errors).toEqual(new Map([['i1', 'Validation error']]));
+  });
+});
+
+describe('useMonitoringTriageModel', () => {
+  it('is undefined until the first frame, then the setting as each frame has it, null while off', () => {
+    const { result, rerender } = renderHook(() => useMonitoringTriageModel());
+    expect(result.current).toBeUndefined();
+
+    push('MonitoringTriageModelStateWatch', 'monitoringTriageModelStateWatch', null);
+    rerender();
+    expect(result.current).toBeNull();
+    const model = { providerID: 'anthropic', modelID: 'claude', effort: 'high' };
+    push('MonitoringTriageModelStateWatch', 'monitoringTriageModelStateWatch', model);
+    rerender();
+    expect(result.current).toEqual(model);
+  });
+});
+
+describe('useMonitoringTriageModelOff', () => {
+  it('unsets the model, and keeps a refusal until the next write', async () => {
+    const { result } = renderHook(() => useMonitoringTriageModelOff(), { wrapper });
+    sendEnabled.mockResolvedValueOnce({ error: { graphQLErrors: [{ message: 'Validation error' }], message: 'x' } });
+    await act(async () => result.current.turnOff());
+    expect(sendEnabled).toHaveBeenLastCalledWith({ model: null });
+    expect(result.current.error).toBe('Validation error');
+
+    sendEnabled.mockResolvedValueOnce({});
+    await act(async () => result.current.turnOff());
+    expect(result.current.error).toBeNull();
+  });
+
+  it('keeps a refusal while no Settings tab is drawn', async () => {
+    let answer!: (result: unknown) => void;
+    sendEnabled.mockReturnValueOnce(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    let off!: MonitoringTriageModelOff;
+    function TurnOff() {
+      off = useMonitoringTriageModelOff();
+      return null;
+    }
+    const { rerender } = render(
+      <IncidentsProvider>
+        <TurnOff />
+      </IncidentsProvider>,
+    );
+
+    act(() => void off.turnOff());
+    rerender(<IncidentsProvider>{null}</IncidentsProvider>);
+    await act(async () => answer({ error: { graphQLErrors: [{ message: 'Validation error' }], message: 'x' } }));
+    rerender(
+      <IncidentsProvider>
+        <TurnOff />
+      </IncidentsProvider>,
+    );
+    expect(off.error).toBe('Validation error');
   });
 });
 

@@ -17,18 +17,27 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Cluster } from '@/lib/clusters';
-import type { MonitorSignal, MonitorTarget, MonitorTargetEnabledSet, NotificationPermission } from '@/lib/incidents';
+import type {
+  MonitoringTriageModel,
+  MonitorSignal,
+  MonitorTarget,
+  MonitorTargetEnabledSet,
+  NotificationPermission,
+} from '@/lib/incidents';
 import { clusterRecord, monitorTargetRecord } from '@/test-utils';
 
-const { state, set } = vi.hoisted(() => ({
+const { state, set, turnOff } = vi.hoisted(() => ({
   state: {} as {
     targets: MonitorTarget[] | null;
     signals: Map<string, MonitorSignal>;
     switch: Omit<MonitorTargetEnabledSet, 'set'>;
     clusters: Cluster[] | null;
     permission: NotificationPermission | undefined;
+    setting: MonitoringTriageModel | null | undefined;
+    offError: string | null;
   },
   set: vi.fn(),
+  turnOff: vi.fn(),
 }));
 vi.mock('@/lib/incidents', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/incidents')>()),
@@ -36,6 +45,23 @@ vi.mock('@/lib/incidents', async (importOriginal) => ({
   useMonitorSignals: () => state.signals,
   useMonitorTargetEnabledSet: () => ({ ...state.switch, set }),
   useNotificationPermission: () => state.permission,
+  useMonitoringTriageModel: () => state.setting,
+  useMonitoringTriageModelOff: () => ({ sending: false, error: state.offError, turnOff }),
+}));
+vi.mock('@/lib/models', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/models')>()),
+  useModels: () => ({
+    models: [
+      {
+        provider: { id: 'anthropic', label: 'Anthropic' },
+        id: 'claude',
+        label: 'Claude',
+        efforts: [],
+        defaultEffort: '',
+      },
+    ],
+    snapshotComplete: true,
+  }),
 }));
 vi.mock('@/lib/clusters', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/clusters')>()),
@@ -63,11 +89,51 @@ beforeEach(() => {
   state.switch = { changing: new Set(), errors: new Map() };
   state.clusters = [];
   state.permission = 'Granted';
+  state.setting = null;
+  state.offError = null;
 });
 
 const row = (label: string) => screen.getByRole('switch', { name: label }).closest('li')!;
 
 describe('MonitoringSettings', () => {
+  it('states that automatic triage spends model calls and its cap, off and on', () => {
+    const view = render(<MonitoringSettings />);
+    const section = () => screen.getByRole('region', { name: 'Automatic triage' });
+    expect(section()).toHaveTextContent('Off. Turn it on beside an incident’s Triage with AI.');
+    expect(section()).toHaveTextContent(
+      'It spends model calls while nobody is watching. At most 6 triages start per target per hour',
+    );
+    expect(within(section()).queryByRole('button')).not.toBeInTheDocument();
+
+    state.setting = { providerID: 'anthropic', modelID: 'claude', effort: 'high' };
+    view.rerender(<MonitoringSettings />);
+    expect(section()).toHaveTextContent('Each new incident is triaged with Claude, effort high.');
+
+    state.setting = { providerID: 'anthropic', modelID: 'claude', effort: 'hi\u202egh' };
+    view.rerender(<MonitoringSettings />);
+    expect(within(section()).getByTitle('An invisible character')).toBeInTheDocument();
+    expect(section().textContent).not.toContain('\u202e');
+  });
+
+  it('turns automatic triage off, and draws nothing of it before the setting is read', async () => {
+    state.setting = { providerID: 'other', modelID: 'm-1', effort: null };
+    const view = render(<MonitoringSettings />);
+    expect(screen.getByRole('region', { name: 'Automatic triage' })).toHaveTextContent('triaged with m-1.');
+    await userEvent.click(screen.getByRole('button', { name: 'Turn off' }));
+    expect(turnOff).toHaveBeenCalled();
+
+    state.setting = undefined;
+    view.rerender(<MonitoringSettings />);
+    expect(screen.queryByRole('region', { name: 'Automatic triage' })).not.toBeInTheDocument();
+  });
+
+  it('says why turning automatic triage off was refused', () => {
+    state.setting = { providerID: 'anthropic', modelID: 'claude', effort: null };
+    state.offError = 'Monitoring is stopping';
+    render(<MonitoringSettings />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Monitoring is stopping');
+  });
+
   it('draws nothing before the targets land', () => {
     state.targets = null;
     const { container } = render(<MonitoringSettings />);

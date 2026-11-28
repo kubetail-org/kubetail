@@ -14,10 +14,11 @@
 
 // What monitoring found: every target, every target's incidents and the signals they
 // name, held once for the window so the bell and the Incidents dialog read the same
-// maps, the occurrence feed of one incident, and the switch on a target. See
-// docs/read-contracts/README.md, *Collection watch*, *List* and *Event feed*. The host
-// shows each alert as an OS notification: this module reads whether the OS allows
-// one, and opens the dialog on the incident a notification's press names.
+// maps, the occurrence feed of one incident, the switch on a target, and the
+// automatic triage setting. See docs/read-contracts/README.md, *Collection watch*,
+// *List* and *Event feed*. The host shows each alert as an OS notification: this
+// module reads whether the OS allows one, and opens the dialog on the incident a
+// notification's press names.
 //
 // The webview knows an integration in one place, `INTEGRATION_LABEL`: a new value of
 // `MonitorIntegration` fails the build here and nowhere else.
@@ -32,6 +33,7 @@ import type {
   IncidentOccurrenceEndReason,
   IncidentOccurrenceEventFeedSubscription,
   IncidentTriageError,
+  MonitoringTriageModelStateWatchSubscription,
   MonitorIntegration,
   MonitorReadError,
   MonitorSeverity,
@@ -46,6 +48,7 @@ import { collectionWatchReducer } from '@/lib/graphql/collection-watch';
 import { eventFeedReducer } from '@/lib/graphql/event-feed';
 import type { EventFeedHistory } from '@/lib/graphql/event-feed';
 import { refusalOf } from '@/lib/graphql/refusal';
+import { stateWatchReducer } from '@/lib/graphql/state-watch';
 import { useFoldedSubscription } from '@/lib/graphql/use-folded-subscription';
 import type { ModelPick } from '@/lib/models';
 
@@ -142,12 +145,37 @@ const IncidentOccurrenceEventFeedDocument = graphql(`
 
 // Answered through `incidentCollectionWatch`, which is what the triage draws.
 const IncidentTriageDocument = graphql(`
-  mutation IncidentTriage($id: IncidentID!, $providerID: String!, $modelID: String!, $effort: String) {
-    incidentTriage(id: $id, providerID: $providerID, modelID: $modelID, effort: $effort) {
+  mutation IncidentTriage(
+    $id: IncidentID!
+    $providerID: String!
+    $modelID: String!
+    $effort: String
+    $always: Boolean
+  ) {
+    incidentTriage(id: $id, providerID: $providerID, modelID: $modelID, effort: $effort, always: $always) {
       id
       triage {
         state
       }
+    }
+  }
+`);
+
+const MonitoringTriageModelStateWatchDocument = graphql(`
+  subscription MonitoringTriageModelStateWatch {
+    monitoringTriageModelStateWatch {
+      providerID
+      modelID
+      effort
+    }
+  }
+`);
+
+// Answered through `monitoringTriageModelStateWatch`, which is what the setting draws.
+const MonitoringTriageModelSetDocument = graphql(`
+  mutation MonitoringTriageModelSet($model: MonitoringTriageModelInput) {
+    monitoringTriageModelSet(model: $model) {
+      providerID
     }
   }
 `);
@@ -190,6 +218,12 @@ export const READ_ERROR_TEXT: Record<MonitorReadError, string> = {
   Invalid: 'answer out of bounds',
 };
 
+/**
+ * The most automatic triages that start on one target an hour: the sidecar's
+ * `maxAutomaticTriagesPerHour` (`agent/monitor/triage.go`), stated again here.
+ */
+export const MAX_AUTOMATIC_TRIAGES_PER_HOUR = 6;
+
 // Why a triage failed, as the incident's triage section says it.
 export const TRIAGE_ERROR_TEXT: Record<IncidentTriageError, string> = {
   MonitoringOff: 'Monitoring of this target was turned off before the triage ran.',
@@ -201,6 +235,8 @@ export const TRIAGE_ERROR_TEXT: Record<IncidentTriageError, string> = {
   Cancelled: 'The triage was cancelled as Kubetail stopped.',
   Interrupted: 'Kubetail stopped before the triage ended.',
   Unavailable: 'The triage could not start.',
+  CapReached: `This target's ${MAX_AUTOMATIC_TRIAGES_PER_HOUR} automatic triages of the hour were spent, so it was not triaged.`,
+  SettingChanged: 'Automatic triage was changed before this triage ran.',
 };
 
 export const END_REASON_TEXT: Record<IncidentOccurrenceEndReason, string> = {
@@ -253,7 +289,11 @@ type IncidentsContextValue = {
 const IncidentsContext = createContext<IncidentsContextValue | null>(null);
 // What the monitoring mutations hold: what is in flight and what was refused. Apart
 // from the reads, so a press redraws none of their consumers.
-type SendsContextValue = { enabledSet: MonitorTargetEnabledSet; triageRequest: IncidentTriageRequest };
+type SendsContextValue = {
+  enabledSet: MonitorTargetEnabledSet;
+  triageRequest: IncidentTriageRequest;
+  triageModelOff: MonitoringTriageModelOff;
+};
 const SendsContext = createContext<SendsContextValue | null>(null);
 
 // The event that tells this window a notification's press waits for it. It carries
@@ -334,7 +374,11 @@ export function IncidentsProvider({ children }: { children: React.ReactNode }) {
   // flight and its refusal outlive what drew them.
   const enabledSet = useEnabledSetState();
   const triageRequest = useTriageRequestState();
-  const sends = useMemo(() => ({ enabledSet, triageRequest }), [enabledSet, triageRequest]);
+  const triageModelOff = useTriageModelOffState();
+  const sends = useMemo(
+    () => ({ enabledSet, triageRequest, triageModelOff }),
+    [enabledSet, triageRequest, triageModelOff],
+  );
   return (
     <IncidentsContext.Provider value={value}>
       <SendsContext.Provider value={sends}>{children}</SendsContext.Provider>
@@ -483,8 +527,8 @@ export type IncidentTriageRequest = {
   sending: ReadonlySet<string>;
   /** Each incident's last refused request, by id, until its next press. */
   errors: ReadonlyMap<string, string>;
-  /** Sends nothing for an incident already in flight. */
-  triage: (id: string, pick: ModelPick) => Promise<void>;
+  /** Sends nothing for an incident already in flight. With `always`, it also sets the triage model to `pick`. */
+  triage: (id: string, pick: ModelPick, always: boolean) => Promise<void>;
 };
 
 /**
@@ -498,12 +542,60 @@ export function useIncidentTriage(): IncidentTriageRequest {
 function useTriageRequestState(): IncidentTriageRequest {
   const [, send] = useMutation(IncidentTriageDocument);
   const sendTriage = useCallback(
-    (id: string, pick: ModelPick) =>
-      send({ id, providerID: pick.model.providerID, modelID: pick.model.id, effort: pick.effort || null }),
+    (id: string, pick: ModelPick, always: boolean) =>
+      send({ id, providerID: pick.model.providerID, modelID: pick.model.id, effort: pick.effort || null, always }),
     [send],
   );
   const { pending, errors, run } = useKeyedSend(sendTriage);
   return useMemo(() => ({ sending: pending, errors, triage: run }), [pending, errors, run]);
+}
+
+/** The model each new incident is triaged with, for every target. */
+export type MonitoringTriageModel = NonNullable<
+  MonitoringTriageModelStateWatchSubscription['monitoringTriageModelStateWatch']
+>;
+
+const reduceTriageModel = stateWatchReducer(
+  (next: MonitoringTriageModelStateWatchSubscription) => next.monitoringTriageModelStateWatch,
+);
+
+/**
+ * The automatic triage setting as the sidecar holds it, so every window shows what
+ * another wrote: undefined until the first frame, null while it is off.
+ */
+export function useMonitoringTriageModel(): MonitoringTriageModel | null | undefined {
+  // Unshared: the Settings tab mounts late into the triage section's stream, and a
+  // late consumer of a shared one never gets its first frame.
+  const { data } = useFoldedSubscription({ query: MonitoringTriageModelStateWatchDocument }, reduceTriageModel, {
+    unshared: true,
+  });
+  return data;
+}
+
+export type MonitoringTriageModelOff = {
+  sending: boolean;
+  /** The last refused write, until the next one starts. */
+  error: string | null;
+  turnOff: () => Promise<void>;
+};
+
+/**
+ * Turns automatic triage off; the watch draws what it leaves. It is turned on with a
+ * triage, by `useIncidentTriage`'s `always`.
+ */
+export function useMonitoringTriageModelOff(): MonitoringTriageModelOff {
+  return useSendsContext().triageModelOff;
+}
+
+function useTriageModelOffState(): MonitoringTriageModelOff {
+  const [{ fetching }, send] = useMutation(MonitoringTriageModelSetDocument);
+  const [error, setError] = useState<string | null>(null);
+  const turnOff = useCallback(async () => {
+    setError(null);
+    const { error: refused } = await send({ model: null });
+    if (refused) setError(refusalOf(refused));
+  }, [send]);
+  return useMemo(() => ({ sending: fetching, error, turnOff }), [fetching, error, turnOff]);
 }
 
 /** Whether the OS shows Kubetail's notifications, as the host last read it. */

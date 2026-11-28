@@ -21,7 +21,8 @@ code names it.
   names is kept and ignored.
 - **Adding a setting** is an entry, its typed methods, its wire field and its control: no
   migration, no statement. `tools.go` exports the tools' read and write, for `toolsettings` and
-  `agent/chat`.
+  `agent/chat`; `monitoring.go` the triage model's, for `agent/monitor`, which writes it with the
+  cancel it owes in one transaction.
 
 **The modes, the always rules and folder grants are `app.db` rows**: `permission_modes` by target
 and account, `permission_rules` and `folder_grants` with `chat_id` NULL (a chat's are

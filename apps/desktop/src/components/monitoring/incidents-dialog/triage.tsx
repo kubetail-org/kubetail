@@ -12,18 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// An incident's triage: the action that asks for one on a model the user picks, and
-// the newest triage as the watch delivers it. The report is model output over cluster
-// text, drawn as plain text, never as Markdown.
+// An incident's triage: the action that asks for one on a model the user picks, with
+// the box that leaves automatic triage on with it, and the newest triage as the watch
+// delivers it. The report is model output over cluster text, drawn as plain text,
+// never as Markdown.
 import { Button } from '@kubetail/ui/elements/button';
+import { Checkbox } from '@kubetail/ui/elements/checkbox';
 import { cn } from '@kubetail/ui/lib/utils';
 import { useState } from 'react';
 
 import { ModelPicker } from '@/components/primitives/model-picker';
 import { VisibleText } from '@/components/primitives/visible-text';
 import { TONE } from '@/lib/cluster-health';
-import { TRIAGE_ERROR_TEXT, useIncidentTriage } from '@/lib/incidents';
-import type { Incident, IncidentTriage, MonitorTarget } from '@/lib/incidents';
+import { useDialog } from '@/lib/dialog';
+import { TRIAGE_ERROR_TEXT, useIncidentTriage, useMonitoringTriageModel } from '@/lib/incidents';
+import type { Incident, IncidentTriage, MonitoringTriageModel, MonitorTarget } from '@/lib/incidents';
 import { modelOf, seedPick, useModels } from '@/lib/models';
 import type { ModelPick } from '@/lib/models';
 import { useSandbox } from '@/lib/sandbox';
@@ -50,9 +53,15 @@ function TriageAction({ incident, target }: { incident: Incident; target: Monito
   const { models } = useModels();
   const sandbox = useSandbox();
   const { sending, errors, triage } = useIncidentTriage();
+  const setting = useMonitoringTriageModel();
   const [chosen, setChosen] = useState<ModelPick>();
+  // Ticking writes nothing: the box rides the press, so closing the picker leaves the
+  // setting. It is ticked for one pick and one press: another pick, or a press, unticks it.
+  const [alwaysFor, setAlwaysFor] = useState<ModelPick | null>(null);
   const pick = chosen ?? seedPick(models, null);
+  const always = !!pick && !!alwaysFor && samePick(alwaysFor, pick);
   const picked = pick ? modelOf(models, pick.model) : null;
+  const alreadyOn = !!pick && !!setting && namesPick(setting, pick);
   const underWay = incident.triage.state === 'Queued' || sending.has(incident.id);
 
   let blocked: string | null = null;
@@ -61,6 +70,13 @@ function TriageAction({ incident, target }: { incident: Incident; target: Monito
   else if (!pick) blocked = 'No model provider is signed in.';
   else if (!picked) blocked = "The model's provider is signed out.";
   const refusal = errors.get(incident.id);
+  // Undefined with no pick, when the button is disabled.
+  const press =
+    pick &&
+    (() => {
+      setAlwaysFor(null);
+      void triage(incident.id, pick, always && !alreadyOn);
+    });
 
   return (
     <>
@@ -69,12 +85,15 @@ function TriageAction({ incident, target }: { incident: Incident; target: Monito
           type="button"
           size="sm"
           disabled={underWay || blocked !== null || sandbox.available === undefined}
-          onClick={() => pick && void triage(incident.id, pick)}
+          onClick={press}
         >
           {underWay ? 'Triage under way…' : 'Triage with AI'}
         </Button>
         {pick && models.length > 0 && <ModelPicker models={models} pick={pick} picked={picked} onPick={setChosen} />}
       </div>
+      {pick && setting !== undefined && (
+        <AlwaysTriage on={alreadyOn} checked={always} onCheck={(v) => setAlwaysFor(v ? pick : null)} />
+      )}
       {blocked && <p className="text-xs text-muted-foreground">{blocked}</p>}
       {refusal && (
         <p className="text-xs text-destructive">
@@ -82,6 +101,48 @@ function TriageAction({ incident, target }: { incident: Incident; target: Monito
         </p>
       )}
     </>
+  );
+}
+
+function samePick(a: ModelPick, b: ModelPick): boolean {
+  return a.model.providerID === b.model.providerID && a.model.id === b.model.id && a.effort === b.effort;
+}
+
+// Whether the setting is the model picked, effort included.
+function namesPick(setting: MonitoringTriageModel, pick: ModelPick): boolean {
+  return (
+    setting.providerID === pick.model.providerID &&
+    setting.modelID === pick.model.id &&
+    (setting.effort ?? '') === pick.effort
+  );
+}
+
+// The box that turns automatic triage on with the press, or, while the setting already
+// names the model picked, the line that says so, linked to the Monitoring tab.
+function AlwaysTriage({ on, checked, onCheck }: { on: boolean; checked: boolean; onCheck: (v: boolean) => void }) {
+  const { openDialog } = useDialog();
+  if (on) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        New incidents are triaged with this model.{' '}
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="h-auto p-0 text-xs"
+          onClick={() => openDialog('settings', 'Monitoring')}
+        >
+          Monitoring settings
+        </Button>
+      </p>
+    );
+  }
+  return (
+    // oxlint-disable-next-line jsx-a11y/label-has-associated-control -- Checkbox renders its control inside
+    <label className="flex items-center gap-2 text-xs">
+      <Checkbox checked={checked} onCheckedChange={onCheck} />
+      Always triage new incidents with this model
+    </label>
   );
 }
 
