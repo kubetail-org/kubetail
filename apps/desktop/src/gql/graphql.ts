@@ -176,6 +176,25 @@ export type GrantDuration =
   /** For one chat: a grant of the chat's, gone with it. */
   | 'Chat';
 
+/** How an occurrence ended. */
+export type IncidentOccurrenceEndReason =
+  /** Its signal was judged absent for its resolve-after window. */
+  | 'Resolved'
+  /** Nothing saw it for 24 hours. */
+  | 'Stale'
+  /** The user switched the read off, or the target reached another server. */
+  | 'Stopped';
+
+/**
+ * Classifies one frame on an incident's occurrence feed. An occurrence is upserted by
+ * `id`; a trimmed or deleted one is never announced, so there is no `Deleted`.
+ */
+export type IncidentOccurrenceEventFeedFrameType =
+  /** Closes the on-subscribe snapshot; sent once, carrying no occurrence. */
+  | 'Bookmark'
+  /** An occurrence to upsert by `IncidentOccurrence.id`. */
+  | 'Occurrence';
+
 /**
  * One page: a first page, which gives `scope` and the window, or a continuation, which gives
  * `cursor` and nothing of them. The three caps are read on every page.
@@ -323,6 +342,50 @@ export type MemorySaveInput = {
   id?: string | null | undefined;
   name: string;
 };
+
+/** The system a target belongs to. The webview draws each value's name. */
+export type MonitorIntegration =
+  | 'Kubernetes';
+
+/** Why a signal could not be judged at a target's last reading. */
+export type MonitorReadError =
+  /** The user switched the read off. */
+  | 'Disabled'
+  /** The reading broke the monitor's bounds. */
+  | 'Invalid'
+  /** The target is still loading. */
+  | 'NotReady'
+  /** The target refused the read. */
+  | 'PermissionDenied'
+  /** The target asked the reader to wait. */
+  | 'RateLimited'
+  /** The reading outlived its cadence. */
+  | 'Timeout'
+  /** The answer was cut at its bound. */
+  | 'Truncated'
+  /** The target refused the credentials. */
+  | 'Unauthenticated'
+  /** The target did not answer. */
+  | 'Unavailable'
+  /** The target cannot answer this signal at all. */
+  | 'Unsupported';
+
+/** What a target's last reading could judge. */
+export type MonitorReadState =
+  /** No signal could be judged; `unknownSignals` names each. */
+  | 'Failed'
+  /** No reading has committed yet. */
+  | 'NeverRead'
+  /** Every signal was judged. */
+  | 'Ok'
+  /** Some signals could not be judged; `unknownSignals` names them. */
+  | 'Partial';
+
+/** How loud a signal's incidents are. */
+export type MonitorSeverity =
+  | 'Critical'
+  | 'Info'
+  | 'Warning';
 
 /** How much an action can do, its one access level. A rule may name `DataRead`, `Write`, `AccessControl` or `Destructive`; a `Write` rule that denies or asks covers `AccessControl` and `Destructive` too. `AccessControl` is a change to who may do what, or to what sees every request. */
 export type PermissionAccessLevel =
@@ -851,6 +914,28 @@ export type EnvVarRemoveMutationVariables = Exact<{
 
 export type EnvVarRemoveMutation = { envVarRemove: Array<{ name: string }> };
 
+export type MonitorTargetCollectionWatchSubscriptionVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MonitorTargetCollectionWatchSubscription = { monitorTargetCollectionWatch: { type: CollectionWatchFrameType, target: { id: string, integration: MonitorIntegration, label: string, clusterID: string | null, currentUID: string | null, enabled: boolean, readState: MonitorReadState, unknownSignals: Array<{ name: string, reason: MonitorReadError }> } | null } };
+
+export type IncidentCollectionWatchSubscriptionVariables = Exact<{ [key: string]: never; }>;
+
+
+export type IncidentCollectionWatchSubscription = { incidentCollectionWatch: { type: CollectionWatchFrameType, incident: { id: string, targetID: string, targetUID: string, subjectLabel: string, signal: string, signalLabel: string, severity: MonitorSeverity, firstSeenAt: string, open: boolean, occurrenceCount: number, lastStartedAt: string, lastSeenAt: string | null, lastEndReason: IncidentOccurrenceEndReason | null, subjectAttributes: Array<{ label: string, value: string }> } | null } };
+
+export type MonitorSignalListQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MonitorSignalListQuery = { monitorSignalList: Array<{ name: string, integration: MonitorIntegration, label: string, severity: MonitorSeverity }> };
+
+export type IncidentOccurrenceEventFeedSubscriptionVariables = Exact<{
+  incidentID: string;
+}>;
+
+
+export type IncidentOccurrenceEventFeedSubscription = { incidentOccurrenceEventFeed: { type: IncidentOccurrenceEventFeedFrameType, incidentID: string, occurrence: { id: string, incidentID: string, number: number, startedAt: string, endedAt: string | null, endReason: IncidentOccurrenceEndReason | null, detail: Array<{ label: string, value: string }> } | null } };
+
 export type LogsFetchQueryVariables = Exact<{
   id: string;
   request: LogsFetchInput;
@@ -1154,6 +1239,10 @@ export const GoogleDisconnectDocument = {"kind":"Document","definitions":[{"kind
 export const EnvVarsGetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"EnvVarsGet"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"clusterID"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"ClusterID"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"envVarsGet"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"clusterID"},"value":{"kind":"Variable","name":{"kind":"Name","value":"clusterID"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"value"}},{"kind":"Field","name":{"kind":"Name","value":"target"}},{"kind":"Field","name":{"kind":"Name","value":"refusal"}}]}}]}}]} as unknown as DocumentNode<EnvVarsGetQuery, EnvVarsGetQueryVariables>;
 export const EnvVarSetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"EnvVarSet"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"clusterID"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"ClusterID"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"name"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"value"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"target"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"EnvVarTarget"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"envVarSet"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"clusterID"},"value":{"kind":"Variable","name":{"kind":"Name","value":"clusterID"}}},{"kind":"Argument","name":{"kind":"Name","value":"name"},"value":{"kind":"Variable","name":{"kind":"Name","value":"name"}}},{"kind":"Argument","name":{"kind":"Name","value":"value"},"value":{"kind":"Variable","name":{"kind":"Name","value":"value"}}},{"kind":"Argument","name":{"kind":"Name","value":"target"},"value":{"kind":"Variable","name":{"kind":"Name","value":"target"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]} as unknown as DocumentNode<EnvVarSetMutation, EnvVarSetMutationVariables>;
 export const EnvVarRemoveDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"EnvVarRemove"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"clusterID"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"ClusterID"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"name"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"envVarRemove"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"clusterID"},"value":{"kind":"Variable","name":{"kind":"Name","value":"clusterID"}}},{"kind":"Argument","name":{"kind":"Name","value":"name"},"value":{"kind":"Variable","name":{"kind":"Name","value":"name"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]} as unknown as DocumentNode<EnvVarRemoveMutation, EnvVarRemoveMutationVariables>;
+export const MonitorTargetCollectionWatchDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"MonitorTargetCollectionWatch"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"monitorTargetCollectionWatch"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"target"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"integration"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"clusterID"}},{"kind":"Field","name":{"kind":"Name","value":"currentUID"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"readState"}},{"kind":"Field","name":{"kind":"Name","value":"unknownSignals"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"reason"}}]}}]}}]}}]}}]} as unknown as DocumentNode<MonitorTargetCollectionWatchSubscription, MonitorTargetCollectionWatchSubscriptionVariables>;
+export const IncidentCollectionWatchDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"IncidentCollectionWatch"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"incidentCollectionWatch"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"incident"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"targetID"}},{"kind":"Field","name":{"kind":"Name","value":"targetUID"}},{"kind":"Field","name":{"kind":"Name","value":"subjectLabel"}},{"kind":"Field","name":{"kind":"Name","value":"subjectAttributes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"value"}}]}},{"kind":"Field","name":{"kind":"Name","value":"signal"}},{"kind":"Field","name":{"kind":"Name","value":"signalLabel"}},{"kind":"Field","name":{"kind":"Name","value":"severity"}},{"kind":"Field","name":{"kind":"Name","value":"firstSeenAt"}},{"kind":"Field","name":{"kind":"Name","value":"open"}},{"kind":"Field","name":{"kind":"Name","value":"occurrenceCount"}},{"kind":"Field","name":{"kind":"Name","value":"lastStartedAt"}},{"kind":"Field","name":{"kind":"Name","value":"lastSeenAt"}},{"kind":"Field","name":{"kind":"Name","value":"lastEndReason"}}]}}]}}]}}]} as unknown as DocumentNode<IncidentCollectionWatchSubscription, IncidentCollectionWatchSubscriptionVariables>;
+export const MonitorSignalListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MonitorSignalList"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"monitorSignalList"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"integration"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"severity"}}]}}]}}]} as unknown as DocumentNode<MonitorSignalListQuery, MonitorSignalListQueryVariables>;
+export const IncidentOccurrenceEventFeedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"IncidentOccurrenceEventFeed"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"incidentID"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"IncidentID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"incidentOccurrenceEventFeed"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"incidentID"},"value":{"kind":"Variable","name":{"kind":"Name","value":"incidentID"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"incidentID"}},{"kind":"Field","name":{"kind":"Name","value":"occurrence"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"incidentID"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"startedAt"}},{"kind":"Field","name":{"kind":"Name","value":"endedAt"}},{"kind":"Field","name":{"kind":"Name","value":"endReason"}},{"kind":"Field","name":{"kind":"Name","value":"detail"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"value"}}]}}]}}]}}]}}]} as unknown as DocumentNode<IncidentOccurrenceEventFeedSubscription, IncidentOccurrenceEventFeedSubscriptionVariables>;
 export const LogsFetchDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"LogsFetch"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ClusterID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"request"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LogsFetchInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"logsFetch"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}},{"kind":"Argument","name":{"kind":"Name","value":"request"},"value":{"kind":"Variable","name":{"kind":"Name","value":"request"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"records"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"timestamp"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"truncatedBytes"}},{"kind":"Field","name":{"kind":"Name","value":"cursor"}},{"kind":"Field","name":{"kind":"Name","value":"stream"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"namespace"}},{"kind":"Field","name":{"kind":"Name","value":"pod"}},{"kind":"Field","name":{"kind":"Name","value":"container"}},{"kind":"Field","name":{"kind":"Name","value":"previous"}}]}},{"kind":"Field","name":{"kind":"Name","value":"place"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"node"}},{"kind":"Field","name":{"kind":"Name","value":"region"}},{"kind":"Field","name":{"kind":"Name","value":"zone"}},{"kind":"Field","name":{"kind":"Name","value":"os"}},{"kind":"Field","name":{"kind":"Name","value":"arch"}}]}},{"kind":"Field","name":{"kind":"Name","value":"gap"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"after"}},{"kind":"Field","name":{"kind":"Name","value":"before"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"page"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"prev"}},{"kind":"Field","name":{"kind":"Name","value":"next"}},{"kind":"Field","name":{"kind":"Name","value":"follow"}}]}},{"kind":"Field","name":{"kind":"Name","value":"notices"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]}}]} as unknown as DocumentNode<LogsFetchQuery, LogsFetchQueryVariables>;
 export const LogsTailDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"LogsTail"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ClusterID"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"request"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LogsTailInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"logsTail"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}},{"kind":"Argument","name":{"kind":"Name","value":"request"},"value":{"kind":"Variable","name":{"kind":"Name","value":"request"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"record"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"timestamp"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"truncatedBytes"}},{"kind":"Field","name":{"kind":"Name","value":"cursor"}},{"kind":"Field","name":{"kind":"Name","value":"stream"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"namespace"}},{"kind":"Field","name":{"kind":"Name","value":"pod"}},{"kind":"Field","name":{"kind":"Name","value":"container"}},{"kind":"Field","name":{"kind":"Name","value":"previous"}}]}},{"kind":"Field","name":{"kind":"Name","value":"place"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"node"}},{"kind":"Field","name":{"kind":"Name","value":"region"}},{"kind":"Field","name":{"kind":"Name","value":"zone"}},{"kind":"Field","name":{"kind":"Name","value":"os"}},{"kind":"Field","name":{"kind":"Name","value":"arch"}}]}},{"kind":"Field","name":{"kind":"Name","value":"gap"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"after"}},{"kind":"Field","name":{"kind":"Name","value":"before"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"notice"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}},{"kind":"Field","name":{"kind":"Name","value":"ended"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]}}]} as unknown as DocumentNode<LogsTailSubscription, LogsTailSubscriptionVariables>;
 export const MemoryCollectionWatchDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"MemoryCollectionWatch"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"clusterID"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ClusterID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"memoryCollectionWatch"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"clusterID"},"value":{"kind":"Variable","name":{"kind":"Name","value":"clusterID"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"memory"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"clusterID"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"body"}},{"kind":"Field","name":{"kind":"Name","value":"writtenBy"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]}}]} as unknown as DocumentNode<MemoryCollectionWatchSubscription, MemoryCollectionWatchSubscriptionVariables>;
