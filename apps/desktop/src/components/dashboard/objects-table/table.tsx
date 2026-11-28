@@ -14,16 +14,18 @@
 
 // Generic per-kind object table, over the rows its page reads from
 // `useClusterCachedDataObjects`. Universal columns (Namespace?/Name/Age) plus kubectl-style
-// extras from the `columns/` registry, then the row's actions, in a card with a footer.
+// extras from the `columns/` registry, then the row's actions, in a card with a footer; or,
+// with an object open, a list of the same rows beside that object's detail.
 // The states render distinctly — not-synced note, connecting spinner, empty snapshot, live
 // table — mirroring `EventsTable`.
 import { Spinner } from '@kubetail/ui/elements/spinner';
 import { Tabs, TabsList, TabsTrigger } from '@kubetail/ui/elements/tabs';
 import { cn } from '@kubetail/ui/lib/utils';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Age, ageSortValue, timestampMs } from '@/components/dashboard/age';
 import { ColumnPicker } from '@/components/dashboard/column-picker';
+import { ListPane } from '@/components/dashboard/list-pane';
 import { TALL_ROW } from '@/components/dashboard/row-size';
 import { TABLE_CELLS, TABLE_HEADER } from '@/components/dashboard/table-style';
 import { VirtualTable } from '@/components/dashboard/virtual-table';
@@ -42,9 +44,11 @@ import { sortRows } from '@/lib/sort-rows';
 import { arrange, useTableColumns } from '@/lib/table-columns';
 
 import { actionsColumn } from './actions';
-import { columnsForKind, toneForKind } from './columns';
+import { columnsForKind, statusForKind, toneForKind } from './columns';
+import { ObjectDetail } from './detail';
+import { ObjectsList } from './list';
 
-type ObjectsTableProps = {
+export type ObjectsTableProps = {
   apiVersion: string;
   resource: string;
   kind: string;
@@ -61,6 +65,9 @@ type ObjectsTableProps = {
   // The namespace the rows are filtered to, if any.
   namespace?: string;
   onAction: (action: ObjectAction, object: ClusterCachedDataObject) => void;
+  // The object open in the detail, and the press that opens one or, with none, closes it.
+  openUid?: string;
+  onOpen: (uid: string | undefined) => void;
 };
 
 const NO_COLUMNS: readonly PrinterColumn[] = [];
@@ -140,7 +147,10 @@ export function ObjectsTable({
   phase,
   namespace,
   onAction,
+  openUid,
+  onOpen,
 }: ObjectsTableProps) {
+  const gvr = useMemo(() => ({ apiVersion, resource }), [apiVersion, resource]);
   // Under a namespace every row would repeat it.
   const showNamespace = namespaced && namespace === undefined;
   // Kind-specific columns between Name and Age; [] when neither the registry nor the kind
@@ -157,10 +167,11 @@ export function ObjectsTable({
   // The user's order and choices, else each column's default.
   const { choices, changed, setShown, setOrder, reset } = useTableColumns({ apiVersion, resource });
   const allColumns = useMemo(() => arrange(defaultColumns, choices.order), [defaultColumns, choices.order]);
+  const open = useCallback((o: ClusterCachedDataObject) => onOpen(o.uid), [onOpen]);
   // The actions stay out of the picker: always drawn, always last.
   const columns = useMemo(
-    () => [...allColumns.filter((c) => isShown(c, choices.shown)), actionsColumn({ apiVersion, resource }, onAction)],
-    [allColumns, choices.shown, apiVersion, resource, onAction],
+    () => [...allColumns.filter((c) => isShown(c, choices.shown)), actionsColumn(gvr, onAction, open)],
+    [allColumns, choices.shown, gvr, onAction, open],
   );
   const namespaceShown = showNamespace && isShown(NAMESPACE_COLUMN, choices.shown);
 
@@ -173,7 +184,7 @@ export function ObjectsTable({
     [objects, query, namespaceShown],
   );
 
-  const toneOf = toneForKind({ apiVersion, resource });
+  const toneOf = toneForKind(gvr);
   const [bucket, setBucket] = useState<Bucket>('all');
   // Each row's tone is read once, for both the counts and the tab's rows.
   const tones = useMemo(() => (toneOf ? matched.map(toneOf) : undefined), [matched, toneOf]);
@@ -212,6 +223,19 @@ export function ObjectsTable({
     else setSort(undefined);
   };
 
+  // Closing the detail removes the control that had focus, so the search takes it.
+  const searchRef = useRef<HTMLInputElement>(null);
+  const focusSearch = useRef(false);
+  const onClose = useCallback(() => {
+    focusSearch.current = true;
+    onOpen(undefined);
+  }, [onOpen]);
+  useEffect(() => {
+    if (!focusSearch.current || openUid !== undefined) return;
+    focusSearch.current = false;
+    searchRef.current?.focus();
+  });
+
   // No active cache streams nothing — say so rather than spin forever.
   if (!active) {
     return (
@@ -232,7 +256,8 @@ export function ObjectsTable({
     );
   }
 
-  if (objects.length === 0) {
+  // An open object stays on screen to say it is gone, even when it was the last.
+  if (objects.length === 0 && openUid === undefined) {
     return (
       <p className="text-sm text-muted-foreground">
         No {kind.toLowerCase()} objects
@@ -247,41 +272,80 @@ export function ObjectsTable({
     );
   }
 
-  const sortedBy = sortColumn?.header ?? (namespaceShown ? 'Namespace' : 'Name');
   const plural = label.toLowerCase();
+  const tabs = toneOf && (
+    <Tabs value={bucket} onValueChange={(value) => setBucket(value as Bucket)}>
+      <TabsList aria-label={`${label} by status`}>
+        {BUCKETS.map((b) => (
+          <TabsTrigger key={b} value={b} className="gap-1.5 px-2.5">
+            {BUCKET_LABEL[b]}
+            <span
+              className={cn(
+                'text-xs font-normal tabular-nums',
+                // A count above zero takes its tone's colour; All and a zero stay muted.
+                b !== 'all' && counts[b] > 0 ? TONE[HEALTH_TONE[b]].text : 'text-muted-foreground',
+              )}
+            >
+              {counts[b]}
+            </span>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  );
+  const search = (
+    <SearchBox
+      ref={searchRef}
+      aria-label={`Filter ${plural}`}
+      placeholder="Search"
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') setQuery('');
+      }}
+    />
+  );
+
+  if (openUid !== undefined) {
+    return (
+      <div className="-mr-2.5 flex min-h-0 flex-1">
+        <ListPane widthKey="dashboard-objects-list-width" resizeLabel={`Resize ${plural} list`}>
+          {/* The tabs scroll sideways in a list narrower than they are. */}
+          {tabs && <div className="shrink-0 overflow-x-auto">{tabs}</div>}
+          {search}
+          <ObjectsList
+            rows={rows}
+            inScope={objects.length}
+            plural={plural}
+            showNamespace={namespaceShown}
+            toneOf={toneOf}
+            openUid={openUid}
+            onOpen={onOpen}
+          />
+        </ListPane>
+        <ObjectDetail
+          uid={openUid}
+          className="ml-2 min-w-0 flex-1"
+          gvr={gvr}
+          kind={kind}
+          namespaced={namespaced}
+          object={objects.find((o) => o.uid === openUid)}
+          settled={phase === 'live'}
+          statusOf={statusForKind(gvr)}
+          onAction={onAction}
+          onClose={onClose}
+        />
+      </div>
+    );
+  }
+
+  const sortedBy = sortColumn?.header ?? (namespaceShown ? 'Namespace' : 'Name');
   return (
     <>
-      {toneOf && (
-        <Tabs value={bucket} onValueChange={(value) => setBucket(value as Bucket)} className="mb-3">
-          <TabsList aria-label={`${label} by status`}>
-            {BUCKETS.map((b) => (
-              <TabsTrigger key={b} value={b} className="gap-1.5 px-2.5">
-                {BUCKET_LABEL[b]}
-                <span
-                  className={cn(
-                    'text-xs font-normal tabular-nums',
-                    // A count above zero takes its tone's colour; All and a zero stay muted.
-                    b !== 'all' && counts[b] > 0 ? TONE[HEALTH_TONE[b]].text : 'text-muted-foreground',
-                  )}
-                >
-                  {counts[b]}
-                </span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      )}
+      {tabs && <div className="mb-3">{tabs}</div>}
       {/* The table's own controls, on the row over it: the filter left, the picker right. */}
       <div className="mb-3 flex items-center gap-2">
-        <SearchBox
-          aria-label={`Filter ${plural}`}
-          placeholder="Search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setQuery('');
-          }}
-        />
+        {search}
         <div className="ml-auto">
           <ColumnPicker
             columns={allColumns.map((c) => ({

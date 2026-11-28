@@ -36,6 +36,7 @@ import {
 import type { ServerKind } from '@/lib/dashboard-resources';
 import type { SubscriptionPhase } from '@/lib/graphql/use-folded-subscription';
 import { useLastSettled } from '@/lib/graphql/use-last-settled';
+import { gvrKey } from '@/lib/gvr';
 import { useNamespaceScope } from '@/lib/namespace-scope';
 import type { ObjectAction } from '@/lib/object-actions';
 import { useObjectView } from '@/lib/object-view';
@@ -52,6 +53,10 @@ export const Route = createRoute({
 
 // The kind a resource last resolved to, under the cache it came from.
 type HeldKind = { cacheID: string | undefined; resource: string; kind: ServerKind };
+
+// The object open in a kind page's detail, under the page and namespace scope it was opened
+// in. Its namespace and name are for the breadcrumb, which lies outside the page.
+type OpenObject = { scope: string; uid: string; namespace: string; name: string };
 
 // Each resource is a page under the breadcrumb bar, a note over a panel: `overview` →
 // `OverviewPage`; `events` → `EventsPage`; a resolved discovered kind → `KindPage`; anything
@@ -80,6 +85,20 @@ function Dashboard() {
   // Without one, `kinds` was just searched for the id, so neither searches it again.
   const label = dashboardResourceLabel(kind ? [kind] : [], resolved);
 
+  // The open object is a selection inside the page, as the focused object is, so it stays out
+  // of the URL and Back leaves the page rather than stepping through the objects viewed. A
+  // new kind, cache or namespace scope closes it.
+  const { namespace } = useNamespaceScope();
+  const pageKey = kind ? `${cacheID}/${gvrKey(kind)}` : undefined;
+  const openScope = `${pageKey ?? ''}|${namespace ?? ''}`;
+  const [open, setOpen] = useState<OpenObject>();
+  if (open && open.scope !== openScope) setOpen(undefined);
+  const onOpen = useCallback(
+    (o: ClusterCachedDataObject | undefined) =>
+      setOpen(o && { scope: openScope, uid: o.uid, namespace: o.namespace, name: o.name }),
+    [openScope],
+  );
+
   let page;
   if (noneSelected) {
     page = <Note>No cluster selected. Pick one from the cluster menu at the top of the window.</Note>;
@@ -89,13 +108,14 @@ function Dashboard() {
     // Keyed by cache, so a cluster switch closes the open event.
     page = <EventsPage key={cacheID} />;
   } else if (kind) {
-    page = <KindPage kind={kind} label={label} />;
+    // Keyed by cache and kind, so a new one starts unsorted, at the top, with its own search.
+    page = <KindPage key={pageKey} kind={kind} label={label} openUid={open?.uid} onOpen={onOpen} />;
   } else {
     page = <MissingKindPage label={label} active={active} phase={phase} />;
   }
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <DashboardBreadcrumbBar resource={resolved} label={label} kind={kind} />
+      <DashboardBreadcrumbBar resource={resolved} label={label} kind={kind} object={noneSelected ? undefined : open} />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col px-4 py-3">{page}</div>
     </section>
   );
@@ -106,14 +126,24 @@ function inScope<T>(rows: T[], namespace: string | undefined, namespaceOf: (row:
   return namespace === undefined ? rows : rows.filter((r) => namespaceOf(r) === namespace);
 }
 
+type KindPageProps = {
+  kind: ServerKind;
+  label: string;
+  openUid: string | undefined;
+  onOpen: (object: ClusterCachedDataObject | undefined) => void;
+};
+
 // A kind's page, over its objects watch. The watch is cluster-wide; the scope filters it
 // here, a namespaced kind's alone.
-function KindPage({ kind, label }: { kind: ServerKind; label: string }) {
+function KindPage({ kind, label, openUid, onOpen }: KindPageProps) {
   const { namespace } = useNamespaceScope();
-  const { objects, active, phase } = useClusterCachedDataObjects({
-    apiVersion: kind.apiVersion,
-    resource: kind.resource,
-  });
+  const watch = useClusterCachedDataObjects({ apiVersion: kind.apiVersion, resource: kind.resource });
+  // A reconnect replays the watch onto a clean slate. The rows and phase as they last stood
+  // whole hold through it, so the table, and an open object's detail, stay mounted.
+  const settled = watch.phase !== 'connecting';
+  const objects = useLastSettled(watch.objects, settled);
+  const phase = useLastSettled(watch.phase, settled);
+  const { active } = watch;
   const namespaced = kind.scope === 'Namespaced';
   const scope = namespaced ? namespace : undefined;
   const shown = useMemo(() => inScope(objects, scope, (o) => o.namespace), [objects, scope]);
@@ -129,6 +159,8 @@ function KindPage({ kind, label }: { kind: ServerKind; label: string }) {
     },
     [focusObject, kind],
   );
+  // The press names the object by uid; the breadcrumb, outside the page, needs its name too.
+  const onOpenUid = useCallback((uid: string | undefined) => onOpen(shown.find((o) => o.uid === uid)), [onOpen, shown]);
 
   return (
     <>
@@ -139,9 +171,7 @@ function KindPage({ kind, label }: { kind: ServerKind; label: string }) {
           </>
         )}
       </PageHeader>
-      {/* Keyed by kind, so a new kind starts unsorted. */}
       <ObjectsTable
-        key={`${kind.apiVersion}/${kind.resource}`}
         apiVersion={kind.apiVersion}
         resource={kind.resource}
         kind={kind.kind}
@@ -153,6 +183,8 @@ function KindPage({ kind, label }: { kind: ServerKind; label: string }) {
         phase={phase}
         namespace={scope}
         onAction={onAction}
+        openUid={openUid}
+        onOpen={onOpenUid}
       />
     </>
   );

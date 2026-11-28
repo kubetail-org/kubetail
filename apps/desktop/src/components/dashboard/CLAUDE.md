@@ -1,6 +1,6 @@
 # src/components/dashboard — the dashboard
 
-The resource nav, the pages, the objects and events tables, the object panel and `VirtualTable`. Also owns `src/lib/`'s `dashboard-resources.ts`, `cluster-cached-data-*.tsx`, `cluster-namespaces.tsx`, `object-*.ts[x]`, `overview.ts`, `pod-status.ts`, `table-columns.ts`, `sort-rows.ts` and `jsonpath.ts`. How the window bounds a table's scroll is in `src/CLAUDE.md` (*Window state*).
+The resource nav, the pages, the objects and events tables, the object panel and `VirtualTable`. Also owns `src/lib/`'s `dashboard-resources.ts`, `cluster-cached-data-*.tsx`, `cluster-namespaces.tsx`, `object-*.ts[x]`, `overview.ts`, `pod-*.ts`, `node-detail.ts`, `table-columns.ts`, `sort-rows.ts` and `jsonpath.ts`. How the window bounds a table's scroll is in `src/CLAUDE.md` (*Window state*).
 
 ## The resource nav
 
@@ -44,6 +44,10 @@ All three cached-data hooks resolve the cluster/cache through `useActiveCluster(
 ## The Events page
 
 **The open event is `EventsPage` state, never a search param**, so Back leaves the page; a namespace or cache switch closes it. `EventsPage` holds its rows through a reconnect's replay (`useLastSettled`), so the detail stays mounted.
+
+## The open object
+
+**A kind page's open object is `Dashboard` state too**, so the breadcrumb can name it. A new kind, cache or namespace scope closes it; a tab, search or sort does not. `KindPage` holds its rows through a replay likewise.
 
 ## The object panel
 

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // The object table's last column: a menu of the row's actions behind a ⋯ on every row, then the
-// chevron that opens the object.
+// chevron that opens the object in the page's detail.
 import { ActionsMenu } from '@/components/dashboard/actions-menu';
 import { chevronColumn } from '@/components/dashboard/chevron-column';
 import type { VirtualColumn } from '@/components/dashboard/virtual-table';
@@ -24,10 +24,11 @@ import type { ObjectAction } from '@/lib/object-actions';
 export function actionsColumn(
   gvr: GVR,
   onAction: (action: ObjectAction, object: ClusterCachedDataObject) => void,
+  onOpen: (object: ClusterCachedDataObject) => void,
 ): VirtualColumn<ClusterCachedDataObject> {
   return chevronColumn({
     nameOf: (o) => o.name,
-    onOpen: (o) => onAction('yaml', o),
+    onOpen,
     before: {
       buttons: 1,
       cell: (o) => <ActionsMenu gvr={gvr} name={o.name} onAction={(action) => onAction(action, o)} />,

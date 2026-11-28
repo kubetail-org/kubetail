@@ -138,4 +138,53 @@ describe('DashboardBreadcrumbBar', () => {
     render(<DashboardBreadcrumbBar resource="example.com/widgets" label={label} />);
     expect(crumbText()).toEqual(['Wid\\u{200B}get']);
   });
+
+  describe('with an object open', () => {
+    it('names its namespace and name after the kind, as the current page', () => {
+      render(
+        <DashboardBreadcrumbBar resource="pods" label="Pods" object={{ namespace: 'default', name: 'worker-r7tnv' }} />,
+      );
+      expect(crumbText()).toEqual(['Workloads', 'Pods', 'default/worker-r7tnv']);
+      const items = crumbs().querySelectorAll('li');
+      expect(items[1]).not.toHaveAttribute('aria-current');
+      expect(items[2]).toHaveAttribute('aria-current', 'page');
+      expect(items[2].querySelector('.lucide-chevron-right')).toBeInTheDocument();
+      expect(screen.getByText('default')).toHaveClass('text-muted-foreground');
+      expect(screen.getByText('/')).toHaveClass('text-muted-foreground');
+      // The kind stays the page's heading.
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Pods');
+    });
+
+    it('names a cluster-scoped object by its name alone', () => {
+      render(<DashboardBreadcrumbBar resource="nodes" label="Nodes" object={{ namespace: '', name: 'pool-a-1' }} />);
+      expect(crumbText()).toEqual(['Infrastructure', 'Nodes', 'pool-a-1']);
+      expect(screen.queryByText('/')).not.toBeInTheDocument();
+    });
+
+    it('lets a long namespace and name both truncate, each whole on hover', () => {
+      render(<DashboardBreadcrumbBar resource="pods" label="Pods" object={{ namespace: 'team-a', name: 'worker' }} />);
+      expect(screen.getByText('team-a')).toHaveClass('min-w-0', 'truncate');
+      expect(screen.getByText('team-a')).toHaveAttribute('title', 'team-a');
+      expect(screen.getByText('worker')).toHaveClass('min-w-0', 'truncate');
+      expect(screen.getByText('worker')).toHaveAttribute('title', 'worker');
+    });
+
+    it('spells invisible characters in the namespace and name', () => {
+      render(
+        <DashboardBreadcrumbBar resource="pods" label="Pods" object={{ namespace: 'a\u200bb', name: 'c\u200bd' }} />,
+      );
+      expect(crumbText()[2]).toBe('a\\u{200B}b/c\\u{200B}d');
+      const titles = Array.from(crumbs().querySelectorAll('li:last-child span[title]')).map((e) =>
+        e.getAttribute('title'),
+      );
+      expect(titles).toEqual(['a\\u{200B}b', 'c\\u{200B}d']);
+    });
+
+    it('leaves the kind the current page without one', () => {
+      render(<DashboardBreadcrumbBar resource="pods" label="Pods" />);
+      const items = crumbs().querySelectorAll('li');
+      expect(items).toHaveLength(2);
+      expect(items[1]).toHaveAttribute('aria-current', 'page');
+    });
+  });
 });
