@@ -144,10 +144,12 @@ export function podStatusTone(status: string): StatusTone {
 export type PodStatus = { label: string; tone: StatusTone };
 
 // A pod's tone is its status's, except that a running pod is healthy only once it is ready,
-// so a pod waiting on its readiness probe, or never passing it, reads as pending.
+// so a pod waiting on its readiness probe, or never passing it, reads as pending, and a
+// pod in phase Failed is failing whatever its reason (DeadlineExceeded).
 export function podStatus(b: PodBody): PodStatus | undefined {
   const label = podReason(b);
   if (!label) return undefined;
+  if (b.status?.phase === 'Failed') return { label, tone: 'failing' };
   const waiting = label === 'Running' && !hasCondition(b, 'Ready');
   return { label, tone: waiting ? 'pending' : podStatusTone(label) };
 }

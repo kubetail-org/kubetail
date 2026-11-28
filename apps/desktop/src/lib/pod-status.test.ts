@@ -41,6 +41,14 @@ describe('podStatus', () => {
     expect(podStatus(running('False'))).toEqual({ label: 'Running', tone: 'pending' });
   });
 
+  // A Job past its activeDeadlineSeconds: kubectl names the reason, and the pod is done for.
+  it('reads a pod in phase Failed as failing, whatever its reason', () => {
+    expect(podStatus({ status: { phase: 'Failed', reason: 'DeadlineExceeded' } })).toEqual({
+      label: 'DeadlineExceeded',
+      tone: 'failing',
+    });
+  });
+
   it('reads nothing off a body with no phase', () => {
     expect(podStatus({})).toBeUndefined();
   });
