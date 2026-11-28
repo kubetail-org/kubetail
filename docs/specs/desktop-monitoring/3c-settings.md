@@ -6,11 +6,11 @@ The Settings dialog's Monitoring tab (`settings-dialog/monitoring.tsx`) replaces
 
 ## Design
 
-**The tab opens with one sentence on what is watched and when**: each target, for the signals by their `label` from `useMonitorSignals()`, in the list's order, while Kubetail is running, the tray included; a quit app watches nothing. `useMonitorSignals()` is empty until the list answers, and the sentence then names no signal.
+**The tab opens with one sentence on what is watched and when**: each enabled target, for the signals by their `label` from `useMonitorSignals()`, in the list's order, while Kubetail is running, the tray included; a quit app watches nothing. `useMonitorSignals()` is empty until the list answers, and the sentence then names no signal.
 
-**A row per target** from `useMonitorTargets()`, which already sorts by label and leaves out a target whose cluster is gone: its label and a switch. Nothing draws while it returns null, before both watches' `Bookmark`s and the clusters list. With no target, the tab says so.
+**A row per target** from `useMonitorTargets()`, which already sorts by label and leaves out a target whose cluster is gone: its label and a switch. Rows that share a label, as two clusters of one name do, each add their cluster's kube context under it and to their switch's name. Nothing draws while it returns null, before both watches' `Bookmark`s and the clusters list. With no target, the tab says so.
 
-**The switch writes through `useMonitorTargetEnabledSet()`**, a hook in `src/lib/incidents.tsx` beside the reads, holding the `MonitorTargetEnabledSet` document over `monitorTargetEnabledSet`, as `useToolSettings()` holds the Tools tab's: the targets in flight, each target's last refusal (`refusalOf`), and `set(id, enabled)`. Its one caller is this tab, so it joins the module that owns targets rather than a file of its own.
+**The switch writes through `useMonitorTargetEnabledSet()`**, a hook in `src/lib/incidents.tsx` beside the reads, holding the `MonitorTargetEnabledSet` document over `monitorTargetEnabledSet`, as `useToolSettings()` holds the Tools tab's: the targets in flight, each target's last refusal (`refusalOf`), and `set(id, enabled)`. Its one caller is this tab, so it joins the module that owns targets rather than a file of its own. `IncidentsProvider` holds that state, so a switch in flight and its refusal outlive a change of tab.
 
 **The switch shows the watch's `enabled`, never its own press.** A press sends the mutation and disables that row's switch until the mutation answers; a second press on a target in flight sends nothing. The switch moves when the target's `Modified` arrives, which also moves it for a change made in another window. A mutation that fails leaves the switch where the watch has it and says why on the row, until that row's next press; `errorReportExchange` logs it as it logs every operation error.
 
@@ -26,7 +26,7 @@ Steps 3b and 5 each add a section to this tab: notification permission and autom
 
 | Task | Status | PR |
 | --- | --- | --- |
-| 1. The tab | Planned | — |
+| 1. The tab | In review | — |
 
 1. **The tab.** `useMonitorTargetEnabledSet()` and its tests in `src/lib/incidents.test.tsx`; `settings-dialog/monitoring.tsx` and its test, with the placeholder comment removed.
 
