@@ -147,6 +147,13 @@ const (
 	// retook the zones, whether or not shell_path changed. Folder checks read
 	// both, so a folder grant's answer may have changed.
 	KeySandboxPath = "sandbox-path"
+	// KeyMonitorTargets: a monitor_targets row was inserted, relabelled, switched or
+	// deleted, or a reading changed its UID, its unknown signals or set its first
+	// last_read_at.
+	KeyMonitorTargets = "monitor-targets"
+	// KeyIncidents: an incident or occurrence was opened, ended, or deleted. A fold
+	// that only advances an incident's last_seen_at notifies nothing.
+	KeyIncidents = "incidents"
 )
 
 // MessagesKey: the chat's message rows changed. Re-read and diff.

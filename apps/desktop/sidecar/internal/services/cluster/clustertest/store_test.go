@@ -16,6 +16,7 @@ package clustertest
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,4 +49,34 @@ func TestReadAnswersAsTheServiceDoes(t *testing.T) {
 	var qe *cluster.QueryError
 	require.ErrorAs(t, err, &qe)
 	assert.Contains(t, qe.Message, "no such column: nope")
+}
+
+// SetBody replaces the stored body alone: a statement that decompresses it reads
+// the new one, and the columns written from the old one stay as they were.
+func TestSetBodyReplacesTheBodyAlone(t *testing.T) {
+	s := NewStore(t)
+	s.Apply(t, map[string]any{
+		"apiVersion": "v1", "kind": "Pod",
+		"metadata": map[string]any{"uid": "uid-1", "name": "api-0", "namespace": "prod"},
+		"status":   map[string]any{"phase": "Running"},
+	})
+
+	s.SetBody(t, "uid-1", map[string]any{"status": map[string]any{"phase": "Pending"}})
+
+	var got cluster.ClusterCachedDataQueryResult
+	require.NoError(t, s.Read(context.Background(), func(query cluster.OwnQuery) error {
+		var err error
+		got, err = query(`SELECT status_summary, body(raw_json) ->> '$.status.phase' FROM main.objects`, 10, 1<<20)
+		return err
+	}))
+	assert.Equal(t, [][]any{{"Running", "Pending"}}, got.Rows)
+}
+
+// A plan names how SQLite runs a statement, the tables by their main. names.
+func TestPlanNamesTheIndexAStatementSearches(t *testing.T) {
+	s := NewStore(t)
+
+	plan := s.Plan(t, `SELECT name FROM main.objects WHERE api_version = 'v1' AND kind = 'Pod'`)
+
+	assert.Contains(t, strings.Join(plan, "\n"), "INDEX objects_kind_ns_name (api_version=? AND kind=?)")
 }

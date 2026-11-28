@@ -1099,17 +1099,17 @@ func markedClusterIDs(ctx context.Context, st stmts) ([]apimeta.ClusterID, error
 	return collectIDs[apimeta.ClusterID](ctx, st, stmtSelectMarkedClusterIDs, "marked clusters")
 }
 
-// clusterMonitoring is whether the cluster is there and unmarked, and whether
-// its monitoring switch is on.
-func clusterMonitoring(ctx context.Context, st stmts, clusterID apimeta.ClusterID) (found, enabled bool, err error) {
-	err = st.QueryRow(ctx, stmtSelectClusterMonitoring, string(clusterID)).Scan(&enabled)
+// clusterLive is whether the cluster is there and unmarked.
+func clusterLive(ctx context.Context, st stmts, clusterID apimeta.ClusterID) (bool, error) {
+	var one int
+	err := st.QueryRow(ctx, stmtSelectClusterLive, string(clusterID)).Scan(&one)
 	if errors.Is(err, sql.ErrNoRows) {
-		return false, false, nil
+		return false, nil
 	}
 	if err != nil {
-		return false, false, fmt.Errorf("cluster monitoring: %w", err)
+		return false, fmt.Errorf("live cluster: %w", err)
 	}
-	return true, enabled, nil
+	return true, nil
 }
 
 // liveClusterIDs lists the clusters not marked for deletion.

@@ -134,6 +134,9 @@ type KindRef struct {
 type UnhealthyKindRef struct {
 	KindRef
 	Reason string
+	// Failure is a SyncFailed kind's class of failure (a kubeconn.Reason), empty when
+	// unclassified or not failing. Not on the wire.
+	Failure string
 }
 
 // toClusterCachedKind builds the served record from the stored object.

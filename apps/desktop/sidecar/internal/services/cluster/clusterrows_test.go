@@ -75,7 +75,7 @@ func TestInsertClusterIfAbsentTakesTheDefaults(t *testing.T) {
 	require.Nil(t, row.Name)
 	require.True(t, row.Enabled)
 	require.True(t, row.SyncEnabled)
-	require.False(t, row.MonitoringEnabled)
+	require.True(t, row.MonitoringEnabled, "a cluster with no target yet reads as monitored")
 	require.False(t, row.IsDefault)
 	require.Equal(t, t0, row.CreatedAt)
 	require.Equal(t, t0, row.UpdatedAt)
@@ -129,10 +129,6 @@ func TestClusterTogglesAreGuardedByTheMark(t *testing.T) {
 	require.Equal(t, at, got.UpdatedAt)
 	require.Equal(t, t0, got.CreatedAt)
 
-	got, err = setClusterToggle(ctx, st.Stmts(), stmtSetClusterMonitoringEnabled, row.ID, true, at)
-	require.NoError(t, err)
-	require.True(t, got.MonitoringEnabled)
-
 	_, err = markCluster(ctx, st.Stmts(), row.ID, at)
 	require.NoError(t, err)
 	for name, set := range map[string]func() error{
@@ -142,10 +138,6 @@ func TestClusterTogglesAreGuardedByTheMark(t *testing.T) {
 		},
 		"sync": func() error {
 			_, err := setClusterToggle(ctx, st.Stmts(), stmtSetClusterSyncEnabled, row.ID, true, at)
-			return err
-		},
-		"monitoring": func() error {
-			_, err := setClusterToggle(ctx, st.Stmts(), stmtSetClusterMonitoringEnabled, row.ID, false, at)
 			return err
 		},
 	} {

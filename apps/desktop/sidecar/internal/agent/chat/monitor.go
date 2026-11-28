@@ -18,6 +18,7 @@ package chat
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log/slog"
 	"os"
@@ -47,14 +48,20 @@ type MonitorResult struct {
 	Error  string
 }
 
+// Admit decides, inside the transaction that inserts run runID and after the
+// insert, whether the run may start, so it may write a row that references the
+// run. It is the caller's, so the switch that gates a run is read where the
+// run is written and chat reads no table of the caller's.
+type Admit func(ctx context.Context, tx *sql.Tx, runID RunID) (bool, error)
+
 // RunMonitor takes one monitor run on clusterID: a run of target over brief, on
 // the calling goroutine, settled when it returns. ErrNoSandbox where no sandbox
 // confines a run; ErrClusterGone for a cluster marked or gone; ErrMonitoringOff
-// for one whose monitoring is off; ErrMonitorInFlight while the cluster has a
-// run; ErrBadRequest for an empty brief, one over maxMonitorBriefLen, or a
-// target that takes no tools; ErrStopping once the service is stopping. Once the
-// run is inserted its rows are written whatever it answers.
-func (s *service) RunMonitor(ctx context.Context, clusterID apimeta.ClusterID, target llm.Target, brief string) (MonitorResult, error) {
+// when admit refuses it; ErrMonitorInFlight while the cluster has a run;
+// ErrBadRequest for an empty brief, one over maxMonitorBriefLen, or a target that
+// takes no tools; ErrStopping once the service is stopping. Once the run is
+// inserted its rows are written whatever it answers.
+func (s *service) RunMonitor(ctx context.Context, clusterID apimeta.ClusterID, target llm.Target, brief string, admit Admit) (MonitorResult, error) {
 	// A monitor never runs unconfined, and a machine with no sandbox has
 	// nothing to confine it.
 	if !s.sandboxState.Available {
@@ -90,16 +97,24 @@ func (s *service) RunMonitor(ctx context.Context, clusterID apimeta.ClusterID, t
 	err = s.store.InTx(m.ctx, func(st stmts) error {
 		// Inside the transaction, so a run and a cluster's mark are serialized
 		// as a send and a mark are.
-		found, enabled, err := clusterMonitoring(m.ctx, st, clusterID)
+		live, err := clusterLive(m.ctx, st, clusterID)
 		switch {
 		case err != nil:
 			return err
-		case !found:
+		case !live:
 			return ErrClusterGone
-		case !enabled:
+		}
+		if err := insertMonitorRun(m.ctx, st, run); err != nil { // coverage:ignore the cluster's row was found live in this transaction, and the run's values are its own
+			return err
+		}
+		admitted, err := admit(m.ctx, st.Tx(), run.ID)
+		switch {
+		case err != nil:
+			return err
+		case !admitted:
 			return ErrMonitoringOff
 		}
-		return insertMonitorRun(m.ctx, st, run)
+		return nil
 	})
 	if err != nil {
 		return MonitorResult{}, err

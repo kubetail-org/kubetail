@@ -68,7 +68,7 @@ func TestEveryRowHelperNamesItsFailure(t *testing.T) {
 		"insert message":            func() error { return insertMessage(ctx, st, ChatMessage{}, "") },
 		"insert run":                func() error { return insertRun(ctx, st, agentRun{}) },
 		"insert monitor run":        func() error { return insertMonitorRun(ctx, st, agentRun{}) },
-		"cluster monitoring":        func() error { _, _, err := clusterMonitoring(ctx, st, "1"); return err },
+		"live cluster":              func() error { _, err := clusterLive(ctx, st, "1"); return err },
 		"live clusters":             func() error { _, err := liveClusterIDs(ctx, st); return err },
 		"claim run":                 func() error { return claimRun(ctx, st, "r", now) },
 		"write content":             func() error { return writeContent(ctx, st, "m", emptyContent) },
@@ -357,22 +357,18 @@ func TestAClustersDeleteTakesItsMonitorRuns(t *testing.T) {
 }
 
 // Whether a monitor may run on a cluster: a row that is there and unmarked,
-// and whose switch is on.
-func TestClusterMonitoring(t *testing.T) {
+// A cluster is live while its row is there and unmarked.
+func TestClusterIsLive(t *testing.T) {
 	t.Parallel()
 
 	db := openTestDB(t, t.TempDir())
 	st := prepareOn(t, db).Stmts()
-	setMonitoring(t, db, "7", true)
-	setMonitoring(t, db, "8", true)
 	markCluster(t, db, "8")
 
-	for id, want := range map[apimeta.ClusterID][2]bool{
-		"7": {true, true}, "1": {true, false}, "8": {false, false}, "nope": {false, false},
-	} {
-		found, enabled, err := clusterMonitoring(t.Context(), st, id)
+	for id, want := range map[apimeta.ClusterID]bool{"7": true, "8": false, "nope": false} {
+		live, err := clusterLive(t.Context(), st, id)
 		require.NoError(t, err)
-		assert.Equal(t, want, [2]bool{found, enabled}, id)
+		assert.Equal(t, want, live, id)
 	}
 }
 

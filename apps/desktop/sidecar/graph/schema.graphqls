@@ -284,7 +284,7 @@ type ClusterSpec {
   enabled: Boolean!
   "Whether cache syncing is enabled. Disabling stops sync and freezes the cache. Only meaningful while enabled."
   syncEnabled: Boolean!
-  "Whether the background monitor may schedule runs against this cluster. Off by default, since a run spends model calls; stored and served, and nothing runs on it yet."
+  "Whether the monitor watches this cluster for failures: its monitor target's switch, which gates detection. On by default, since reading the cluster's cache spends no model call; on for a cluster the monitor has yet to give a target."
   monitoringEnabled: Boolean!
   "Whether the user picked this cluster as the default: a new window opens on it. At most one cluster is the default."
   isDefault: Boolean!
@@ -2417,7 +2417,7 @@ type Mutation {
   "Enable or disable syncing for a cluster. Disabling stops sync and freezes the cache. Returns the updated cluster."
   clusterSyncEnabledSet(id: ClusterID!, syncEnabled: Boolean!): Cluster!
 
-  "Let the background monitor run against this cluster, or stop it. Returns the updated record."
+  "Turn the monitor's detection on this cluster on or off: its monitor target's switch. Turning it off ends the target's open occurrences. Refused (KUBETAIL_RECORD_NOT_FOUND) for a cluster the monitor has yet to give a target. Returns the cluster."
   clusterMonitoringEnabledSet(id: ClusterID!, monitoringEnabled: Boolean!): Cluster!
 
   "Make a cluster the default, or stop it being one. Setting it clears the previous default, whose change arrives on `clusterCollectionWatch`; a call that changes nothing writes nothing. Refused (KUBETAIL_RECORD_NOT_FOUND) for a cluster marked for deletion, as every toggle is, and (KUBETAIL_VALIDATION_ERROR), when setting, for a disabled, archived or cloud cluster. Returns the cluster."

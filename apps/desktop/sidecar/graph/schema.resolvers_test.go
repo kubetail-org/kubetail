@@ -259,19 +259,30 @@ func TestClusterSyncEnabledSetMutation(t *testing.T) {
 	assert.Equal(t, false, spec["syncEnabled"], "the change is visible to a new watch")
 }
 
-// clusterMonitoringEnabledSet is the third toggle, stored and served like the
-// other two.
+// clusterMonitoringEnabledSet sets the switch of the cluster's monitor target
+// and returns the cluster; a cluster with no target yet is refused, and so is one
+// marked or gone, before its switch moves.
 func TestClusterMonitoringEnabledSetMutation(t *testing.T) {
-	srv := newTestServer(t, clusterFixtures())
+	mon := &fakeMonitor{targets: map[string]string{"kubernetes/1": "t1", "kubernetes/2": "t2", "kubernetes/404": "t404"}, switched: map[string]bool{}}
+	svc := newFakeClusterService(clusterFixtures())
+	marked := time.Now()
+	svc.clusters["2"].DeletionRequestedAt = &marked
+	srv := httptest.NewServer(graph.NewServer(context.Background(), &graph.Resolver{
+		ClusterSvc: svc, Auth: newFakeAuth(oauth.Identity{}), Monitor: mon,
+	}))
+	t.Cleanup(srv.Close)
 
-	raw := string(postGQL(t, srv.URL,
-		`{"query":"mutation { clusterMonitoringEnabledSet(id: \"1\", monitoringEnabled: true) { id spec { monitoringEnabled } } }"}`))
-	if !strings.Contains(raw, `"monitoringEnabled":true`) || strings.Contains(raw, `"errors"`) {
-		t.Fatalf("mutation result: %s", raw)
+	raw := string(postGQL(t, srv.URL, `{"query":"mutation { clusterMonitoringEnabledSet(id: \"1\", monitoringEnabled: false) { id spec { monitoringEnabled } } }"}`))
+	assert.Contains(t, raw, `"monitoringEnabled":false`)
+	assert.NotContains(t, raw, `"errors"`)
+	assert.Equal(t, map[string]bool{"t1": false}, mon.switched)
+
+	delete(mon.targets, "kubernetes/1")
+	for _, id := range []string{"1", "2", "404"} {
+		raw = string(postGQL(t, srv.URL, `{"query":"mutation { clusterMonitoringEnabledSet(id: \"`+id+`\", monitoringEnabled: true) { id } }"}`))
+		assert.Contains(t, raw, "KUBETAIL_RECORD_NOT_FOUND", id)
 	}
-
-	spec := clusterSnapshot(t, srv.URL, `spec { monitoringEnabled }`)["1"]["spec"].(map[string]any)
-	assert.Equal(t, true, spec["monitoringEnabled"], "the change is visible to a new watch")
+	assert.Equal(t, map[string]bool{"t1": false}, mon.switched, "a marked or gone cluster's switch never moves")
 }
 
 // clusterDefaultSet makes the cluster the default and returns it as the default; the
@@ -1290,6 +1301,7 @@ func TestResolverErrorsReachTheCaller(t *testing.T) {
 	r := &graph.Resolver{
 		ClusterSvc: errClusterService{err: wantErr},
 		Auth:       errAuth{err: wantErr},
+		Monitor:    &fakeMonitor{err: wantErr},
 	}
 	ctx := context.Background()
 	cl := &cluster.Cluster{ID: "1"}

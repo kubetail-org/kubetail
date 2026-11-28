@@ -1306,8 +1306,10 @@ func TestCachesWatchHealthKeyedStateFoldsEveryKindsVerdict(t *testing.T) {
 	assert.Equal(t, 2, got.TotalKinds)
 	assert.Equal(t, 1, got.UnhealthyKinds)
 	assert.Equal(t, []UnhealthyKindRef{
-		{KindRef: KindRef{APIVersion: "apps/v1", Resource: "deployments"}, Reason: kubesync.ReasonSyncFailed},
-	}, got.UnhealthyKindRefs)
+		{KindRef: KindRef{APIVersion: "apps/v1", Resource: "deployments"}, Reason: kubesync.ReasonSyncFailed, Failure: "Forbidden"},
+	}, got.UnhealthyKindRefs, "each offender carries its own class of failure")
+	assert.Equal(t, []KindRef{kindRefOf(podsSpec)}, got.WatchingKindRefs)
+	assert.Empty(t, got.PausedKindRefs)
 }
 
 // Each offender carries its own reason, so a consumer can name only the kinds behind the
@@ -1505,6 +1507,8 @@ func TestCachesWatchHealthKeyedStateSkipsAPausedKindWithoutLosingItFromTheCensus
 	assert.Equal(t, 1, got.PausedKinds)
 	assert.Equal(t, 0, got.UnhealthyKinds, "a paused kind is not unhealthy")
 	assert.Empty(t, got.UnansweredKindRefs, "a paused kind is not unanswered")
+	assert.Equal(t, []KindRef{kindRefOf(deploymentsSpec)}, got.PausedKindRefs, "a paused kind is named as paused alone")
+	assert.Equal(t, []KindRef{kindRefOf(podsSpec)}, got.WatchingKindRefs)
 }
 
 // The state watch dedupes per cache against a hand-written comparison, so a field nothing

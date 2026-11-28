@@ -25,6 +25,7 @@ import (
 
 // ClusterRow mirrors one clusters row. SourceKey is the kube-context of a
 // kubeconfig row and nil for a cloud one; Name is nil until the user sets one;
+// MonitoringEnabled is read from the cluster's monitor target, true with none;
 // IsDefault marks the user's default cluster, at most one row; DeleteRequestedAt is
 // nil until the user deletes the cluster.
 type ClusterRow struct {

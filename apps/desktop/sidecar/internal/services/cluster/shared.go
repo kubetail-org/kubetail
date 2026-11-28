@@ -342,6 +342,18 @@ const (
 	ReasonSizeLimit = "SizeLimit"
 )
 
+// A kind's sync reasons and classes of failure, as ClusterCacheHealth carries
+// them, for a reader outside the package.
+const (
+	KindReasonSyncing    = kubesync.ReasonSyncing
+	KindReasonResuming   = kubesync.ReasonResuming
+	KindReasonResyncing  = kubesync.ReasonResyncing
+	KindReasonSyncFailed = kubesync.ReasonSyncFailed
+
+	FailureForbidden    = string(kubeconn.ReasonForbidden)
+	FailureUnauthorized = string(kubeconn.ReasonUnauthorized)
+)
+
 // Condition aliases beehive's status condition. Conditions are beehive object
 // rows (not inside our status blob); the store owns TransitionedAt stamping,
 // no-op suppression, and the liveness downgrade.
