@@ -328,8 +328,9 @@ Editing a rule from Settings is reviewed in [the Permissions pane is reachable](
 ### KUBE-41
 
 - **Where:** `sidecar/internal/agent/chat/monitor.go`
-- **Records:** [the monitoring session](../security/2026-10-05-the-monitoring-session.md)
+- **Records:** [the monitoring session](../security/2026-10-05-the-monitoring-session.md), [monitoring on by default](../security/2026-11-27-monitoring-on-by-default.md)
 - `TestRunMonitorRefuses` — what a monitor run refuses.
+- `TestRunMonitorAdmitsInsideTheInsert` — the caller's switch is checked inside the run's insert.
 
 ### KUBE-42
 

@@ -560,9 +560,10 @@ Pending work across the three parts of the app. Grouped by area; detailed items 
   folder and its teardown exist; nothing calls them but their tests.
   - **Schedule and brief.** When a run starts, what it is told, what it keeps between runs (the
     last run's `task` and `result` are there to read), and how its model is picked.
-  - **Settings.** The per-cluster switch (`clusters.monitoring_enabled`,
-    `clusterMonitoringEnabledSet`), drawn only once something runs behind it, and the note's
-    separate switch for sharing folder grants with the monitor.
+  - **Settings.** The per-target switch (`monitor_targets.enabled`, served as
+    `clusterMonitoringEnabledSet` until step 2), which gates detection and is on by default,
+    drawn only once something runs behind it, and the note's separate switch for sharing folder
+    grants with the monitor.
   - **Proposals.** A card for what the monitor proposes, with two fixes from 6B's review. The
     unstarted chat's draft is keyed `new:<mode>`, not per cluster, and outlives a cluster switch,
     so a proposal joined onto it must carry its cluster and Send must hold while the window is on

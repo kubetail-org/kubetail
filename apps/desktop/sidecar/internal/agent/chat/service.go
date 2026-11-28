@@ -78,7 +78,7 @@ var (
 	ErrChatNetworkChanged = errors.New("chat: the chat's network switch changed")
 	// ErrNoSandbox is a monitor run on a machine where no sandbox confines one.
 	ErrNoSandbox = errors.New("chat: no sandbox confines a monitor run")
-	// ErrMonitoringOff is a monitor run on a cluster whose monitoring is off.
+	// ErrMonitoringOff is a monitor run its caller's admit refused.
 	ErrMonitoringOff = errors.New("chat: the cluster is not watched")
 	// ErrMonitorInFlight is a monitor run on a cluster whose run is still going.
 	ErrMonitorInFlight = errors.New("chat: a monitor run is already in flight")
@@ -230,8 +230,9 @@ type Service interface {
 	ListenForGrantChanges(chatID ChatID) GrantChangeNotifications
 
 	// RunMonitor takes one monitor run on the cluster: a run of target over
-	// brief in the monitor's session, settled when it returns.
-	RunMonitor(ctx context.Context, clusterID apimeta.ClusterID, target llm.Target, brief string) (MonitorResult, error)
+	// brief in the monitor's session, settled when it returns, if admit admits
+	// it inside the run's insert.
+	RunMonitor(ctx context.Context, clusterID apimeta.ClusterID, target llm.Target, brief string, admit Admit) (MonitorResult, error)
 }
 
 var _ Service = (*service)(nil)

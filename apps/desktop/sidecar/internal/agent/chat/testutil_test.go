@@ -87,12 +87,10 @@ func markCluster(t *testing.T, db *appdb.DB, id apimeta.ClusterID) {
 	require.NoError(t, err)
 }
 
-// setMonitoring switches the monitor on or off for a seeded cluster.
-func setMonitoring(t *testing.T, db *appdb.DB, id apimeta.ClusterID, on bool) {
-	t.Helper()
-	_, err := db.Write.Exec(`UPDATE clusters SET monitoring_enabled = ? WHERE id = ?`, on, string(id))
-	require.NoError(t, err)
-}
+// admitted admits every monitor run; refused admits none.
+func admitted(context.Context, *sql.Tx, RunID) (bool, error) { return true, nil }
+
+func refused(context.Context, *sql.Tx, RunID) (bool, error) { return false, nil }
 
 // newTestSet is the statement set prepared on an app.db of this test's own.
 func newTestSet(t *testing.T) *sqlstmt.Set[stmtID] {

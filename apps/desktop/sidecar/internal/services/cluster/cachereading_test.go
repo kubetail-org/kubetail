@@ -98,6 +98,7 @@ func TestReadActiveCacheRunsOverATrustedCache(t *testing.T) {
 	var rows [][]any
 	err := ReadActiveCache(t.Context(), svc, "7", 10, 20, func(r CacheReading, active ActiveCluster) error {
 		assert.Equal(t, ClusterCacheID(41), active.Cache.ID)
+		assert.Equal(t, svc.health, r.Health(), "the health the reading was admitted under")
 		res, err := r.Query("SELECT ?", "x")
 		rows = res.Rows
 		return err

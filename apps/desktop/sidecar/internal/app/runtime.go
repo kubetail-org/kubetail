@@ -27,6 +27,8 @@ import (
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/catalog"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor/kubesignals"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/appdb"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/filelock"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/lifecycle"
@@ -100,6 +102,8 @@ type Runtime struct {
 	Memory       memory.Service
 	Tools        tools.Box
 	Chat         chat.Service
+	// Monitor reads each integration's targets and records their incidents.
+	Monitor *monitor.Monitor
 
 	// parts is added to as each service is built, so start order is build order;
 	// stop and close run in reverse, which is what keeps poke's hub open until its
@@ -337,6 +341,13 @@ func build(ctx context.Context, cfg Config) (*Runtime, error) {
 	}
 	rt.add("chat service", rt.Chat)
 
+	// Kubernetes is the one integration: a target per cluster, read from its cache.
+	rt.Monitor, err = monitor.New(db, kubesignals.Register(db, rt.Cluster))
+	if err != nil { // coverage:ignore the statements prepare on the schema app.db was just migrated to, and the registration is fixed
+		return fail(err)
+	}
+	rt.add("monitor", rt.Monitor)
+
 	// Edges back to a service built later, set once both exist. The part goes
 	// with the edge, so it closes before the service it reads.
 	if shell != nil {
@@ -405,6 +416,7 @@ func (rt *Runtime) resolver() *graph.Resolver {
 		Console:             console,
 		Logs:                rt.Logs,
 		CloudTargets:        rt.CloudTargets,
+		Monitor:             rt.Monitor,
 	}
 }
 

@@ -196,6 +196,10 @@ func (s Stmts[ID]) stmt(ctx context.Context, id ID) *sql.Stmt {
 	return bound
 }
 
+// Tx is the transaction the statements issue on, nil on the pools: a caller
+// handed it runs a statement of its own inside the transaction.
+func (s Stmts[ID]) Tx() *sql.Tx { return s.tx }
+
 func (s Stmts[ID]) Exec(ctx context.Context, id ID, args ...any) (sql.Result, error) {
 	return s.stmt(ctx, id).ExecContext(ctx, args...)
 }

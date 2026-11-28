@@ -31,6 +31,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/oauth"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster"
 )
@@ -690,18 +691,6 @@ func (f fakeClusters) SetSyncEnabled(_ context.Context, id cluster.ClusterID, en
 	return &cp, nil
 }
 
-func (f fakeClusters) SetMonitoringEnabled(_ context.Context, id cluster.ClusterID, enabled bool) (*cluster.Cluster, error) {
-	f.s.mu.Lock()
-	defer f.s.mu.Unlock()
-	c, ok := f.s.clusters[id]
-	if !ok {
-		return nil, cluster.ErrNotFound
-	}
-	c.Spec.MonitoringEnabled = enabled
-	cp := *c
-	return &cp, nil
-}
-
 func (f fakeClusters) SetDefault(_ context.Context, id cluster.ClusterID, isDefault bool) (*cluster.Cluster, error) {
 	f.s.mu.Lock()
 	defer f.s.mu.Unlock()
@@ -993,9 +982,6 @@ func (e errClusters) SetEnabled(context.Context, cluster.ClusterID, bool) (*clus
 func (e errClusters) SetSyncEnabled(context.Context, cluster.ClusterID, bool) (*cluster.Cluster, error) {
 	return nil, e.err
 }
-func (e errClusters) SetMonitoringEnabled(context.Context, cluster.ClusterID, bool) (*cluster.Cluster, error) {
-	return nil, e.err
-}
 
 func (e errClusters) SetDefault(context.Context, cluster.ClusterID, bool) (*cluster.Cluster, error) {
 	return nil, e.err
@@ -1098,3 +1084,32 @@ type errAuth struct {
 }
 
 func (e errAuth) Disconnect(context.Context) error { return e.err }
+
+// fakeMonitor is the monitor's switch over one target per key it holds, each
+// switch recorded; err fails every call.
+type fakeMonitor struct {
+	mu       sync.Mutex
+	targets  map[string]string // key to target id
+	switched map[string]bool
+	err      error
+}
+
+func (f *fakeMonitor) TargetID(_ context.Context, integration, key string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return "", f.err
+	}
+	id, ok := f.targets[integration+"/"+key]
+	if !ok {
+		return "", monitor.ErrNoTarget
+	}
+	return id, nil
+}
+
+func (f *fakeMonitor) SetEnabled(_ context.Context, targetID string, enabled bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.switched[targetID] = enabled
+	return nil
+}

@@ -150,6 +150,13 @@ const (
 	// KeySandboxDefaults: the sandbox switch a new chat starts with was
 	// written or reset, in any scope, by the settings store.
 	KeySandboxDefaults = "sandbox-defaults"
+	// KeyMonitorTargets: a monitor_targets row was inserted, relabelled, switched or
+	// deleted, or a reading changed its UID, its unknown signals or set its first
+	// last_read_at.
+	KeyMonitorTargets = "monitor-targets"
+	// KeyIncidents: an incident or occurrence was opened, ended, or deleted. A fold
+	// that only advances an incident's last_seen_at notifies nothing.
+	KeyIncidents = "incidents"
 )
 
 // MessagesKey: the chat's message rows changed. Re-read and diff.

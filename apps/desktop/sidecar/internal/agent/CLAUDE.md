@@ -1,8 +1,9 @@
-# internal/agent — catalog, loop and chat
+# internal/agent — catalog, loop, chat and monitor
 
 `catalog` decides which providers and tools a turn is offered; `loop` takes one turn (ask the
 model, run its calls, ask again); `chat` files a send, runs its turn in the background and serves
-the record. The loop imports `llm` and `tools` alone; `chat` imports the loop.
+the record; `monitor` finds failures with no model. The loop imports `llm` and `tools` alone;
+`chat` imports the loop.
 
 ## Catalog (`internal/agent/catalog`)
 
@@ -209,7 +210,8 @@ writer of the end.** → [ADR](../../../docs/adr/2026-09-25-an-agent-is-a-tool-i
 [background agents](../../../docs/security/2026-09-25-background-agents.md).
 
 **A monitor run is a run of the chat service** (`RunMonitor`): one per cluster
-(`ErrMonitorInFlight`), refused without a sandbox, with monitoring off or a gone cluster. It runs in
+(`ErrMonitorInFlight`), refused without a sandbox or for a gone cluster, and `ErrMonitoringOff`
+when the caller's `Admit`, called inside the run's insert, refuses. It runs in
 `monitorSession()`, told the card alone (never memory), offered `MonitorBox`, which keeps `LogsRead`
 and drops `LogsView` and `LogsWatch`; nothing it asks is approved. →
 [ADR](../../../docs/adr/2026-10-05-a-monitor-run-is-a-run-of-the-chat-service.md),
@@ -307,3 +309,24 @@ reverse direction is not caught, so `TestLLMDialectBindsEveryMember` walks `llm.
 
 **A refused mutation names its reason in `extensions.code`** (`chatErr`, `graph/util.go`).
 **Return `errors.Clone(…)`, never the `graph/errors` value itself**: gqlgen stamps `Path` onto it.
+
+## Monitor (`internal/agent/monitor`)
+
+A `Registration` per integration; `monitor/kubesignals` is the one, a target per cluster, and the
+one package that reads a key as a cluster's id (`ClusterID`).
+
+- **The core knows no integration**: it never parses a target's key, nor reads a subject's
+  attributes or a `detail`, and is tested over a fake integration. A signal carries its
+  integration's prefix (`New` refuses one without) and both its windows.
+- **An integration lists durable targets.** The reconcile listens before it lists, and a failed
+  listing deletes none; a target whose integration the build lacks is left alone.
+- **`check` bounds every reading before the fold**: over a bound or a code the core lacks is
+  `invalid`, an unregistered name is dropped. A signal is judged only while every read it depends
+  on answered in full.
+- **`fold` is pure and measures wall time**: only an interval between two judged folds, at most
+  two cadences apart, earns time. A new UID, then stale, then the reading; an occurrence ends
+  `resolved`, `stopped` or `stale`. Memory changes only after the commit.
+- **The switch stops a target in its own transaction**, moving `generation`; a fold commits only
+  under the generation its reading began under, and the loop drops memory on a new one.
+- **The notice follows the commit** and names each key whose served rows moved; a fold that only
+  advances `last_seen_at` sends none. A `KeyMonitorTargets` notice never starts a reading.

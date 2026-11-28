@@ -96,6 +96,15 @@ type Resolver struct {
 	// OpenURL opens one of the sidecar's own addresses in the browser:
 	// browser.Open, or a test's fake. No caller hands it an address.
 	OpenURL func(url string) error
+	// Monitor is the monitor's switch: *monitor.Monitor, or a test's fake.
+	Monitor MonitorSwitch
+}
+
+// MonitorSwitch is the monitor's switch as clusterMonitoringEnabledSet reaches
+// it, through the cluster's target.
+type MonitorSwitch interface {
+	TargetID(ctx context.Context, integration, key string) (string, error)
+	SetEnabled(ctx context.Context, targetID string, enabled bool) error
 }
 
 // ProviderCredentialStore is every provider's keys as the wire drives them. No
