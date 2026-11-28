@@ -16,6 +16,10 @@ The app bar, both sidebars, the window frame and its controls, the startup gate 
 - **The drawer is `role="dialog" aria-modal`, held by `useFocusTrap`** (`src/lib/focus-trap.ts`). Both yield to an overlay opened inside it: the trap stands aside while its node sits under an `aria-hidden="true"` element, and the drawer's Escape listener is on `window`, after the `document` listener a dialog dismisses on, so one keypress closes the dialog alone.
 - **The right sidebar** (`right-sidebar.tsx`) is a row item, taking width from the page. A drag stops where `<main>` reaches its floor, `min(320px, 50%)` of the row (`PAGE_MIN_WIDTH`); on a narrower window it shrinks to its minimum first, leaving the stored width alone. Its state is `useRightSidebar` (`src/lib/right-sidebar.tsx`), persisted **per mode** (open state and width); `usePersistedWidth` re-reads when its key changes. **The `aside` does not scroll**; its contents own a scroller each.
 
+## The bell
+
+**The bell** (`app-bar/notification-button.tsx`) lists every target's open incidents, newest first, and counts them on the button. Pressing one opens the Incidents dialog on it, in this window; *View all* opens it on none. With none open it says so, above the line of each target that is off or cannot be read. Its reads are `IncidentsProvider`'s ([`../monitoring/CLAUDE.md`](../monitoring/CLAUDE.md)).
+
 ## Window frame
 
 **The window frame is per-platform** (macOS native / Windows frameless-opaque / Linux frameless-transparent). `WindowFrame` (`components/primitives/window-frame.tsx`, at `__root.tsx`) paints Linux's border and shadow. `WindowResizeHandles` is its **sibling**, never a child — the frame's `contain: paint` would clip it. `main.tsx` adds `<html class="frameless">` on Linux only. **Full-height screens use `min-h-(--app-min-h)`, never `min-h-svh`.** Maximized Linux goes full-bleed (`useWindowMaximized`). → [ADR: per-platform window chrome](../../../docs/adr/2026-08-09-per-platform-window-chrome.md).

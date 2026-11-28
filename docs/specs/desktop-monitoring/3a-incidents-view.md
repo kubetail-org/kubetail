@@ -39,9 +39,9 @@ A target that is off keeps the `readState` of its last reading, and its line say
 
 | Task | Status | PR |
 | --- | --- | --- |
-| 1. Hooks | Planned | — |
-| 2. Dialog, list and detail | Planned | — |
-| 3. Bell | Planned | — |
+| 1. Hooks | In review | — |
+| 2. Dialog, list and detail | In review | — |
+| 3. Bell | In review | — |
 
 1. **Hooks.** `IncidentsProvider` folding both watches with `collectionWatchReducer`, each frame told by its `type`, and holding the signal list; `useIncidents(targetID?)`, `useMonitorTargets()` and `useMonitorSignals()`, named for what they return, with their joins, and `useIncidentOccurrenceEventFeed(incidentID)`, named for its operation.
 2. **Dialog, list and detail.** The dialog and its registration, the incident `openDialog` takes, the filter, `MonitorTargetStatus`.
