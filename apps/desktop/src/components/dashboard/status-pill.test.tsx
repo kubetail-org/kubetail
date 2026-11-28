@@ -32,6 +32,12 @@ describe('StatusPill', () => {
     expect(container.firstChild).toHaveAttribute('title', 'CreateContainerConfigError');
   });
 
+  // A tooltip cannot mark a spelled character, so it spells the label as text.
+  it('spells invisible characters in the label on hover', () => {
+    const { container } = render(<StatusPill label={`Run${ZWSP}ning`} tone="ok" />);
+    expect(container.firstChild).toHaveAttribute('title', 'Run\\u{200B}ning');
+  });
+
   it('draws a failing label in the destructive colour', () => {
     render(<StatusPill label="CrashLoopBackOff" tone="failing" />);
     expect(screen.getByText('CrashLoopBackOff').closest('.text-destructive')).not.toBeNull();
