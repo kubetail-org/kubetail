@@ -84,6 +84,7 @@ const IncidentCollectionWatchDocument = graphql(`
         lastStartedAt
         lastSeenAt
         lastEndReason
+        baseline
       }
     }
   }

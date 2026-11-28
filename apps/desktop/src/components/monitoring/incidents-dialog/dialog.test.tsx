@@ -253,6 +253,16 @@ describe('IncidentsDialog', () => {
     expect(rows()[0]).not.toHaveTextContent(/Resolved/);
   });
 
+  it('marks an incident found when monitoring started, and no other', async () => {
+    state.incidents = [
+      incidentRecord({ id: 'found', targetID: 't-prod', baseline: true }),
+      incidentRecord({ id: 'raised', targetID: 't-prod' }),
+    ];
+    await openIncidentsDialog();
+    expect(rows()[0]).toHaveTextContent('Found when monitoring started');
+    expect(rows()[1]).not.toHaveTextContent('Found when monitoring started');
+  });
+
   it('draws a subject label, its attributes and an occurrence detail as visible text', async () => {
     state.incidents = [
       incidentRecord({

@@ -4820,14 +4820,14 @@ func TestMonitorTargetEnabledSetReturnsTheTarget(t *testing.T) {
 }
 
 // An incident is served with its subject's label and sorted attributes, its
-// stored signal label and severity, its server's UID, and a null last sighting
-// and end while open.
+// stored signal label and severity, its server's UID, a null last sighting and
+// end while open, and whether it is baseline.
 func TestIncidentCollectionWatchServesEveryIncident(t *testing.T) {
 	srv, _, _ := newMonitorServer(t)
 
 	resp, events := chatFrames(t, srv, `subscription { incidentCollectionWatch { type incident {
 		id targetID targetUID subjectLabel subjectAttributes { label value } signal signalLabel severity
-		firstSeenAt open occurrenceCount lastStartedAt lastSeenAt lastEndReason } } }`)
+		firstSeenAt open occurrenceCount lastStartedAt lastSeenAt lastEndReason baseline } } }`)
 	defer resp.Body.Close()
 	frames := framesUntilBookmark(t, events)
 
@@ -4840,7 +4840,7 @@ func TestIncidentCollectionWatchServesEveryIncident(t *testing.T) {
 		},
 		"signal": "kubernetes.crash_loop", "signalLabel": "Crash loop", "severity": "Warning",
 		"firstSeenAt": "1970-01-01T00:00:01Z", "open": true, "occurrenceCount": float64(2),
-		"lastStartedAt": "1970-01-01T00:00:03Z", "lastSeenAt": nil, "lastEndReason": nil,
+		"lastStartedAt": "1970-01-01T00:00:03Z", "lastSeenAt": nil, "lastEndReason": nil, "baseline": false,
 	}, frames[0]["incident"])
 }
 

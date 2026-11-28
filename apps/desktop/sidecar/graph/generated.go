@@ -515,6 +515,7 @@ type ComplexityRoot struct {
 	}
 
 	Incident struct {
+		Baseline          func(childComplexity int) int
 		FirstSeenAt       func(childComplexity int) int
 		ID                func(childComplexity int) int
 		LastEndReason     func(childComplexity int) int
@@ -3041,6 +3042,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Identity.UserID(childComplexity), true
 
+	case "Incident.baseline":
+		if e.ComplexityRoot.Incident.Baseline == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.Baseline(childComplexity), true
 	case "Incident.firstSeenAt":
 		if e.ComplexityRoot.Incident.FirstSeenAt == nil {
 			break
@@ -6893,6 +6900,8 @@ func (ec *executionContext) childFields_Incident(ctx context.Context, field grap
 		return ec.fieldContext_Incident_lastSeenAt(ctx, field)
 	case "lastEndReason":
 		return ec.fieldContext_Incident_lastEndReason(ctx, field)
+	case "baseline":
+		return ec.fieldContext_Incident_baseline(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 }
@@ -16362,6 +16371,29 @@ func (ec *executionContext) _Incident_lastEndReason(ctx context.Context, field g
 }
 func (ec *executionContext) fieldContext_Incident_lastEndReason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Incident", field, true, true, "IncidentOccurrenceEndReason")
+}
+
+func (ec *executionContext) _Incident_baseline(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_baseline(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Baseline, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_baseline(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Incident", field, false, false, "Boolean")
 }
 
 func (ec *executionContext) _IncidentCollectionWatchFrame_type(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentCollectionWatchFrame) (ret graphql.Marshaler) {
@@ -32587,6 +32619,11 @@ func (ec *executionContext) _Incident(ctx context.Context, sel ast.SelectionSet,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Incident_lastEndReason(ctx, field, obj)
 				})
+		case "baseline":
+			out.Values[i] = ec._Incident_baseline(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

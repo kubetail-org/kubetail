@@ -2509,6 +2509,8 @@ type Incident {
   lastSeenAt: Time
   "How its newest occurrence ended. Null while open."
   lastEndReason: IncidentOccurrenceEndReason
+  "True until the incident has had an ordinary occurrence: what it found was there when monitoring started, and it raised no alert."
+  baseline: Boolean!
 }
 
 type IncidentCollectionWatchFrame {
