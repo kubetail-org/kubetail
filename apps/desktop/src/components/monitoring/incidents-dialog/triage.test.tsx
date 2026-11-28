@@ -16,16 +16,22 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Incident, IncidentTriage } from '@/lib/incidents';
+import type { Incident, IncidentTriage, MonitoringTriageModel } from '@/lib/incidents';
 import type { Model } from '@/lib/models';
 import { incidentRecord, monitorTargetRecord } from '@/test-utils';
 
 // What the mocked hooks answer; `sandbox` is undefined until the sidecar says.
-type State = { models: Model[]; sandbox: boolean | undefined; sending: Set<string>; errors: Map<string, string> };
+type State = {
+  models: Model[];
+  sandbox: boolean | undefined;
+  sending: Set<string>;
+  errors: Map<string, string>;
+  setting: MonitoringTriageModel | null | undefined;
+};
 
-const { state, triage } = vi.hoisted(() => {
-  const initial: State = { models: [], sandbox: true, sending: new Set(), errors: new Map() };
-  return { state: initial, triage: vi.fn(async () => {}) };
+const { state, triage, openDialog } = vi.hoisted(() => {
+  const initial: State = { models: [], sandbox: true, sending: new Set(), errors: new Map(), setting: null };
+  return { state: initial, triage: vi.fn(async () => {}), openDialog: vi.fn() };
 });
 
 vi.mock('@/lib/models', async (importOriginal) => ({
@@ -36,7 +42,9 @@ vi.mock('@/lib/sandbox', () => ({ useSandbox: () => ({ available: state.sandbox 
 vi.mock('@/lib/incidents', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/incidents')>()),
   useIncidentTriage: () => ({ sending: state.sending, errors: state.errors, triage }),
+  useMonitoringTriageModel: () => state.setting,
 }));
+vi.mock('@/lib/dialog', () => ({ useDialog: () => ({ openDialog }) }));
 
 const { IncidentTriageSection } = await import('./triage');
 
@@ -60,6 +68,7 @@ beforeEach(() => {
   state.sandbox = true;
   state.sending = new Set();
   state.errors = new Map();
+  state.setting = null;
 });
 
 describe('IncidentTriageSection', () => {
@@ -71,6 +80,77 @@ describe('IncidentTriageSection', () => {
       { model: { providerID: 'anthropic', id: 'claude' }, effort: 'low' },
       false,
     );
+  });
+
+  it('turns automatic triage on only with the press: ticking alone sends nothing', async () => {
+    render(<IncidentTriageSection incident={incidentRecord()} target={target} />);
+    const box = screen.getByRole('checkbox', { name: 'Always triage new incidents with this model' });
+    await userEvent.click(box);
+    await userEvent.click(box);
+    expect(box).not.toBeChecked();
+    await userEvent.click(box);
+    expect(triage).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Triage with AI' }));
+    expect(triage).toHaveBeenCalledWith(
+      'i1',
+      { model: { providerID: 'anthropic', id: 'claude' }, effort: 'low' },
+      true,
+    );
+  });
+
+  it('unticks the box once pressed, so a later press asks for it again', async () => {
+    const view = render(<IncidentTriageSection incident={incidentRecord()} target={target} />);
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Always triage new incidents with this model' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Triage with AI' }));
+    expect(triage).toHaveBeenLastCalledWith('i1', expect.anything(), true);
+
+    // The setting saved, then turned off in another window.
+    state.setting = { providerID: 'anthropic', modelID: 'claude', effort: 'low' };
+    view.rerender(<IncidentTriageSection incident={incidentRecord()} target={target} />);
+    state.setting = null;
+    view.rerender(<IncidentTriageSection incident={incidentRecord()} target={target} />);
+    expect(screen.getByRole('checkbox')).not.toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: 'Triage with AI' }));
+    expect(triage).toHaveBeenLastCalledWith('i1', expect.anything(), false);
+  });
+
+  it('unticks the box for another pick', async () => {
+    render(<IncidentTriageSection incident={incidentRecord()} target={target} />);
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Always triage new incidents with this model' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Model:/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'openai' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'gpt' }));
+
+    expect(screen.getByRole('checkbox')).not.toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: 'Triage with AI' }));
+    expect(triage).toHaveBeenLastCalledWith('i1', expect.anything(), false);
+  });
+
+  it('says new incidents are triaged with the model picked when the setting names it, linking to the tab', async () => {
+    state.setting = { providerID: 'anthropic', modelID: 'claude', effort: 'low' };
+    render(<IncidentTriageSection incident={incidentRecord()} target={target} />);
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.getByText(/New incidents are triaged with this model/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Monitoring settings' }));
+    expect(openDialog).toHaveBeenCalledWith('settings', 'Monitoring');
+    await userEvent.click(screen.getByRole('button', { name: 'Triage with AI' }));
+    expect(triage).toHaveBeenCalledWith('i1', expect.anything(), false);
+  });
+
+  it('offers the box for another model than the setting’s, and none until the setting is read', () => {
+    state.setting = { providerID: 'anthropic', modelID: 'claude', effort: 'high' };
+    const view = render(<IncidentTriageSection incident={incidentRecord()} target={target} />);
+    expect(screen.getByRole('checkbox')).toBeInTheDocument();
+
+    state.setting = { providerID: 'anthropic', modelID: 'claude', effort: null };
+    view.rerender(<IncidentTriageSection incident={incidentRecord()} target={target} />);
+    expect(screen.getByRole('checkbox')).toBeInTheDocument();
+
+    state.setting = undefined;
+    view.rerender(<IncidentTriageSection incident={incidentRecord()} target={target} />);
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });
 
   it('keeps a triage that ended once its target moves, offering it no more', () => {

@@ -136,6 +136,9 @@ function OpenIncidents({
             <span className="truncate text-xs text-muted-foreground">
               <VisibleText text={targetLabelOf(incident.targetID)} />
             </span>
+            {incident.triage.state === 'Done' && incident.triage.verdict === 'Dismiss' && (
+              <span className="text-xs text-muted-foreground">Dismissed by triage</span>
+            )}
           </button>
         </li>
       ))}
