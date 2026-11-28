@@ -65,7 +65,8 @@ Editing a rule from Settings is reviewed in [the Permissions pane is reachable](
 | KUBE-54 | A subagent is never wider than its chat. | **Enforced** | — |
 | KUBE-55 | An action with no account asks each time. | **Enforced** | — |
 | KUBE-57 | A monitor run reads one server, the one its incident opened on. A card, a cache read or a connection that finds another is refused, and the run ends failed with no further model call, so no report mixes two servers. A run is refused before its insert once the cluster's card names another. | **Enforced** | A connection vouches for the server a probe last reached over it, as it does for a chat. |
-| KUBE-58 | A monitor run starts only from the user's press of *Triage with AI*. Its admit runs in the transaction that inserts it and refuses a target switched off, or switched since the triage was asked for; a refusal leaves no run and no link. | **Enforced** | The model can still act on what a fenced cluster value says; the read-only session (KUBE-37) bounds what it can do. |
+| KUBE-58 | A monitor run starts only from the user's press of *Triage with AI*, or from an occurrence's start while the user has set a model for automatic triage (KUBE-59). Its admit runs in the transaction that inserts it and refuses a target switched off, or switched since the triage was asked for; a refusal leaves no run and no link. | **Enforced** | The model can still act on what a fenced cluster value says; the read-only session (KUBE-37) bounds what it can do. |
+| KUBE-59 | An automatic triage runs only under the setting it was queued under: a write of the setting fails every one whose run has not started, and its admit refuses a request the incident no longer holds. At most 6 start per target per hour, counted in the admit's transaction from a table that outlives a restart; a refused one takes no slot. One that fails, cannot start or answers anything but `DISMISS` alerts its incident, so none is left with neither a report nor a notification. | **Enforced** | A model's `DISMISS` silences an incident's alert: a misled model hides it from the notifications, though not from the bell. |
 
 ## Evidence
 
@@ -439,7 +440,18 @@ Editing a rule from Settings is reviewed in [the Permissions pane is reachable](
 
 - **Where:** `sidecar/internal/agent/monitor/triage.go`, `sidecar/internal/agent/monitor/store.go`, `sidecar/internal/agent/chat/monitor.go`
 - **Records:** [incident triage](../security/2026-11-28-incident-triage.md)
-- `TestNoTriageStartsUnasked` — an incident that opens starts no triage.
+- `TestNoTriageStartsUnaskedWhileAutomaticTriageIsOff` — with automatic triage off, an incident that opens starts no triage.
 - `TestATriageIsAdmittedInsideTheInsert`, `TestATriageQueuedBeforeASwitchIsNotRevived` — a switch off, or off and on, while queued takes no run.
 - `TestRunMonitorAdmitsInsideTheInsert` — the admit runs after the insert, in its transaction, and a refusal rolls both back.
 - `TestAWorkerThatOutlivedItsRequestWritesNothing` — a worker whose request was replaced is refused and records nothing.
+
+### KUBE-59
+
+- **Where:** `sidecar/internal/agent/monitor/alert.go`, `sidecar/internal/agent/monitor/setting.go`, `sidecar/internal/agent/monitor/store.go`, `sidecar/internal/services/settings/monitoring.go`
+- **Records:** [automatic triage](../security/2026-11-28-automatic-triage.md)
+- `TestAnAutomaticTriageRunsOnlyUnderItsSetting`, `TestASettingWriteCancelsTheQueuedAutomaticTriages` — a write of the setting fails each queued automatic triage not yet started, and alerts its incident.
+- `TestACancelledTriageStartsNoRun` — a worker whose request was cancelled starts no run.
+- `TestTheSeventhAutomaticTriageOfAnHourTakesNoRun` — the cap, its count across a restart, and the user's own triage uncapped.
+- `TestAnOccurrenceAlertsOrQueuesByTheRule`, `TestATriagesOutcomeAlertsByTheRule` — the alert rule.
+- `TestAnAutomaticTriageThatCannotStartAlerts`, `TestAnAutomaticTriageCutOffByTheStopAlertsAtTheNextStart`, `TestAStrandedTriageIsFailedAtStart` — no automatic triage ends unalerted but a dismiss.
+- `TestAMonitoringTriageModelKubetailCannotUseIsUnset` — a stored value Kubetail cannot use is off.

@@ -60,6 +60,7 @@ Every row of the model that no test enforces, and every residual an enforced row
 - [KUBE-52](cluster-proxy.md#kube-52), By decision. A helm release passes redacted inside. Its chart, default values, rendered notes and other objects' manifests pass, and so does a Secret typed `helm.sh/release.v1` by hand, all but its `config` and its manifests' Secrets, unless the user allowed showing them. A release write runs once its command read no Secret data redacted in its namespace. Residual: An audit of what else carries secrets is in TODO.
 - [KUBE-57](cluster-proxy.md#kube-57), residual. A connection vouches for the server a probe last reached over it, as it does for a chat.
 - [KUBE-58](cluster-proxy.md#kube-58), residual. The model can still act on what a fenced cluster value says; the read-only session (KUBE-37) bounds what it can do.
+- [KUBE-59](cluster-proxy.md#kube-59), residual. A model's `DISMISS` silences an incident's alert: a misled model hides it from the notifications, though not from the bell.
 
 ## Commands and the approval request
 
