@@ -47,6 +47,8 @@ import (
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/catalog"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor/kubesignals"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/appdb"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/appdb/appdbtest"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/apimeta"
@@ -1275,6 +1277,7 @@ func TestResolverErrorsReachTheCaller(t *testing.T) {
 	r := &graph.Resolver{
 		ClusterSvc: errClusterService{err: wantErr},
 		Auth:       errAuth{err: wantErr},
+		Monitor:    errMonitor{err: wantErr},
 	}
 	ctx := context.Background()
 	cl := &cluster.Cluster{ID: "1"}
@@ -1297,6 +1300,9 @@ func TestResolverErrorsReachTheCaller(t *testing.T) {
 		"ClusterCachedKind.events":                 func() error { _, err := r.ClusterCachedKind().Events(ctx, kind, nil, nil); return err },
 		"Mutation.clusterEnabledSet":               func() error { _, err := r.Mutation().ClusterEnabledSet(ctx, id, true); return err },
 		"Mutation.clusterSyncEnabledSet":           func() error { _, err := r.Mutation().ClusterSyncEnabledSet(ctx, id, true); return err },
+		"Mutation.monitorTargetEnabledSet":         func() error { _, err := r.Mutation().MonitorTargetEnabledSet(ctx, "t1", true); return err },
+		"Subscription.incidentCollectionWatch":     func() error { _, err := r.Subscription().IncidentCollectionWatch(ctx); return err },
+		"Subscription.incidentOccurrenceEventFeed": func() error { _, err := r.Subscription().IncidentOccurrenceEventFeed(ctx, "i1"); return err },
 		"Mutation.clusterDefaultSet":               func() error { _, err := r.Mutation().ClusterDefaultSet(ctx, id, true); return err },
 		"Mutation.clusterConnectionRetry":          func() error { _, err := r.Mutation().ClusterConnectionRetry(ctx, id); return err },
 		"Mutation.clusterDelete":                   func() error { _, err := r.Mutation().ClusterDelete(ctx, id); return err },
@@ -1322,6 +1328,10 @@ func TestResolverErrorsReachTheCaller(t *testing.T) {
 			return err
 		},
 
+		"Subscription.monitorTargetCollectionWatch": func() error {
+			_, err := r.Subscription().MonitorTargetCollectionWatch(ctx)
+			return err
+		},
 		"Subscription.cachedDataObjectsWatch": func() error {
 			_, err := r.Subscription().ClusterCachedDataObjectCollectionWatch(ctx, id, objID, "apps/v1", "deployments")
 			return err
@@ -4675,4 +4685,207 @@ func TestSandboxConsoleStateWatchSendsTheLastCommand(t *testing.T) {
 
 	console.hub.Close()
 	testutil.WaitClosed(t, events, "the watch to end with the feed")
+}
+
+// --- monitoring ---
+
+// otherIntegration is an integration with one signal, which lists nothing: its
+// targets are rows a test writes.
+type otherIntegration struct{}
+
+func (otherIntegration) ListTargets(context.Context) ([]monitor.Target, error)  { return nil, nil }
+func (otherIntegration) ListenForTargetChanges(context.Context) <-chan struct{} { return nil }
+func (otherIntegration) Read(context.Context, monitor.Target) (monitor.Reading, error) {
+	return monitor.Reading{}, errors.New("unread")
+}
+
+// otherRegistration registers otherIntegration, which has no MonitorIntegration
+// value: a query of its targets or signals leaves out their integration.
+var otherRegistration = monitor.Registration{Name: "other", Cadence: time.Minute, Integration: otherIntegration{},
+	Signals: []monitor.Signal{{Name: "other.down", Label: "Down", Severity: monitor.SeverityCritical}}}
+
+// newMonitorServer is a GraphQL server over a real monitor, never started, with
+// the Kubernetes registration and regs. Its rows are a Kubernetes target for
+// cluster 1 holding one open incident of two occurrences, and a target of the
+// other integration, served only when regs register it.
+func newMonitorServer(t *testing.T, regs ...monitor.Registration) (*httptest.Server, *appdb.DB, *monitor.Monitor) {
+	t.Helper()
+	db := appdbtest.Open(t)
+	mon, err := monitor.New(db, append([]monitor.Registration{kubesignals.Register(db, newFakeClusterService(nil))}, regs...)...)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, mon.Close()) })
+	for _, q := range []string{
+		`INSERT INTO monitor_targets (id, integration, key, label, current_uid, unknown_signals, last_read_at, created_at, updated_at)
+		VALUES ('t1', 'kubernetes', '1', 'prod', 'srv-1', '{"kubernetes.node_not_ready":"permission_denied","kubernetes.gone":"invalid"}', 1, 0, 0)`,
+		`INSERT INTO monitor_targets (id, integration, key, label, created_at, updated_at) VALUES ('t2', 'other', 'acct', 'Account', 0, 0)`,
+		`INSERT INTO incidents (id, target_id, target_uid, subject_key, subject_label, subject_attributes, signal, signal_label, severity,
+		  first_seen_at, last_seen_at, occurrence_count)
+		VALUES ('i1', 't1', 'srv-1', 'apps/Deployment/default/web', 'Deployment default/web',
+		  '{"name":"web","namespace":"default","kind":"Deployment","apiGroup":"apps"}', 'kubernetes.crash_loop', 'Crash loop', 'warning',
+		  1000, 5000, 2)`,
+		`INSERT INTO incident_occurrences (id, incident_id, number, started_at, ended_at, end_reason, detail)
+		VALUES ('o1', 'i1', 1, 1000, 2000, 'resolved', '{"pod":"web-0","container":"app"}')`,
+		`INSERT INTO incident_occurrences (id, incident_id, number, started_at, detail) VALUES ('o2', 'i1', 2, 3000, '{}')`,
+	} {
+		_, err := db.Write.Exec(q)
+		require.NoError(t, err, q)
+	}
+	srv := httptest.NewServer(graph.NewServer(context.Background(), &graph.Resolver{Monitor: mon}))
+	t.Cleanup(srv.Close)
+	return srv, db, mon
+}
+
+// framesUntilBookmark is a watch's snapshot frames, the Bookmark left out.
+func framesUntilBookmark(t *testing.T, events <-chan sseEvent) []map[string]any {
+	t.Helper()
+	var got []map[string]any
+	for {
+		f := nextChatFrame(t, events)
+		if f["type"] == "Bookmark" {
+			return got
+		}
+		got = append(got, f)
+	}
+}
+
+// targetsByID is a target watch's snapshot, each target by its id.
+func targetsByID(t *testing.T, events <-chan sseEvent) map[string]map[string]any {
+	t.Helper()
+	got := map[string]map[string]any{}
+	for _, f := range framesUntilBookmark(t, events) {
+		target := f["target"].(map[string]any)
+		got[target["id"].(string)] = target
+	}
+	return got
+}
+
+// monitorSignalList answers Kubernetes's six signals, each with its label and
+// severity, then each other registration's.
+func TestMonitorSignalListAnswersEveryRegisteredSignal(t *testing.T) {
+	srv, _, _ := newMonitorServer(t)
+
+	data := mutate(t, srv, `query { monitorSignalList { name integration label severity } }`)
+
+	list := data["monitorSignalList"].([]any)
+	require.Len(t, list, 6)
+	assert.Equal(t, map[string]any{"name": "kubernetes.crash_loop", "integration": "Kubernetes", "label": "Crash loop", "severity": "Warning"}, list[0])
+	assert.Equal(t, map[string]any{"name": "kubernetes.node_not_ready", "integration": "Kubernetes", "label": "Node not ready", "severity": "Critical"}, list[3])
+
+	srv, _, _ = newMonitorServer(t, otherRegistration)
+	data = mutate(t, srv, `query { monitorSignalList { name label } }`)
+	list = data["monitorSignalList"].([]any)
+	require.Len(t, list, 7)
+	assert.Equal(t, map[string]any{"name": "other.down", "label": "Down"}, list[6])
+}
+
+// A target is served with its cluster's id, resolved from its key, and its read
+// state; a signal this build does not register is left out of its unknown
+// signals. Another integration's target has a null clusterID.
+func TestMonitorTargetCollectionWatchServesEveryTarget(t *testing.T) {
+	srv, _, _ := newMonitorServer(t)
+
+	resp, events := chatFrames(t, srv, `subscription { monitorTargetCollectionWatch { type target {
+		id integration label clusterID currentUID enabled readState unknownSignals { name reason } } } }`)
+	defer resp.Body.Close()
+	got := targetsByID(t, events)
+
+	assert.Equal(t, map[string]any{
+		"id": "t1", "integration": "Kubernetes", "label": "prod", "clusterID": "1", "currentUID": "srv-1",
+		"enabled": true, "readState": "Partial",
+		"unknownSignals": []any{map[string]any{"name": "kubernetes.node_not_ready", "reason": "PermissionDenied"}},
+	}, got["t1"])
+
+	assert.NotContains(t, got, "t2", "a target of an integration the build lacks")
+
+	srv, _, _ = newMonitorServer(t, otherRegistration)
+	resp2, events2 := chatFrames(t, srv, `subscription { monitorTargetCollectionWatch { type target { id label clusterID currentUID readState } } }`)
+	defer resp2.Body.Close()
+	got = targetsByID(t, events2)
+	assert.Equal(t, map[string]any{"id": "t2", "label": "Account", "clusterID": nil, "currentUID": nil, "readState": "NeverRead"}, got["t2"])
+}
+
+// monitorTargetEnabledSet off returns the target with enabled false and ends its
+// open occurrences; an unknown id is refused as not found.
+func TestMonitorTargetEnabledSetReturnsTheTarget(t *testing.T) {
+	srv, db, _ := newMonitorServer(t)
+
+	data := mutate(t, srv, `mutation { monitorTargetEnabledSet(id: "t1", enabled: false) { id enabled readState } }`)
+
+	assert.Equal(t, map[string]any{"id": "t1", "enabled": false, "readState": "Partial"}, data["monitorTargetEnabledSet"])
+	var reason string
+	require.NoError(t, db.Read.QueryRow(`SELECT end_reason FROM incident_occurrences WHERE id = 'o2'`).Scan(&reason))
+	assert.Equal(t, "stopped", reason)
+	raw := string(postGQL(t, srv.URL, `{"query":"mutation { monitorTargetEnabledSet(id: \"nope\", enabled: true) { id } }"}`))
+	assert.Contains(t, raw, "KUBETAIL_RECORD_NOT_FOUND")
+}
+
+// An incident is served with its subject's label and sorted attributes, its
+// stored signal label and severity, its server's UID, and a null last sighting
+// and end while open.
+func TestIncidentCollectionWatchServesEveryIncident(t *testing.T) {
+	srv, _, _ := newMonitorServer(t)
+
+	resp, events := chatFrames(t, srv, `subscription { incidentCollectionWatch { type incident {
+		id targetID targetUID subjectLabel subjectAttributes { label value } signal signalLabel severity
+		firstSeenAt open occurrenceCount lastStartedAt lastSeenAt lastEndReason } } }`)
+	defer resp.Body.Close()
+	frames := framesUntilBookmark(t, events)
+
+	require.Len(t, frames, 1)
+	assert.Equal(t, map[string]any{
+		"id": "i1", "targetID": "t1", "targetUID": "srv-1", "subjectLabel": "Deployment default/web",
+		"subjectAttributes": []any{
+			map[string]any{"label": "apiGroup", "value": "apps"}, map[string]any{"label": "kind", "value": "Deployment"},
+			map[string]any{"label": "name", "value": "web"}, map[string]any{"label": "namespace", "value": "default"},
+		},
+		"signal": "kubernetes.crash_loop", "signalLabel": "Crash loop", "severity": "Warning",
+		"firstSeenAt": "1970-01-01T00:00:01Z", "open": true, "occurrenceCount": float64(2),
+		"lastStartedAt": "1970-01-01T00:00:03Z", "lastSeenAt": nil, "lastEndReason": nil,
+	}, frames[0]["incident"])
+}
+
+// An incident's feed sends its occurrences, highest number first, each frame
+// carrying the incident's id, then one Bookmark.
+func TestIncidentOccurrenceEventFeedServesTheOccurrences(t *testing.T) {
+	srv, _, _ := newMonitorServer(t)
+
+	resp, events := chatFrames(t, srv, `subscription { incidentOccurrenceEventFeed(incidentID: "i1") { type incidentID occurrence {
+		id incidentID number startedAt endedAt endReason detail { label value } } } }`)
+	defer resp.Body.Close()
+
+	assert.Equal(t, map[string]any{"type": "Occurrence", "incidentID": "i1", "occurrence": map[string]any{
+		"id": "o2", "incidentID": "i1", "number": float64(2), "startedAt": "1970-01-01T00:00:03Z",
+		"endedAt": nil, "endReason": nil, "detail": []any{},
+	}}, nextChatFrame(t, events))
+	assert.Equal(t, map[string]any{"type": "Occurrence", "incidentID": "i1", "occurrence": map[string]any{
+		"id": "o1", "incidentID": "i1", "number": float64(1), "startedAt": "1970-01-01T00:00:01Z",
+		"endedAt": "1970-01-01T00:00:02Z", "endReason": "Resolved",
+		"detail": []any{map[string]any{"label": "container", "value": "app"}, map[string]any{"label": "pod", "value": "web-0"}},
+	}}, nextChatFrame(t, events))
+	assert.Equal(t, map[string]any{"type": "Bookmark", "incidentID": "i1", "occurrence": nil}, nextChatFrame(t, events))
+}
+
+// A read that fails ends each monitoring subscription with subscriptionFailed,
+// and one opened once the monitor stops is refused as unavailable.
+func TestAFailedMonitoringReadEndsTheSubscription(t *testing.T) {
+	srv, db, mon := newMonitorServer(t)
+	_, err := db.Write.Exec(`ALTER TABLE monitor_targets RENAME TO gone`)
+	require.NoError(t, err)
+
+	for _, query := range []string{
+		`subscription { monitorTargetCollectionWatch { type } }`,
+		`subscription { incidentCollectionWatch { type } }`,
+		`subscription { incidentOccurrenceEventFeed(incidentID: "i1") { type } }`,
+	} {
+		resp := openSSESubscription(t, srv.URL, "", query)
+		events := sseEvents(t, resp)
+		assert.Contains(t, testutil.Recv(t, events, "the failure frame").data, `"subscriptionFailed":true`, query)
+		resp.Body.Close()
+	}
+
+	stop, err := mon.Start(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, stop(context.Background()))
+	raw := string(postGQL(t, srv.URL, `{"query":"subscription { incidentCollectionWatch { type } }"}`))
+	assert.Contains(t, raw, `"code":"KUBETAIL_SERVICE_UNAVAILABLE"`)
 }

@@ -28,7 +28,7 @@ Enum values are PascalCase, as the schema's are, and each binds to the Go consta
 - **`monitorTargetCollectionWatch` carries every target** and takes no scope. The collection is the targets of the integrations this build registers, a set fixed for the life of the process: a stored row of any other integration is no item of it.
 - **`MonitorTarget`** carries its `id` (`MonitorTargetID`, a scalar of its own), `integration` (`MonitorIntegration`, an enum whose one value is `Kubernetes`), `label`, `clusterID` (nullable, set for a cluster's), `currentUID` (nullable until the first reading), `enabled`, `readState` (`NeverRead`, `Ok`, `Partial` or `Failed`) and `unknownSignals`, each a `MonitorUnknownSignal`: the signal's `name` and its `reason` (`MonitorReadError`, bound to `monitor.ReadErrorCode`: `NotReady`, `Disabled`, `Unavailable`, `PermissionDenied`, `Unauthenticated`, `RateLimited`, `Unsupported`, `Truncated`, `Timeout` and `Invalid`), sorted by name. The entry carries no label: the webview joins it from `monitorSignalList` by name, since a collection never embeds another's fields.
 - **`readState` and `unknownSignals` are derived against the signals this build registers.** A stored entry naming a signal no registration holds is left out, so every entry served has a label in `monitorSignalList`. The state is `Failed` when every registered signal of the integration is named. A signal registered since the target's last reading is in no stored entry, and counts as judged until the next reading writes the map again. A target not yet read says so in the value, `NeverRead`, and is never null.
-- **`clusterID` is resolved, not stored.** The resolver fills it from the target's integration and key through `kubesignals.ClusterID(integration, key string) (string, bool)`, and it is null for a target of any other integration. `integration` is resolved the same way, from the stored name; a name with no value of the enum is an error on that field alone.
+- **`clusterID` is resolved, not stored.** The resolver fills it from the target's integration and key through `kubesignals.ClusterID(integration, key string) (string, bool)`, and it is null for a target of any other integration. `integration` is resolved the same way, from the stored name; a name with no value of the enum is an error that nulls the record carrying it, since the field is non-null, so `TestEveryMonitorIntegrationHasAValue` pins the resolver's map to the enum.
 - **The watch diffs what it serves, not what is stored.** The service's record holds each served value in a comparable form: the key, and the unknown signals as the canonical JSON of the entries left after the retired ones are dropped, sorted by name, which the resolver decodes. A stored map that changes only in a retired signal's entry leaves the record equal, and sends no frame.
 - **A target carries its own label**, which its integration wrote: a cluster's is the name the user set, else its context's, else its id, cut to 256 bytes, rewritten by the reconcile when the cluster is renamed, and delivered as a `Modified`.
 - **The watch never filters.** The target of a cluster awaiting deletion stays an ordinary item until the reconcile that follows the cluster's delete removes its row, and then arrives as `Deleted`. Meanwhile its readings fail with `Disabled`, as a disabled cluster's do, and stop its open occurrences. The cluster's record carries the mark, `deletionRequestedAt`, and the webview reads it there.
@@ -38,6 +38,7 @@ Enum values are PascalCase, as the schema's are, and each binds to the Go consta
 
 ### Signals
 
+- **`monitorSignalList` has no webview document until step 3a**, so `TestEveryQueryFieldHasACaller` lists it ahead of its caller.
 - **`monitorSignalList` answers every registered signal** as a `MonitorSignal`: its `name`, `integration`, `label` and `severity`. The list is fixed for the life of the process, so it is a List with no watch beside it, and nothing polls it. The webview keeps it by name and joins labels from it.
 - **A signal is a `String` wherever a record names one**, with its label beside it. No enum lists the signals: a screen draws the label it is sent, and a new signal changes no schema.
 
@@ -64,15 +65,15 @@ An incident's occurrences are a retained history: the newest 100 by `number`, th
 ### All of them
 
 - **Each subscription's Go method returns the monitor package's own `*Stream[T]`**, as `memory` and `chat` each have one, and each resolver goes through `subscriptionStream`, so a failed read ends the subscription with a `subscriptionFailed` frame.
-- **Every subscription ends when the monitor stops**, which joins them before `Close` releases the statements. One opened once it is stopping is refused with `monitor.ErrStopping`, which the wire codes `KUBETAIL_SERVICE_UNAVAILABLE`. A subscription may open before `Start`, since a request can arrive before the runtime starts.
+- **Every subscription ends when the monitor stops**, whose stop func joins them; `Close` ends any a monitor never started holds, without waiting, and releases the statements. One opened once it is stopping is refused with `monitor.ErrStopping`, which the wire codes `KUBETAIL_SERVICE_UNAVAILABLE`. A subscription may open before `Start`, since a request can arrive before the runtime starts.
 - **Each field's description opens with its contract**: "A collection watch of every monitor target …", "A List of every signal …", "A collection watch of every target's incidents …", "An event feed of one incident's occurrences …".
 
 ## Tasks
 
 | Task | Status | PR |
 | --- | --- | --- |
-| 1. Service reads | Planned | — |
-| 2. Schema and resolvers | Planned | — |
+| 1. Service reads | In review | — |
+| 2. Schema and resolvers | In review | — |
 
 1. **Service reads.** The four methods on `*monitor.Monitor`, and `SetEnabled` returning the target, each subscription listening before it reads.
 2. **Schema and resolvers.** A `# --- Monitoring ---` section in `schema.graphqls`, the removal of step 1's stopgap, `make generate-desktop`, the resolvers over `subscriptionStream`, and resolver tests through `graph.NewServer`.
@@ -100,7 +101,7 @@ An incident's occurrences are a retained history: the newest 100 by `number`, th
 - Two reads of an unchanged incident whose `lastSeenAt` is set send no frame, and nor does a change to a target's stored entry for a signal this build does not register (`TestTheWatchesDiffServedValues`).
 - A read that fails ends any of the subscriptions with a `subscriptionFailed` frame.
 - Stopping the monitor ends every open subscription, and one opened after is refused.
-- `clusterCollectionWatch` sends no frame for a switch of a cluster's target, and `ClusterSpec` has no `monitoringEnabled`.
+- `ClusterSpec` has no `monitoringEnabled`, and `clusterMonitoringEnabledSet` is gone.
 
 ## When it lands
 

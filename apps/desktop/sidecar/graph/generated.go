@@ -18,6 +18,7 @@ import (
 	"github.com/amorey/beehive"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph/model"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/apimeta"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/oauth"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/rawjson"
@@ -60,6 +61,10 @@ type ResolverRoot interface {
 	EnvVar() EnvVarResolver
 	GitHubConnection() GitHubConnectionResolver
 	GoogleConnection() GoogleConnectionResolver
+	Incident() IncidentResolver
+	IncidentOccurrence() IncidentOccurrenceResolver
+	MonitorSignal() MonitorSignalResolver
+	MonitorTarget() MonitorTargetResolver
 	Mutation() MutationResolver
 	OpenRouterConnection() OpenRouterConnectionResolver
 	PermissionAction() PermissionActionResolver
@@ -509,6 +514,44 @@ type ComplexityRoot struct {
 		UserID func(childComplexity int) int
 	}
 
+	Incident struct {
+		FirstSeenAt       func(childComplexity int) int
+		ID                func(childComplexity int) int
+		LastEndReason     func(childComplexity int) int
+		LastSeenAt        func(childComplexity int) int
+		LastStartedAt     func(childComplexity int) int
+		OccurrenceCount   func(childComplexity int) int
+		Open              func(childComplexity int) int
+		Severity          func(childComplexity int) int
+		Signal            func(childComplexity int) int
+		SignalLabel       func(childComplexity int) int
+		SubjectAttributes func(childComplexity int) int
+		SubjectLabel      func(childComplexity int) int
+		TargetID          func(childComplexity int) int
+		TargetUID         func(childComplexity int) int
+	}
+
+	IncidentCollectionWatchFrame struct {
+		Incident func(childComplexity int) int
+		Type     func(childComplexity int) int
+	}
+
+	IncidentOccurrence struct {
+		Detail     func(childComplexity int) int
+		EndReason  func(childComplexity int) int
+		EndedAt    func(childComplexity int) int
+		ID         func(childComplexity int) int
+		IncidentID func(childComplexity int) int
+		Number     func(childComplexity int) int
+		StartedAt  func(childComplexity int) int
+	}
+
+	IncidentOccurrenceEventFeedFrame struct {
+		IncidentID func(childComplexity int) int
+		Occurrence func(childComplexity int) int
+		Type       func(childComplexity int) int
+	}
+
 	KubeQueryAction struct {
 		Limit func(childComplexity int) int
 		SQL   func(childComplexity int) int
@@ -686,6 +729,39 @@ type ComplexityRoot struct {
 		Provider      func(childComplexity int) int
 	}
 
+	MonitorAttribute struct {
+		Label func(childComplexity int) int
+		Value func(childComplexity int) int
+	}
+
+	MonitorSignal struct {
+		Integration func(childComplexity int) int
+		Label       func(childComplexity int) int
+		Name        func(childComplexity int) int
+		Severity    func(childComplexity int) int
+	}
+
+	MonitorTarget struct {
+		ClusterID      func(childComplexity int) int
+		CurrentUID     func(childComplexity int) int
+		Enabled        func(childComplexity int) int
+		ID             func(childComplexity int) int
+		Integration    func(childComplexity int) int
+		Label          func(childComplexity int) int
+		ReadState      func(childComplexity int) int
+		UnknownSignals func(childComplexity int) int
+	}
+
+	MonitorTargetCollectionWatchFrame struct {
+		Target func(childComplexity int) int
+		Type   func(childComplexity int) int
+	}
+
+	MonitorUnknownSignal struct {
+		Name   func(childComplexity int) int
+		Reason func(childComplexity int) int
+	}
+
 	Mutation struct {
 		AWSConnect                      func(childComplexity int) int
 		AWSConnectCancel                func(childComplexity int) int
@@ -725,6 +801,7 @@ type ComplexityRoot struct {
 		GoogleDisconnect                func(childComplexity int) int
 		MemoryDelete                    func(childComplexity int, id memory.MemoryID) int
 		MemorySave                      func(childComplexity int, input model.MemorySaveInput) int
+		MonitorTargetEnabledSet         func(childComplexity int, id monitor.MonitorTargetID, enabled bool) int
 		OpenRouterConnect               func(childComplexity int) int
 		OpenRouterConnectCancel         func(childComplexity int) int
 		OpenRouterDisconnect            func(childComplexity int) int
@@ -841,6 +918,7 @@ type ComplexityRoot struct {
 		ChatPermissionRulesGet func(childComplexity int, chatID apimeta.ChatID) int
 		EnvVarsGet             func(childComplexity int, clusterID *apimeta.ClusterID) int
 		LogsFetch              func(childComplexity int, id apimeta.ClusterID, request model.LogsFetchInput) int
+		MonitorSignalList      func(childComplexity int) int
 		PermissionSettingsGet  func(childComplexity int) int
 		SandboxCloudAccessGet  func(childComplexity int) int
 		SandboxPathFaultGet    func(childComplexity int) int
@@ -976,9 +1054,12 @@ type ComplexityRoot struct {
 		ClusterScheduleStateWatch              func(childComplexity int, id apimeta.ClusterID) int
 		GitHubConnectionStateWatch             func(childComplexity int) int
 		GoogleConnectionStateWatch             func(childComplexity int) int
+		IncidentCollectionWatch                func(childComplexity int) int
+		IncidentOccurrenceEventFeed            func(childComplexity int, incidentID monitor.IncidentID) int
 		LogsTail                               func(childComplexity int, id apimeta.ClusterID, request model.LogsTailInput) int
 		MemoryCollectionWatch                  func(childComplexity int, clusterID apimeta.ClusterID) int
 		ModelsStateWatch                       func(childComplexity int) int
+		MonitorTargetCollectionWatch           func(childComplexity int) int
 		ObjectEventFeed                        func(childComplexity int, id apimeta.ObjectID, category *string) int
 		OpenRouterConnectionStateWatch         func(childComplexity int) int
 		ProviderCredentialsStateWatch          func(childComplexity int) int
@@ -1109,6 +1190,28 @@ type GoogleConnectionResolver interface {
 	Project(ctx context.Context, obj *connectors.State) (*string, error)
 	Failure(ctx context.Context, obj *connectors.State) (*connectors.Failure, error)
 }
+type IncidentResolver interface {
+	SubjectAttributes(ctx context.Context, obj *monitor.Incident) ([]*model.MonitorAttribute, error)
+
+	LastSeenAt(ctx context.Context, obj *monitor.Incident) (*time.Time, error)
+	LastEndReason(ctx context.Context, obj *monitor.Incident) (*monitor.EndReason, error)
+}
+type IncidentOccurrenceResolver interface {
+	EndedAt(ctx context.Context, obj *monitor.IncidentOccurrence) (*time.Time, error)
+	EndReason(ctx context.Context, obj *monitor.IncidentOccurrence) (*monitor.EndReason, error)
+	Detail(ctx context.Context, obj *monitor.IncidentOccurrence) ([]*model.MonitorAttribute, error)
+}
+type MonitorSignalResolver interface {
+	Integration(ctx context.Context, obj *monitor.MonitorSignal) (model.MonitorIntegration, error)
+}
+type MonitorTargetResolver interface {
+	Integration(ctx context.Context, obj *monitor.MonitorTarget) (model.MonitorIntegration, error)
+
+	ClusterID(ctx context.Context, obj *monitor.MonitorTarget) (*apimeta.ClusterID, error)
+	CurrentUID(ctx context.Context, obj *monitor.MonitorTarget) (*string, error)
+
+	UnknownSignals(ctx context.Context, obj *monitor.MonitorTarget) ([]*model.MonitorUnknownSignal, error)
+}
 type MutationResolver interface {
 	ProviderKeySave(ctx context.Context, providerID string, key string) (bool, error)
 	ProviderKeyDelete(ctx context.Context, providerID string) (bool, error)
@@ -1137,6 +1240,7 @@ type MutationResolver interface {
 	SandboxExecutableRemove(ctx context.Context, name string) ([]*model.SandboxExecutable, error)
 	EnvVarSet(ctx context.Context, clusterID *apimeta.ClusterID, name string, value string, target envvars.Target) ([]*envvars.Var, error)
 	EnvVarRemove(ctx context.Context, clusterID *apimeta.ClusterID, name string) ([]*envvars.Var, error)
+	MonitorTargetEnabledSet(ctx context.Context, id monitor.MonitorTargetID, enabled bool) (*monitor.MonitorTarget, error)
 	MemorySave(ctx context.Context, input model.MemorySaveInput) (*memory.Memory, error)
 	MemoryDelete(ctx context.Context, id memory.MemoryID) (bool, error)
 	ToolSettingSet(ctx context.Context, name string, enabled bool) ([]*toolsettings.Setting, error)
@@ -1193,6 +1297,7 @@ type QueryResolver interface {
 	SandboxPathGet(ctx context.Context) (*model.SandboxPath, error)
 	SandboxPathFaultGet(ctx context.Context) (*string, error)
 	EnvVarsGet(ctx context.Context, clusterID *apimeta.ClusterID) ([]*envvars.Var, error)
+	MonitorSignalList(ctx context.Context) ([]*monitor.MonitorSignal, error)
 	PermissionSettingsGet(ctx context.Context) (*model.PermissionSettings, error)
 	ChatPermissionRulesGet(ctx context.Context, chatID apimeta.ChatID) ([]*permissions.Rule, error)
 	LogsFetch(ctx context.Context, id apimeta.ClusterID, request model.LogsFetchInput) (*model.LogsFetchResult, error)
@@ -1213,6 +1318,9 @@ type SubscriptionResolver interface {
 	ClusterCachedDataObjectCollectionWatch(ctx context.Context, id apimeta.ClusterID, cacheID apimeta.ObjectID, apiVersion string, resource string) (<-chan *cluster.ClusterCachedDataObjectCollectionWatchFrame, error)
 	ChatCollectionWatch(ctx context.Context) (<-chan *chat.ChatCollectionWatchFrame, error)
 	ChatMessageCollectionWatch(ctx context.Context, chatID apimeta.ChatID) (<-chan *chat.ChatMessageCollectionWatchFrame, error)
+	MonitorTargetCollectionWatch(ctx context.Context) (<-chan *monitor.MonitorTargetCollectionWatchFrame, error)
+	IncidentCollectionWatch(ctx context.Context) (<-chan *monitor.IncidentCollectionWatchFrame, error)
+	IncidentOccurrenceEventFeed(ctx context.Context, incidentID monitor.IncidentID) (<-chan *monitor.IncidentOccurrenceEventFeedFrame, error)
 	MemoryCollectionWatch(ctx context.Context, clusterID apimeta.ClusterID) (<-chan *memory.MemoryCollectionWatchFrame, error)
 	LogsTail(ctx context.Context, id apimeta.ClusterID, request model.LogsTailInput) (<-chan *model.LogsTailFrame, error)
 	SandboxExecutablesStateWatch(ctx context.Context) (<-chan *model.SandboxExecutablesReport, error)
@@ -2933,6 +3041,166 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Identity.UserID(childComplexity), true
 
+	case "Incident.firstSeenAt":
+		if e.ComplexityRoot.Incident.FirstSeenAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.FirstSeenAt(childComplexity), true
+	case "Incident.id":
+		if e.ComplexityRoot.Incident.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.ID(childComplexity), true
+	case "Incident.lastEndReason":
+		if e.ComplexityRoot.Incident.LastEndReason == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.LastEndReason(childComplexity), true
+	case "Incident.lastSeenAt":
+		if e.ComplexityRoot.Incident.LastSeenAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.LastSeenAt(childComplexity), true
+	case "Incident.lastStartedAt":
+		if e.ComplexityRoot.Incident.LastStartedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.LastStartedAt(childComplexity), true
+	case "Incident.occurrenceCount":
+		if e.ComplexityRoot.Incident.OccurrenceCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.OccurrenceCount(childComplexity), true
+	case "Incident.open":
+		if e.ComplexityRoot.Incident.Open == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.Open(childComplexity), true
+	case "Incident.severity":
+		if e.ComplexityRoot.Incident.Severity == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.Severity(childComplexity), true
+	case "Incident.signal":
+		if e.ComplexityRoot.Incident.Signal == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.Signal(childComplexity), true
+	case "Incident.signalLabel":
+		if e.ComplexityRoot.Incident.SignalLabel == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.SignalLabel(childComplexity), true
+	case "Incident.subjectAttributes":
+		if e.ComplexityRoot.Incident.SubjectAttributes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.SubjectAttributes(childComplexity), true
+	case "Incident.subjectLabel":
+		if e.ComplexityRoot.Incident.SubjectLabel == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.SubjectLabel(childComplexity), true
+	case "Incident.targetID":
+		if e.ComplexityRoot.Incident.TargetID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.TargetID(childComplexity), true
+	case "Incident.targetUID":
+		if e.ComplexityRoot.Incident.TargetUID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.TargetUID(childComplexity), true
+
+	case "IncidentCollectionWatchFrame.incident":
+		if e.ComplexityRoot.IncidentCollectionWatchFrame.Incident == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentCollectionWatchFrame.Incident(childComplexity), true
+	case "IncidentCollectionWatchFrame.type":
+		if e.ComplexityRoot.IncidentCollectionWatchFrame.Type == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentCollectionWatchFrame.Type(childComplexity), true
+
+	case "IncidentOccurrence.detail":
+		if e.ComplexityRoot.IncidentOccurrence.Detail == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentOccurrence.Detail(childComplexity), true
+	case "IncidentOccurrence.endReason":
+		if e.ComplexityRoot.IncidentOccurrence.EndReason == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentOccurrence.EndReason(childComplexity), true
+	case "IncidentOccurrence.endedAt":
+		if e.ComplexityRoot.IncidentOccurrence.EndedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentOccurrence.EndedAt(childComplexity), true
+	case "IncidentOccurrence.id":
+		if e.ComplexityRoot.IncidentOccurrence.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentOccurrence.ID(childComplexity), true
+	case "IncidentOccurrence.incidentID":
+		if e.ComplexityRoot.IncidentOccurrence.IncidentID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentOccurrence.IncidentID(childComplexity), true
+	case "IncidentOccurrence.number":
+		if e.ComplexityRoot.IncidentOccurrence.Number == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentOccurrence.Number(childComplexity), true
+	case "IncidentOccurrence.startedAt":
+		if e.ComplexityRoot.IncidentOccurrence.StartedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentOccurrence.StartedAt(childComplexity), true
+
+	case "IncidentOccurrenceEventFeedFrame.incidentID":
+		if e.ComplexityRoot.IncidentOccurrenceEventFeedFrame.IncidentID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentOccurrenceEventFeedFrame.IncidentID(childComplexity), true
+	case "IncidentOccurrenceEventFeedFrame.occurrence":
+		if e.ComplexityRoot.IncidentOccurrenceEventFeedFrame.Occurrence == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentOccurrenceEventFeedFrame.Occurrence(childComplexity), true
+	case "IncidentOccurrenceEventFeedFrame.type":
+		if e.ComplexityRoot.IncidentOccurrenceEventFeedFrame.Type == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentOccurrenceEventFeedFrame.Type(childComplexity), true
+
 	case "KubeQueryAction.limit":
 		if e.ComplexityRoot.KubeQueryAction.Limit == nil {
 			break
@@ -3621,6 +3889,119 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Model.Provider(childComplexity), true
 
+	case "MonitorAttribute.label":
+		if e.ComplexityRoot.MonitorAttribute.Label == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorAttribute.Label(childComplexity), true
+	case "MonitorAttribute.value":
+		if e.ComplexityRoot.MonitorAttribute.Value == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorAttribute.Value(childComplexity), true
+
+	case "MonitorSignal.integration":
+		if e.ComplexityRoot.MonitorSignal.Integration == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorSignal.Integration(childComplexity), true
+	case "MonitorSignal.label":
+		if e.ComplexityRoot.MonitorSignal.Label == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorSignal.Label(childComplexity), true
+	case "MonitorSignal.name":
+		if e.ComplexityRoot.MonitorSignal.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorSignal.Name(childComplexity), true
+	case "MonitorSignal.severity":
+		if e.ComplexityRoot.MonitorSignal.Severity == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorSignal.Severity(childComplexity), true
+
+	case "MonitorTarget.clusterID":
+		if e.ComplexityRoot.MonitorTarget.ClusterID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorTarget.ClusterID(childComplexity), true
+	case "MonitorTarget.currentUID":
+		if e.ComplexityRoot.MonitorTarget.CurrentUID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorTarget.CurrentUID(childComplexity), true
+	case "MonitorTarget.enabled":
+		if e.ComplexityRoot.MonitorTarget.Enabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorTarget.Enabled(childComplexity), true
+	case "MonitorTarget.id":
+		if e.ComplexityRoot.MonitorTarget.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorTarget.ID(childComplexity), true
+	case "MonitorTarget.integration":
+		if e.ComplexityRoot.MonitorTarget.Integration == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorTarget.Integration(childComplexity), true
+	case "MonitorTarget.label":
+		if e.ComplexityRoot.MonitorTarget.Label == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorTarget.Label(childComplexity), true
+	case "MonitorTarget.readState":
+		if e.ComplexityRoot.MonitorTarget.ReadState == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorTarget.ReadState(childComplexity), true
+	case "MonitorTarget.unknownSignals":
+		if e.ComplexityRoot.MonitorTarget.UnknownSignals == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorTarget.UnknownSignals(childComplexity), true
+
+	case "MonitorTargetCollectionWatchFrame.target":
+		if e.ComplexityRoot.MonitorTargetCollectionWatchFrame.Target == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorTargetCollectionWatchFrame.Target(childComplexity), true
+	case "MonitorTargetCollectionWatchFrame.type":
+		if e.ComplexityRoot.MonitorTargetCollectionWatchFrame.Type == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorTargetCollectionWatchFrame.Type(childComplexity), true
+
+	case "MonitorUnknownSignal.name":
+		if e.ComplexityRoot.MonitorUnknownSignal.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorUnknownSignal.Name(childComplexity), true
+	case "MonitorUnknownSignal.reason":
+		if e.ComplexityRoot.MonitorUnknownSignal.Reason == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorUnknownSignal.Reason(childComplexity), true
+
 	case "Mutation.awsConnect":
 		if e.ComplexityRoot.Mutation.AWSConnect == nil {
 			break
@@ -3969,6 +4350,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.MemorySave(childComplexity, args["input"].(model.MemorySaveInput)), true
+	case "Mutation.monitorTargetEnabledSet":
+		if e.ComplexityRoot.Mutation.MonitorTargetEnabledSet == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_monitorTargetEnabledSet_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.MonitorTargetEnabledSet(childComplexity, args["id"].(monitor.MonitorTargetID), args["enabled"].(bool)), true
 	case "Mutation.openRouterConnect":
 		if e.ComplexityRoot.Mutation.OpenRouterConnect == nil {
 			break
@@ -4552,6 +4944,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.LogsFetch(childComplexity, args["id"].(apimeta.ClusterID), args["request"].(model.LogsFetchInput)), true
+	case "Query.monitorSignalList":
+		if e.ComplexityRoot.Query.MonitorSignalList == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Query.MonitorSignalList(childComplexity), true
 	case "Query.permissionSettingsGet":
 		if e.ComplexityRoot.Query.PermissionSettingsGet == nil {
 			break
@@ -5140,6 +5538,23 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subscription.GoogleConnectionStateWatch(childComplexity), true
+	case "Subscription.incidentCollectionWatch":
+		if e.ComplexityRoot.Subscription.IncidentCollectionWatch == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subscription.IncidentCollectionWatch(childComplexity), true
+	case "Subscription.incidentOccurrenceEventFeed":
+		if e.ComplexityRoot.Subscription.IncidentOccurrenceEventFeed == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_incidentOccurrenceEventFeed_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Subscription.IncidentOccurrenceEventFeed(childComplexity, args["incidentID"].(monitor.IncidentID)), true
 	case "Subscription.logsTail":
 		if e.ComplexityRoot.Subscription.LogsTail == nil {
 			break
@@ -5168,6 +5583,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subscription.ModelsStateWatch(childComplexity), true
+	case "Subscription.monitorTargetCollectionWatch":
+		if e.ComplexityRoot.Subscription.MonitorTargetCollectionWatch == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subscription.MonitorTargetCollectionWatch(childComplexity), true
 	case "Subscription.objectEventFeed":
 		if e.ComplexityRoot.Subscription.ObjectEventFeed == nil {
 			break
@@ -6442,6 +6863,82 @@ func (ec *executionContext) childFields_Identity(ctx context.Context, field grap
 	return nil, fmt.Errorf("no field named %q was found under type Identity", field.Name)
 }
 
+func (ec *executionContext) childFields_Incident(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Incident_id(ctx, field)
+	case "targetID":
+		return ec.fieldContext_Incident_targetID(ctx, field)
+	case "targetUID":
+		return ec.fieldContext_Incident_targetUID(ctx, field)
+	case "subjectLabel":
+		return ec.fieldContext_Incident_subjectLabel(ctx, field)
+	case "subjectAttributes":
+		return ec.fieldContext_Incident_subjectAttributes(ctx, field)
+	case "signal":
+		return ec.fieldContext_Incident_signal(ctx, field)
+	case "signalLabel":
+		return ec.fieldContext_Incident_signalLabel(ctx, field)
+	case "severity":
+		return ec.fieldContext_Incident_severity(ctx, field)
+	case "firstSeenAt":
+		return ec.fieldContext_Incident_firstSeenAt(ctx, field)
+	case "open":
+		return ec.fieldContext_Incident_open(ctx, field)
+	case "occurrenceCount":
+		return ec.fieldContext_Incident_occurrenceCount(ctx, field)
+	case "lastStartedAt":
+		return ec.fieldContext_Incident_lastStartedAt(ctx, field)
+	case "lastSeenAt":
+		return ec.fieldContext_Incident_lastSeenAt(ctx, field)
+	case "lastEndReason":
+		return ec.fieldContext_Incident_lastEndReason(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
+}
+
+func (ec *executionContext) childFields_IncidentCollectionWatchFrame(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "type":
+		return ec.fieldContext_IncidentCollectionWatchFrame_type(ctx, field)
+	case "incident":
+		return ec.fieldContext_IncidentCollectionWatchFrame_incident(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type IncidentCollectionWatchFrame", field.Name)
+}
+
+func (ec *executionContext) childFields_IncidentOccurrence(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_IncidentOccurrence_id(ctx, field)
+	case "incidentID":
+		return ec.fieldContext_IncidentOccurrence_incidentID(ctx, field)
+	case "number":
+		return ec.fieldContext_IncidentOccurrence_number(ctx, field)
+	case "startedAt":
+		return ec.fieldContext_IncidentOccurrence_startedAt(ctx, field)
+	case "endedAt":
+		return ec.fieldContext_IncidentOccurrence_endedAt(ctx, field)
+	case "endReason":
+		return ec.fieldContext_IncidentOccurrence_endReason(ctx, field)
+	case "detail":
+		return ec.fieldContext_IncidentOccurrence_detail(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type IncidentOccurrence", field.Name)
+}
+
+func (ec *executionContext) childFields_IncidentOccurrenceEventFeedFrame(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "type":
+		return ec.fieldContext_IncidentOccurrenceEventFeedFrame_type(ctx, field)
+	case "incidentID":
+		return ec.fieldContext_IncidentOccurrenceEventFeedFrame_incidentID(ctx, field)
+	case "occurrence":
+		return ec.fieldContext_IncidentOccurrenceEventFeedFrame_occurrence(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type IncidentOccurrenceEventFeedFrame", field.Name)
+}
+
 func (ec *executionContext) childFields_KubeQueryAction(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "sql":
@@ -6794,6 +7291,72 @@ func (ec *executionContext) childFields_Model(ctx context.Context, field graphql
 		return ec.fieldContext_Model_defaultEffort(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Model", field.Name)
+}
+
+func (ec *executionContext) childFields_MonitorAttribute(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "label":
+		return ec.fieldContext_MonitorAttribute_label(ctx, field)
+	case "value":
+		return ec.fieldContext_MonitorAttribute_value(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MonitorAttribute", field.Name)
+}
+
+func (ec *executionContext) childFields_MonitorSignal(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "name":
+		return ec.fieldContext_MonitorSignal_name(ctx, field)
+	case "integration":
+		return ec.fieldContext_MonitorSignal_integration(ctx, field)
+	case "label":
+		return ec.fieldContext_MonitorSignal_label(ctx, field)
+	case "severity":
+		return ec.fieldContext_MonitorSignal_severity(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MonitorSignal", field.Name)
+}
+
+func (ec *executionContext) childFields_MonitorTarget(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_MonitorTarget_id(ctx, field)
+	case "integration":
+		return ec.fieldContext_MonitorTarget_integration(ctx, field)
+	case "label":
+		return ec.fieldContext_MonitorTarget_label(ctx, field)
+	case "clusterID":
+		return ec.fieldContext_MonitorTarget_clusterID(ctx, field)
+	case "currentUID":
+		return ec.fieldContext_MonitorTarget_currentUID(ctx, field)
+	case "enabled":
+		return ec.fieldContext_MonitorTarget_enabled(ctx, field)
+	case "readState":
+		return ec.fieldContext_MonitorTarget_readState(ctx, field)
+	case "unknownSignals":
+		return ec.fieldContext_MonitorTarget_unknownSignals(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MonitorTarget", field.Name)
+}
+
+func (ec *executionContext) childFields_MonitorTargetCollectionWatchFrame(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "type":
+		return ec.fieldContext_MonitorTargetCollectionWatchFrame_type(ctx, field)
+	case "target":
+		return ec.fieldContext_MonitorTargetCollectionWatchFrame_target(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MonitorTargetCollectionWatchFrame", field.Name)
+}
+
+func (ec *executionContext) childFields_MonitorUnknownSignal(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "name":
+		return ec.fieldContext_MonitorUnknownSignal_name(ctx, field)
+	case "reason":
+		return ec.fieldContext_MonitorUnknownSignal_reason(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MonitorUnknownSignal", field.Name)
 }
 
 func (ec *executionContext) childFields_NonResourceRule(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -8090,6 +8653,28 @@ func (ec *executionContext) field_Mutation_memorySave_args(ctx context.Context, 
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_monitorTargetEnabledSet_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (monitor.MonitorTargetID, error) {
+			return ec.unmarshalNMonitorTargetID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorTargetID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "enabled",
+		func(ctx context.Context, v any) (bool, error) {
+			return ec.unmarshalNBoolean2bool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["enabled"] = arg1
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_permissionDefaultModeSet_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -8661,6 +9246,20 @@ func (ec *executionContext) field_Subscription_clusterScheduleStateWatch_args(ct
 		return nil, err
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Subscription_incidentOccurrenceEventFeed_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "incidentID",
+		func(ctx context.Context, v any) (monitor.IncidentID, error) {
+			return ec.unmarshalNIncidentID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["incidentID"] = arg0
 	return args, nil
 }
 
@@ -15434,6 +16033,640 @@ func (ec *executionContext) fieldContext_Identity_name(_ context.Context, field 
 	return graphql.NewScalarFieldContext("Identity", field, false, false, "String")
 }
 
+func (ec *executionContext) _Incident_id(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v monitor.IncidentID) graphql.Marshaler {
+			return ec.marshalNIncidentID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Incident", field, false, false, "IncidentID")
+}
+
+func (ec *executionContext) _Incident_targetID(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_targetID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TargetID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v monitor.MonitorTargetID) graphql.Marshaler {
+			return ec.marshalNMonitorTargetID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorTargetID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_targetID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Incident", field, false, false, "MonitorTargetID")
+}
+
+func (ec *executionContext) _Incident_targetUID(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_targetUID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TargetUID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_targetUID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Incident", field, false, false, "String")
+}
+
+func (ec *executionContext) _Incident_subjectLabel(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_subjectLabel(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SubjectLabel, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_subjectLabel(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Incident", field, false, false, "String")
+}
+
+func (ec *executionContext) _Incident_subjectAttributes(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_subjectAttributes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Incident().SubjectAttributes(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.MonitorAttribute) graphql.Marshaler {
+			return ec.marshalNMonitorAttribute2ᚕᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐMonitorAttributeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_subjectAttributes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Incident",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MonitorAttribute(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Incident_signal(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_signal(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Signal, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_signal(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Incident", field, false, false, "String")
+}
+
+func (ec *executionContext) _Incident_signalLabel(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_signalLabel(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SignalLabel, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_signalLabel(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Incident", field, false, false, "String")
+}
+
+func (ec *executionContext) _Incident_severity(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_severity(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Severity, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v monitor.Severity) graphql.Marshaler {
+			return ec.marshalNMonitorSeverity2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐSeverity(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_severity(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Incident", field, false, false, "MonitorSeverity")
+}
+
+func (ec *executionContext) _Incident_firstSeenAt(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_firstSeenAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.FirstSeenAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_firstSeenAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Incident", field, false, false, "Time")
+}
+
+func (ec *executionContext) _Incident_open(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_open(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Open, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_open(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Incident", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Incident_occurrenceCount(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_occurrenceCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OccurrenceCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_occurrenceCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Incident", field, false, false, "Int")
+}
+
+func (ec *executionContext) _Incident_lastStartedAt(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_lastStartedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LastStartedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_lastStartedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Incident", field, false, false, "Time")
+}
+
+func (ec *executionContext) _Incident_lastSeenAt(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_lastSeenAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Incident().LastSeenAt(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_lastSeenAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Incident", field, true, true, "Time")
+}
+
+func (ec *executionContext) _Incident_lastEndReason(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_lastEndReason(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Incident().LastEndReason(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *monitor.EndReason) graphql.Marshaler {
+			return ec.marshalOIncidentOccurrenceEndReason2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐEndReason(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_lastEndReason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Incident", field, true, true, "IncidentOccurrenceEndReason")
+}
+
+func (ec *executionContext) _IncidentCollectionWatchFrame_type(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentCollectionWatchFrame) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentCollectionWatchFrame_type(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Type, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v apimeta.CollectionWatchFrameType) graphql.Marshaler {
+			return ec.marshalNCollectionWatchFrameType2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋlibᚋapimetaᚐCollectionWatchFrameType(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentCollectionWatchFrame_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentCollectionWatchFrame", field, false, false, "CollectionWatchFrameType")
+}
+
+func (ec *executionContext) _IncidentCollectionWatchFrame_incident(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentCollectionWatchFrame) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentCollectionWatchFrame_incident(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Incident, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *monitor.Incident) graphql.Marshaler {
+			return ec.marshalOIncident2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncident(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentCollectionWatchFrame_incident(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IncidentCollectionWatchFrame",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Incident(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IncidentOccurrence_id(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentOccurrence) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentOccurrence_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v monitor.IncidentOccurrenceID) graphql.Marshaler {
+			return ec.marshalNIncidentOccurrenceID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentOccurrenceID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentOccurrence_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentOccurrence", field, false, false, "IncidentOccurrenceID")
+}
+
+func (ec *executionContext) _IncidentOccurrence_incidentID(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentOccurrence) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentOccurrence_incidentID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IncidentID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v monitor.IncidentID) graphql.Marshaler {
+			return ec.marshalNIncidentID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentOccurrence_incidentID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentOccurrence", field, false, false, "IncidentID")
+}
+
+func (ec *executionContext) _IncidentOccurrence_number(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentOccurrence) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentOccurrence_number(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Number, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentOccurrence_number(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentOccurrence", field, false, false, "Int")
+}
+
+func (ec *executionContext) _IncidentOccurrence_startedAt(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentOccurrence) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentOccurrence_startedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.StartedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentOccurrence_startedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentOccurrence", field, false, false, "Time")
+}
+
+func (ec *executionContext) _IncidentOccurrence_endedAt(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentOccurrence) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentOccurrence_endedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IncidentOccurrence().EndedAt(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentOccurrence_endedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentOccurrence", field, true, true, "Time")
+}
+
+func (ec *executionContext) _IncidentOccurrence_endReason(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentOccurrence) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentOccurrence_endReason(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IncidentOccurrence().EndReason(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *monitor.EndReason) graphql.Marshaler {
+			return ec.marshalOIncidentOccurrenceEndReason2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐEndReason(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentOccurrence_endReason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentOccurrence", field, true, true, "IncidentOccurrenceEndReason")
+}
+
+func (ec *executionContext) _IncidentOccurrence_detail(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentOccurrence) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentOccurrence_detail(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IncidentOccurrence().Detail(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.MonitorAttribute) graphql.Marshaler {
+			return ec.marshalNMonitorAttribute2ᚕᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐMonitorAttributeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentOccurrence_detail(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IncidentOccurrence",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MonitorAttribute(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IncidentOccurrenceEventFeedFrame_type(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentOccurrenceEventFeedFrame) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentOccurrenceEventFeedFrame_type(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Type, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v monitor.IncidentOccurrenceEventFeedFrameType) graphql.Marshaler {
+			return ec.marshalNIncidentOccurrenceEventFeedFrameType2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentOccurrenceEventFeedFrameType(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentOccurrenceEventFeedFrame_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentOccurrenceEventFeedFrame", field, false, false, "IncidentOccurrenceEventFeedFrameType")
+}
+
+func (ec *executionContext) _IncidentOccurrenceEventFeedFrame_incidentID(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentOccurrenceEventFeedFrame) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentOccurrenceEventFeedFrame_incidentID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IncidentID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v monitor.IncidentID) graphql.Marshaler {
+			return ec.marshalNIncidentID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentOccurrenceEventFeedFrame_incidentID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentOccurrenceEventFeedFrame", field, false, false, "IncidentID")
+}
+
+func (ec *executionContext) _IncidentOccurrenceEventFeedFrame_occurrence(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentOccurrenceEventFeedFrame) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentOccurrenceEventFeedFrame_occurrence(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Occurrence, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *monitor.IncidentOccurrence) graphql.Marshaler {
+			return ec.marshalOIncidentOccurrence2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentOccurrence(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentOccurrenceEventFeedFrame_occurrence(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IncidentOccurrenceEventFeedFrame",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IncidentOccurrence(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _KubeQueryAction_sql(ctx context.Context, field graphql.CollectedField, obj *tools.KubeQueryAction) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -18248,6 +19481,438 @@ func (ec *executionContext) fieldContext_Model_defaultEffort(_ context.Context, 
 	return graphql.NewScalarFieldContext("Model", field, false, false, "String")
 }
 
+func (ec *executionContext) _MonitorAttribute_label(ctx context.Context, field graphql.CollectedField, obj *model.MonitorAttribute) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorAttribute_label(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Label, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorAttribute_label(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorAttribute", field, false, false, "String")
+}
+
+func (ec *executionContext) _MonitorAttribute_value(ctx context.Context, field graphql.CollectedField, obj *model.MonitorAttribute) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorAttribute_value(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Value, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorAttribute_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorAttribute", field, false, false, "String")
+}
+
+func (ec *executionContext) _MonitorSignal_name(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorSignal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorSignal_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorSignal_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorSignal", field, false, false, "String")
+}
+
+func (ec *executionContext) _MonitorSignal_integration(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorSignal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorSignal_integration(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.MonitorSignal().Integration(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.MonitorIntegration) graphql.Marshaler {
+			return ec.marshalNMonitorIntegration2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐMonitorIntegration(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorSignal_integration(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorSignal", field, true, true, "MonitorIntegration")
+}
+
+func (ec *executionContext) _MonitorSignal_label(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorSignal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorSignal_label(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Label, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorSignal_label(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorSignal", field, false, false, "String")
+}
+
+func (ec *executionContext) _MonitorSignal_severity(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorSignal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorSignal_severity(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Severity, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v monitor.Severity) graphql.Marshaler {
+			return ec.marshalNMonitorSeverity2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐSeverity(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorSignal_severity(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorSignal", field, false, false, "MonitorSeverity")
+}
+
+func (ec *executionContext) _MonitorTarget_id(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorTarget_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v monitor.MonitorTargetID) graphql.Marshaler {
+			return ec.marshalNMonitorTargetID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorTargetID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorTarget_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorTarget", field, false, false, "MonitorTargetID")
+}
+
+func (ec *executionContext) _MonitorTarget_integration(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorTarget_integration(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.MonitorTarget().Integration(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.MonitorIntegration) graphql.Marshaler {
+			return ec.marshalNMonitorIntegration2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐMonitorIntegration(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorTarget_integration(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorTarget", field, true, true, "MonitorIntegration")
+}
+
+func (ec *executionContext) _MonitorTarget_label(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorTarget_label(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Label, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorTarget_label(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorTarget", field, false, false, "String")
+}
+
+func (ec *executionContext) _MonitorTarget_clusterID(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorTarget_clusterID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.MonitorTarget().ClusterID(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *apimeta.ClusterID) graphql.Marshaler {
+			return ec.marshalOClusterID2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋlibᚋapimetaᚐClusterID(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorTarget_clusterID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorTarget", field, true, true, "ClusterID")
+}
+
+func (ec *executionContext) _MonitorTarget_currentUID(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorTarget_currentUID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.MonitorTarget().CurrentUID(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorTarget_currentUID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorTarget", field, true, true, "String")
+}
+
+func (ec *executionContext) _MonitorTarget_enabled(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorTarget_enabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Enabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorTarget_enabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorTarget", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _MonitorTarget_readState(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorTarget_readState(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ReadState, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v monitor.ReadState) graphql.Marshaler {
+			return ec.marshalNMonitorReadState2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐReadState(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorTarget_readState(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorTarget", field, false, false, "MonitorReadState")
+}
+
+func (ec *executionContext) _MonitorTarget_unknownSignals(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorTarget_unknownSignals(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.MonitorTarget().UnknownSignals(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.MonitorUnknownSignal) graphql.Marshaler {
+			return ec.marshalNMonitorUnknownSignal2ᚕᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐMonitorUnknownSignalᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorTarget_unknownSignals(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MonitorTarget",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MonitorUnknownSignal(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MonitorTargetCollectionWatchFrame_type(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorTargetCollectionWatchFrame) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorTargetCollectionWatchFrame_type(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Type, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v apimeta.CollectionWatchFrameType) graphql.Marshaler {
+			return ec.marshalNCollectionWatchFrameType2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋlibᚋapimetaᚐCollectionWatchFrameType(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorTargetCollectionWatchFrame_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorTargetCollectionWatchFrame", field, false, false, "CollectionWatchFrameType")
+}
+
+func (ec *executionContext) _MonitorTargetCollectionWatchFrame_target(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorTargetCollectionWatchFrame) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorTargetCollectionWatchFrame_target(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Target, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *monitor.MonitorTarget) graphql.Marshaler {
+			return ec.marshalOMonitorTarget2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorTarget(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorTargetCollectionWatchFrame_target(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MonitorTargetCollectionWatchFrame",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MonitorTarget(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MonitorUnknownSignal_name(ctx context.Context, field graphql.CollectedField, obj *model.MonitorUnknownSignal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorUnknownSignal_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorUnknownSignal_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorUnknownSignal", field, false, false, "String")
+}
+
+func (ec *executionContext) _MonitorUnknownSignal_reason(ctx context.Context, field graphql.CollectedField, obj *model.MonitorUnknownSignal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorUnknownSignal_reason(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Reason, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v monitor.ReadErrorCode) graphql.Marshaler {
+			return ec.marshalNMonitorReadError2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐReadErrorCode(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorUnknownSignal_reason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorUnknownSignal", field, false, false, "MonitorReadError")
+}
+
 func (ec *executionContext) _Mutation_providerKeySave(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -19406,6 +21071,50 @@ func (ec *executionContext) fieldContext_Mutation_envVarRemove(ctx context.Conte
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_envVarRemove_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_monitorTargetEnabledSet(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_monitorTargetEnabledSet(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().MonitorTargetEnabledSet(ctx, fc.Args["id"].(monitor.MonitorTargetID), fc.Args["enabled"].(bool))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *monitor.MonitorTarget) graphql.Marshaler {
+			return ec.marshalNMonitorTarget2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorTarget(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_monitorTargetEnabledSet(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MonitorTarget(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_monitorTargetEnabledSet_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -21920,6 +23629,38 @@ func (ec *executionContext) fieldContext_Query_envVarsGet(ctx context.Context, f
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_monitorSignalList(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_monitorSignalList(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().MonitorSignalList(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*monitor.MonitorSignal) graphql.Marshaler {
+			return ec.marshalNMonitorSignal2ᚕᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorSignalᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_monitorSignalList(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MonitorSignal(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_permissionSettingsGet(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -24234,6 +25975,114 @@ func (ec *executionContext) fieldContext_Subscription_chatMessageCollectionWatch
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Subscription_chatMessageCollectionWatch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_monitorTargetCollectionWatch(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Subscription_monitorTargetCollectionWatch(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Subscription().MonitorTargetCollectionWatch(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *monitor.MonitorTargetCollectionWatchFrame) graphql.Marshaler {
+			return ec.marshalNMonitorTargetCollectionWatchFrame2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorTargetCollectionWatchFrame(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Subscription_monitorTargetCollectionWatch(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MonitorTargetCollectionWatchFrame(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_incidentCollectionWatch(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Subscription_incidentCollectionWatch(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Subscription().IncidentCollectionWatch(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *monitor.IncidentCollectionWatchFrame) graphql.Marshaler {
+			return ec.marshalNIncidentCollectionWatchFrame2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentCollectionWatchFrame(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Subscription_incidentCollectionWatch(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IncidentCollectionWatchFrame(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_incidentOccurrenceEventFeed(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Subscription_incidentOccurrenceEventFeed(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Subscription().IncidentOccurrenceEventFeed(ctx, fc.Args["incidentID"].(monitor.IncidentID))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *monitor.IncidentOccurrenceEventFeedFrame) graphql.Marshaler {
+			return ec.marshalNIncidentOccurrenceEventFeedFrame2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentOccurrenceEventFeedFrame(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Subscription_incidentOccurrenceEventFeed(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IncidentOccurrenceEventFeedFrame(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Subscription_incidentOccurrenceEventFeed_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -30654,6 +32503,254 @@ func (ec *executionContext) _Identity(ctx context.Context, sel ast.SelectionSet,
 	return out
 }
 
+var incidentImplementors = []string{"Incident"}
+
+func (ec *executionContext) _Incident(ctx context.Context, sel ast.SelectionSet, obj *monitor.Incident) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, incidentImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Incident")
+		case "id":
+			out.Values[i] = ec._Incident_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "targetID":
+			out.Values[i] = ec._Incident_targetID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "targetUID":
+			out.Values[i] = ec._Incident_targetUID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "subjectLabel":
+			out.Values[i] = ec._Incident_subjectLabel(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "subjectAttributes":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Incident_subjectAttributes(ctx, field, obj)
+				})
+		case "signal":
+			out.Values[i] = ec._Incident_signal(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "signalLabel":
+			out.Values[i] = ec._Incident_signalLabel(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "severity":
+			out.Values[i] = ec._Incident_severity(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "firstSeenAt":
+			out.Values[i] = ec._Incident_firstSeenAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "open":
+			out.Values[i] = ec._Incident_open(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "occurrenceCount":
+			out.Values[i] = ec._Incident_occurrenceCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "lastStartedAt":
+			out.Values[i] = ec._Incident_lastStartedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "lastSeenAt":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Incident_lastSeenAt(ctx, field, obj)
+				})
+		case "lastEndReason":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Incident_lastEndReason(ctx, field, obj)
+				})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var incidentCollectionWatchFrameImplementors = []string{"IncidentCollectionWatchFrame"}
+
+func (ec *executionContext) _IncidentCollectionWatchFrame(ctx context.Context, sel ast.SelectionSet, obj *monitor.IncidentCollectionWatchFrame) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, incidentCollectionWatchFrameImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("IncidentCollectionWatchFrame")
+		case "type":
+			out.Values[i] = ec._IncidentCollectionWatchFrame_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "incident":
+			out.Values[i] = ec._IncidentCollectionWatchFrame_incident(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var incidentOccurrenceImplementors = []string{"IncidentOccurrence"}
+
+func (ec *executionContext) _IncidentOccurrence(ctx context.Context, sel ast.SelectionSet, obj *monitor.IncidentOccurrence) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, incidentOccurrenceImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("IncidentOccurrence")
+		case "id":
+			out.Values[i] = ec._IncidentOccurrence_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "incidentID":
+			out.Values[i] = ec._IncidentOccurrence_incidentID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "number":
+			out.Values[i] = ec._IncidentOccurrence_number(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "startedAt":
+			out.Values[i] = ec._IncidentOccurrence_startedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "endedAt":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IncidentOccurrence_endedAt(ctx, field, obj)
+				})
+		case "endReason":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IncidentOccurrence_endReason(ctx, field, obj)
+				})
+		case "detail":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IncidentOccurrence_detail(ctx, field, obj)
+				})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var incidentOccurrenceEventFeedFrameImplementors = []string{"IncidentOccurrenceEventFeedFrame"}
+
+func (ec *executionContext) _IncidentOccurrenceEventFeedFrame(ctx context.Context, sel ast.SelectionSet, obj *monitor.IncidentOccurrenceEventFeedFrame) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, incidentOccurrenceEventFeedFrameImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("IncidentOccurrenceEventFeedFrame")
+		case "type":
+			out.Values[i] = ec._IncidentOccurrenceEventFeedFrame_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "incidentID":
+			out.Values[i] = ec._IncidentOccurrenceEventFeedFrame_incidentID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "occurrence":
+			out.Values[i] = ec._IncidentOccurrenceEventFeedFrame_occurrence(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var kubeQueryActionImplementors = []string{"KubeQueryAction"}
 
 func (ec *executionContext) _KubeQueryAction(ctx context.Context, sel ast.SelectionSet, obj *tools.KubeQueryAction) graphql.Marshaler {
@@ -31825,6 +33922,241 @@ func (ec *executionContext) _Model(ctx context.Context, sel ast.SelectionSet, ob
 	return out
 }
 
+var monitorAttributeImplementors = []string{"MonitorAttribute"}
+
+func (ec *executionContext) _MonitorAttribute(ctx context.Context, sel ast.SelectionSet, obj *model.MonitorAttribute) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, monitorAttributeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MonitorAttribute")
+		case "label":
+			out.Values[i] = ec._MonitorAttribute_label(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "value":
+			out.Values[i] = ec._MonitorAttribute_value(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var monitorSignalImplementors = []string{"MonitorSignal"}
+
+func (ec *executionContext) _MonitorSignal(ctx context.Context, sel ast.SelectionSet, obj *monitor.MonitorSignal) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, monitorSignalImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MonitorSignal")
+		case "name":
+			out.Values[i] = ec._MonitorSignal_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "integration":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._MonitorSignal_integration(ctx, field, obj)
+				})
+		case "label":
+			out.Values[i] = ec._MonitorSignal_label(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "severity":
+			out.Values[i] = ec._MonitorSignal_severity(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var monitorTargetImplementors = []string{"MonitorTarget"}
+
+func (ec *executionContext) _MonitorTarget(ctx context.Context, sel ast.SelectionSet, obj *monitor.MonitorTarget) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, monitorTargetImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MonitorTarget")
+		case "id":
+			out.Values[i] = ec._MonitorTarget_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "integration":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._MonitorTarget_integration(ctx, field, obj)
+				})
+		case "label":
+			out.Values[i] = ec._MonitorTarget_label(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "clusterID":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._MonitorTarget_clusterID(ctx, field, obj)
+				})
+		case "currentUID":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._MonitorTarget_currentUID(ctx, field, obj)
+				})
+		case "enabled":
+			out.Values[i] = ec._MonitorTarget_enabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "readState":
+			out.Values[i] = ec._MonitorTarget_readState(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "unknownSignals":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._MonitorTarget_unknownSignals(ctx, field, obj)
+				})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var monitorTargetCollectionWatchFrameImplementors = []string{"MonitorTargetCollectionWatchFrame"}
+
+func (ec *executionContext) _MonitorTargetCollectionWatchFrame(ctx context.Context, sel ast.SelectionSet, obj *monitor.MonitorTargetCollectionWatchFrame) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, monitorTargetCollectionWatchFrameImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MonitorTargetCollectionWatchFrame")
+		case "type":
+			out.Values[i] = ec._MonitorTargetCollectionWatchFrame_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "target":
+			out.Values[i] = ec._MonitorTargetCollectionWatchFrame_target(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var monitorUnknownSignalImplementors = []string{"MonitorUnknownSignal"}
+
+func (ec *executionContext) _MonitorUnknownSignal(ctx context.Context, sel ast.SelectionSet, obj *model.MonitorUnknownSignal) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, monitorUnknownSignalImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MonitorUnknownSignal")
+		case "name":
+			out.Values[i] = ec._MonitorUnknownSignal_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "reason":
+			out.Values[i] = ec._MonitorUnknownSignal_reason(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var mutationImplementors = []string{"Mutation"}
 
 func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -32029,6 +34361,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "envVarRemove":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_envVarRemove(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "monitorTargetEnabledSet":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_monitorTargetEnabledSet(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -32918,6 +35257,12 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_envVarsGet(ctx, field)
 				})
+		case "monitorSignalList":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_monitorSignalList(ctx, field)
+				})
 		case "permissionSettingsGet":
 			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
 				true, true,
@@ -33745,6 +36090,12 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 		return ec._Subscription_chatCollectionWatch(ctx, fields[0])
 	case "chatMessageCollectionWatch":
 		return ec._Subscription_chatMessageCollectionWatch(ctx, fields[0])
+	case "monitorTargetCollectionWatch":
+		return ec._Subscription_monitorTargetCollectionWatch(ctx, fields[0])
+	case "incidentCollectionWatch":
+		return ec._Subscription_incidentCollectionWatch(ctx, fields[0])
+	case "incidentOccurrenceEventFeed":
+		return ec._Subscription_incidentOccurrenceEventFeed(ctx, fields[0])
 	case "memoryCollectionWatch":
 		return ec._Subscription_memoryCollectionWatch(ctx, fields[0])
 	case "logsTail":
@@ -35363,6 +37714,78 @@ func (ec *executionContext) marshalNGrantDuration2githubᚗcomᚋkubetailᚑorg�
 	return v
 }
 
+func (ec *executionContext) marshalNIncidentCollectionWatchFrame2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentCollectionWatchFrame(ctx context.Context, sel ast.SelectionSet, v *monitor.IncidentCollectionWatchFrame) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "IncidentCollectionWatchFrame!")
+		return graphql.Null
+	}
+	return ec._IncidentCollectionWatchFrame(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNIncidentID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentID(ctx context.Context, v any) (monitor.IncidentID, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := monitor.IncidentID(tmp)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNIncidentID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentID(ctx context.Context, sel ast.SelectionSet, v monitor.IncidentID) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(string(v))
+	if res == graphql.Null {
+		graphql.AddInvalidNullFromMarshaler(ctx, "IncidentID!")
+	}
+	return res
+}
+
+func (ec *executionContext) marshalNIncidentOccurrenceEventFeedFrame2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentOccurrenceEventFeedFrame(ctx context.Context, sel ast.SelectionSet, v *monitor.IncidentOccurrenceEventFeedFrame) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "IncidentOccurrenceEventFeedFrame!")
+		return graphql.Null
+	}
+	return ec._IncidentOccurrenceEventFeedFrame(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNIncidentOccurrenceEventFeedFrameType2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentOccurrenceEventFeedFrameType(ctx context.Context, v any) (monitor.IncidentOccurrenceEventFeedFrameType, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := unmarshalNIncidentOccurrenceEventFeedFrameType2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentOccurrenceEventFeedFrameType[tmp]
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNIncidentOccurrenceEventFeedFrameType2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentOccurrenceEventFeedFrameType(ctx context.Context, sel ast.SelectionSet, v monitor.IncidentOccurrenceEventFeedFrameType) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(marshalNIncidentOccurrenceEventFeedFrameType2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentOccurrenceEventFeedFrameType[v])
+	if res == graphql.Null {
+		graphql.AddInvalidNullFromMarshaler(ctx, "IncidentOccurrenceEventFeedFrameType!")
+	}
+	return res
+}
+
+var (
+	unmarshalNIncidentOccurrenceEventFeedFrameType2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentOccurrenceEventFeedFrameType = map[string]monitor.IncidentOccurrenceEventFeedFrameType{
+		"Occurrence": monitor.IncidentOccurrenceEventFeedFrameOccurrence,
+		"Bookmark":   monitor.IncidentOccurrenceEventFeedFrameBookmark,
+	}
+	marshalNIncidentOccurrenceEventFeedFrameType2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentOccurrenceEventFeedFrameType = map[monitor.IncidentOccurrenceEventFeedFrameType]string{
+		monitor.IncidentOccurrenceEventFeedFrameOccurrence: "Occurrence",
+		monitor.IncidentOccurrenceEventFeedFrameBookmark:   "Bookmark",
+	}
+)
+
+func (ec *executionContext) unmarshalNIncidentOccurrenceID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentOccurrenceID(ctx context.Context, v any) (monitor.IncidentOccurrenceID, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := monitor.IncidentOccurrenceID(tmp)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNIncidentOccurrenceID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentOccurrenceID(ctx context.Context, sel ast.SelectionSet, v monitor.IncidentOccurrenceID) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(string(v))
+	if res == graphql.Null {
+		graphql.AddInvalidNullFromMarshaler(ctx, "IncidentOccurrenceID!")
+	}
+	return res
+}
+
 func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
 	res, err := graphql.UnmarshalInt(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -35905,6 +38328,219 @@ func (ec *executionContext) marshalNModel2ᚖgithubᚗcomᚋkubetailᚑorgᚋkub
 		return graphql.Null
 	}
 	return ec._Model(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNMonitorAttribute2ᚕᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐMonitorAttributeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MonitorAttribute) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNMonitorAttribute2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐMonitorAttribute(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNMonitorAttribute2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐMonitorAttribute(ctx context.Context, sel ast.SelectionSet, v *model.MonitorAttribute) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "MonitorAttribute!")
+		return graphql.Null
+	}
+	return ec._MonitorAttribute(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNMonitorIntegration2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐMonitorIntegration(ctx context.Context, v any) (model.MonitorIntegration, error) {
+	var res model.MonitorIntegration
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNMonitorIntegration2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐMonitorIntegration(ctx context.Context, sel ast.SelectionSet, v model.MonitorIntegration) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNMonitorReadError2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐReadErrorCode(ctx context.Context, v any) (monitor.ReadErrorCode, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := unmarshalNMonitorReadError2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐReadErrorCode[tmp]
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNMonitorReadError2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐReadErrorCode(ctx context.Context, sel ast.SelectionSet, v monitor.ReadErrorCode) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(marshalNMonitorReadError2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐReadErrorCode[v])
+	if res == graphql.Null {
+		graphql.AddInvalidNullFromMarshaler(ctx, "MonitorReadError!")
+	}
+	return res
+}
+
+var (
+	unmarshalNMonitorReadError2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐReadErrorCode = map[string]monitor.ReadErrorCode{
+		"NotReady":         monitor.CodeNotReady,
+		"Disabled":         monitor.CodeDisabled,
+		"Unavailable":      monitor.CodeUnavailable,
+		"PermissionDenied": monitor.CodePermissionDenied,
+		"Unauthenticated":  monitor.CodeUnauthenticated,
+		"RateLimited":      monitor.CodeRateLimited,
+		"Unsupported":      monitor.CodeUnsupported,
+		"Truncated":        monitor.CodeTruncated,
+		"Timeout":          monitor.CodeTimeout,
+		"Invalid":          monitor.CodeInvalid,
+	}
+	marshalNMonitorReadError2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐReadErrorCode = map[monitor.ReadErrorCode]string{
+		monitor.CodeNotReady:         "NotReady",
+		monitor.CodeDisabled:         "Disabled",
+		monitor.CodeUnavailable:      "Unavailable",
+		monitor.CodePermissionDenied: "PermissionDenied",
+		monitor.CodeUnauthenticated:  "Unauthenticated",
+		monitor.CodeRateLimited:      "RateLimited",
+		monitor.CodeUnsupported:      "Unsupported",
+		monitor.CodeTruncated:        "Truncated",
+		monitor.CodeTimeout:          "Timeout",
+		monitor.CodeInvalid:          "Invalid",
+	}
+)
+
+func (ec *executionContext) unmarshalNMonitorReadState2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐReadState(ctx context.Context, v any) (monitor.ReadState, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := unmarshalNMonitorReadState2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐReadState[tmp]
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNMonitorReadState2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐReadState(ctx context.Context, sel ast.SelectionSet, v monitor.ReadState) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(marshalNMonitorReadState2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐReadState[v])
+	if res == graphql.Null {
+		graphql.AddInvalidNullFromMarshaler(ctx, "MonitorReadState!")
+	}
+	return res
+}
+
+var (
+	unmarshalNMonitorReadState2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐReadState = map[string]monitor.ReadState{
+		"NeverRead": monitor.ReadStateNeverRead,
+		"Ok":        monitor.ReadStateOk,
+		"Partial":   monitor.ReadStatePartial,
+		"Failed":    monitor.ReadStateFailed,
+	}
+	marshalNMonitorReadState2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐReadState = map[monitor.ReadState]string{
+		monitor.ReadStateNeverRead: "NeverRead",
+		monitor.ReadStateOk:        "Ok",
+		monitor.ReadStatePartial:   "Partial",
+		monitor.ReadStateFailed:    "Failed",
+	}
+)
+
+func (ec *executionContext) unmarshalNMonitorSeverity2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐSeverity(ctx context.Context, v any) (monitor.Severity, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := unmarshalNMonitorSeverity2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐSeverity[tmp]
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNMonitorSeverity2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐSeverity(ctx context.Context, sel ast.SelectionSet, v monitor.Severity) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(marshalNMonitorSeverity2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐSeverity[v])
+	if res == graphql.Null {
+		graphql.AddInvalidNullFromMarshaler(ctx, "MonitorSeverity!")
+	}
+	return res
+}
+
+var (
+	unmarshalNMonitorSeverity2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐSeverity = map[string]monitor.Severity{
+		"Critical": monitor.SeverityCritical,
+		"Warning":  monitor.SeverityWarning,
+		"Info":     monitor.SeverityInfo,
+	}
+	marshalNMonitorSeverity2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐSeverity = map[monitor.Severity]string{
+		monitor.SeverityCritical: "Critical",
+		monitor.SeverityWarning:  "Warning",
+		monitor.SeverityInfo:     "Info",
+	}
+)
+
+func (ec *executionContext) marshalNMonitorSignal2ᚕᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorSignalᚄ(ctx context.Context, sel ast.SelectionSet, v []*monitor.MonitorSignal) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNMonitorSignal2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorSignal(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNMonitorSignal2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorSignal(ctx context.Context, sel ast.SelectionSet, v *monitor.MonitorSignal) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "MonitorSignal!")
+		return graphql.Null
+	}
+	return ec._MonitorSignal(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNMonitorTarget2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorTarget(ctx context.Context, sel ast.SelectionSet, v *monitor.MonitorTarget) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "MonitorTarget!")
+		return graphql.Null
+	}
+	return ec._MonitorTarget(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNMonitorTargetCollectionWatchFrame2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorTargetCollectionWatchFrame(ctx context.Context, sel ast.SelectionSet, v *monitor.MonitorTargetCollectionWatchFrame) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "MonitorTargetCollectionWatchFrame!")
+		return graphql.Null
+	}
+	return ec._MonitorTargetCollectionWatchFrame(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNMonitorTargetID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorTargetID(ctx context.Context, v any) (monitor.MonitorTargetID, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := monitor.MonitorTargetID(tmp)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNMonitorTargetID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorTargetID(ctx context.Context, sel ast.SelectionSet, v monitor.MonitorTargetID) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(string(v))
+	if res == graphql.Null {
+		graphql.AddInvalidNullFromMarshaler(ctx, "MonitorTargetID!")
+	}
+	return res
+}
+
+func (ec *executionContext) marshalNMonitorUnknownSignal2ᚕᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐMonitorUnknownSignalᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MonitorUnknownSignal) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNMonitorUnknownSignal2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐMonitorUnknownSignal(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNMonitorUnknownSignal2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐMonitorUnknownSignal(ctx context.Context, sel ast.SelectionSet, v *model.MonitorUnknownSignal) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "MonitorUnknownSignal!")
+		return graphql.Null
+	}
+	return ec._MonitorUnknownSignal(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNNonResourceRule2ᚕᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋgraphᚋmodelᚐNonResourceRuleᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.NonResourceRule) graphql.Marshaler {
@@ -37118,6 +39754,52 @@ func (ec *executionContext) marshalOIdentity2ᚖgithubᚗcomᚋkubetailᚑorgᚋ
 	return ec._Identity(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOIncident2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncident(ctx context.Context, sel ast.SelectionSet, v *monitor.Incident) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Incident(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOIncidentOccurrence2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentOccurrence(ctx context.Context, sel ast.SelectionSet, v *monitor.IncidentOccurrence) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._IncidentOccurrence(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOIncidentOccurrenceEndReason2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐEndReason(ctx context.Context, v any) (*monitor.EndReason, error) {
+	if v == nil {
+		return nil, nil
+	}
+	tmp, err := graphql.UnmarshalString(v)
+	res := unmarshalOIncidentOccurrenceEndReason2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐEndReason[tmp]
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOIncidentOccurrenceEndReason2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐEndReason(ctx context.Context, sel ast.SelectionSet, v *monitor.EndReason) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(marshalOIncidentOccurrenceEndReason2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐEndReason[*v])
+	return res
+}
+
+var (
+	unmarshalOIncidentOccurrenceEndReason2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐEndReason = map[string]monitor.EndReason{
+		"Resolved": monitor.EndResolved,
+		"Stopped":  monitor.EndStopped,
+		"Stale":    monitor.EndStale,
+	}
+	marshalOIncidentOccurrenceEndReason2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐEndReason = map[monitor.EndReason]string{
+		monitor.EndResolved: "Resolved",
+		monitor.EndStopped:  "Stopped",
+		monitor.EndStale:    "Stale",
+	}
+)
+
 func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v any) (*int, error) {
 	if v == nil {
 		return nil, nil
@@ -37314,6 +39996,13 @@ func (ec *executionContext) marshalOMemoryID2ᚖgithubᚗcomᚋkubetailᚑorgᚋ
 	_ = ctx
 	res := graphql.MarshalString(string(*v))
 	return res
+}
+
+func (ec *executionContext) marshalOMonitorTarget2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐMonitorTarget(ctx context.Context, sel ast.SelectionSet, v *monitor.MonitorTarget) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._MonitorTarget(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOPermissionAction2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋchatᚐPermissionAction(ctx context.Context, sel ast.SelectionSet, v *chat.PermissionAction) graphql.Marshaler {

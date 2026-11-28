@@ -16,7 +16,7 @@ A field puts its subject first and its contract last, as a mutation puts its ver
 | [State watch](README.md#state-watch) | `<noun>StateWatch` | The value itself |
 | [Keyed state watch](README.md#keyed-state-watch) | `<noun>KeyedStateWatch` | The value, carrying its key |
 | [Collection watch](README.md#collection-watch) | `<noun>CollectionWatch` | `<Noun>CollectionWatchFrame` |
-| [Event feed](README.md#event-feed) | `<noun>EventFeed` | `EventFeedFrame` |
+| [Event feed](README.md#event-feed) | `<noun>EventFeed` | `EventFeedFrame` for a cluster `Event`; `<Noun>EventFeedFrame`, with a `<Noun>EventFeedFrameType` of its own, for any other element |
 | [Sample feed](README.md#sample-feed) | `<noun>SampleFeed` | `<Noun>SampleFeedFrame` |
 | [Cursor tail](README.md#cursor-tail) | `<noun>Tail` | `<Noun>TailFrame` |
 

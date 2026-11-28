@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph/model"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor/kubesignals"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/testutil"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/run/permissions"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/envvars"
@@ -316,4 +317,30 @@ func TestRulePointersListEachIDOnce(t *testing.T) {
 	if len(got) != 3 || got[0].ID != "a" || got[1].AccessLevel != permissions.Write || got[2].ID != "c" {
 		t.Fatalf("rulePointers = %v", got)
 	}
+}
+
+// Each registered integration has a MonitorIntegration value, and each value
+// names an integration, so no target or signal record is nulled for want of one.
+func TestEveryMonitorIntegrationHasAValue(t *testing.T) {
+	values := map[model.MonitorIntegration]bool{}
+	for _, v := range monitorIntegrations {
+		values[v] = true
+	}
+	for _, v := range model.AllMonitorIntegration {
+		assert.True(t, values[v], v)
+	}
+	assert.Len(t, values, len(model.AllMonitorIntegration))
+	got, err := monitorIntegrationOf(kubesignals.Name)
+	require.NoError(t, err)
+	assert.Equal(t, model.MonitorIntegrationKubernetes, got)
+	_, err = monitorIntegrationOf("other")
+	assert.Error(t, err)
+}
+
+// Stored JSON that does not decode fails the field that reads it.
+func TestMonitorJSONThatDoesNotDecodeFailsItsField(t *testing.T) {
+	_, err := monitorAttributes(`[`)
+	assert.ErrorContains(t, err, "read attributes")
+	_, err = monitorUnknownSignals(`[`)
+	assert.ErrorContains(t, err, "read unknown signals")
 }

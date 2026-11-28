@@ -31,6 +31,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/oauth"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster"
 )
@@ -1083,3 +1084,24 @@ type errAuth struct {
 }
 
 func (e errAuth) Disconnect(context.Context) error { return e.err }
+
+// errMonitor fails every monitoring call with err.
+type errMonitor struct{ err error }
+
+func (errMonitor) ListSignals() []monitor.MonitorSignal { return nil }
+
+func (e errMonitor) SetEnabled(context.Context, monitor.MonitorTargetID, bool) (monitor.MonitorTarget, error) {
+	return monitor.MonitorTarget{}, e.err
+}
+
+func (e errMonitor) WatchTargetCollection(context.Context) (*monitor.Stream[monitor.MonitorTargetCollectionWatchFrame], error) {
+	return nil, e.err
+}
+
+func (e errMonitor) WatchIncidentCollection(context.Context) (*monitor.Stream[monitor.IncidentCollectionWatchFrame], error) {
+	return nil, e.err
+}
+
+func (e errMonitor) SubscribeIncidentOccurrenceEventFeed(context.Context, monitor.IncidentID) (*monitor.Stream[monitor.IncidentOccurrenceEventFeedFrame], error) {
+	return nil, e.err
+}
