@@ -17,7 +17,7 @@ The **context omnibox** (`components/shell/context-omnibox/`) is the cluster chi
 - **It shares the Clusters dialog's streams** (the hooks in `src/lib/cluster-diagnostics.ts`), its sync wording (`syncReason`, `countLabel`, `src/lib/cluster-health.ts`) and its components (`RelativeTime`, `Countdown`, `RetryButton`, `DataRateSparkline`). The schedule state watch (`useClusterScheduleStateWatch`) is read once, in `ClusterStatus`, and handed down. The history stays in the Clusters dialog.
 - **A `Stale` sync's alert is amber**: `Alert` has no amber variant, so it takes `TONE.attention`'s shade.
 - **Size.** It hangs from the omnibox, at least 320px wide and as tall as its content. When the window is shorter, the alerts and sections scroll between a fixed header and footer, so a long message never hides the footer's buttons.
-- **`clusterDetail` is the one way a dialog opens with state** (*View details* calls `openDialog('clusters', { clusterId, pane })`): `ClusterSyncPanel` reads it once as it mounts, opens that row's pane and scrolls to it, and every other open clears it.
+- **`clusterDetail` is how the Clusters dialog opens with state** (*View details* calls `openDialog('clusters', { clusterId, pane })`): `ClusterSyncPanel` reads it once as it mounts, opens that row's pane and scrolls to it, and every other open clears it.
 
 ## The kubeconfig mirror
 

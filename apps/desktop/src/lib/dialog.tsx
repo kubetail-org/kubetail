@@ -17,23 +17,37 @@
 // control's own chrome would vanish with it when the window narrows.
 // `mountedDialog` trails `activeDialog` through the exit animation: closing clears
 // only `activeDialog`; the shared `Dialog` wrapper calls `notifyClosed` once the
-// close settles, which unmounts. One dialog open at a time.
+// close settles, which unmounts. One dialog open at a time. An open may name
+// what its dialog opens on, which the dialog reads once as it mounts.
 import type { ReactNode } from 'react';
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 // Add a dialog by extending this union and rendering it in the `AppDialogs` host.
-export type DialogId = 'clusters' | 'settings';
+export type DialogId = 'clusters' | 'incidents' | 'settings';
 
 // The Clusters dialog row, and which of its panes, to open on.
 export type ClusterDetail = { clusterId: string; pane: 'connection' | 'sync' };
+
+// What each dialog can be opened on: a Clusters row, an incident's id, a Settings tab's label.
+type DialogDetail = { clusters: ClusterDetail; incidents: string; settings: string };
+
+type OpenDialog = <Id extends DialogId>(id: Id, detail?: DialogDetail[Id]) => void;
+
+// The last open, its detail typed by its dialog, and its number among the opens, from 1.
+type Opened = { [Id in DialogId]: { id: Id; detail?: DialogDetail[Id]; seq: number } }[DialogId];
 
 type DialogContextValue = {
   activeDialog: DialogId | null;
   // Trails `activeDialog` through the exit animation.
   mountedDialog: DialogId | null;
-  openDialog: (id: DialogId, clusterDetail?: ClusterDetail) => void;
-  // The last open's; null when it named none. Read once, as the Clusters dialog mounts.
+  openDialog: OpenDialog;
+  // What the last open named, each null when it named nothing or opened another dialog.
   clusterDetail: ClusterDetail | null;
+  incidentID: string | null;
+  settingsTab: string | null;
+  // Moves on every open, even of the dialog already open on the same detail, so a
+  // dialog keyed on it chooses its detail afresh.
+  openSeq: number;
   closeDialog: () => void;
   // Close transition settled → unmount, unless a dialog is open. Called by the
   // shared `Dialog` wrapper only.
@@ -52,25 +66,31 @@ const DialogContext = createContext<DialogContextValue | null>(null);
 export function DialogProvider({ children }: { children: ReactNode }) {
   const [activeDialog, setActiveDialog] = useState<DialogId | null>(null);
   const [mountedDialog, setMountedDialog] = useState<DialogId | null>(null);
-  const [clusterDetail, setClusterDetail] = useState<ClusterDetail | null>(null);
+  const [opened, setOpened] = useState<Opened | null>(null);
+  // Stable, so a caller may open from an effect without the open re-running it.
+  const openDialog = useCallback<OpenDialog>((id, detail) => {
+    setOpened((last) => ({ id, detail, seq: (last?.seq ?? 0) + 1 }) as Opened);
+    setMountedDialog(id);
+    setActiveDialog(id);
+  }, []);
+  const closeDialog = useCallback(() => setActiveDialog(null), []);
   const value = useMemo<DialogContextValue>(
     () => ({
       activeDialog,
       mountedDialog,
-      clusterDetail,
-      openDialog: (id, detail) => {
-        setClusterDetail(detail ?? null);
-        setMountedDialog(id);
-        setActiveDialog(id);
-      },
-      closeDialog: () => setActiveDialog(null),
+      clusterDetail: opened?.id === 'clusters' ? (opened.detail ?? null) : null,
+      incidentID: opened?.id === 'incidents' ? (opened.detail ?? null) : null,
+      settingsTab: opened?.id === 'settings' ? (opened.detail ?? null) : null,
+      openSeq: opened?.seq ?? 0,
+      openDialog,
+      closeDialog,
       // A dialog still open means what closed sat inside it, or was replaced by
       // it: either way the mounted one stays.
       notifyClosed: () => {
         if (activeDialog === null) setMountedDialog(null);
       },
     }),
-    [activeDialog, mountedDialog, clusterDetail],
+    [activeDialog, mountedDialog, opened, openDialog, closeDialog],
   );
   return <DialogContext.Provider value={value}>{children}</DialogContext.Provider>;
 }
