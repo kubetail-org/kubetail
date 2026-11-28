@@ -128,9 +128,6 @@ type ClusterSpec struct {
 	Name        *string
 	Enabled     bool
 	SyncEnabled bool
-	// MonitoringEnabled is the cluster's monitor target's switch, which gates
-	// detection; true until the monitor has given the cluster a target.
-	MonitoringEnabled bool
 	// IsDefault marks the user's default cluster, which a new window opens on. At most
 	// one record is the default.
 	IsDefault bool
@@ -171,11 +168,10 @@ func kubeconfigContextOf(spec ClusterRuntimeSpec) string {
 // specOf projects the row's user-owned fields into the served spec.
 func specOf(row ClusterRow) ClusterSpec {
 	spec := ClusterSpec{
-		Name:              row.Name,
-		Enabled:           row.Enabled,
-		SyncEnabled:       row.SyncEnabled,
-		MonitoringEnabled: row.MonitoringEnabled,
-		IsDefault:         row.IsDefault,
+		Name:        row.Name,
+		Enabled:     row.Enabled,
+		SyncEnabled: row.SyncEnabled,
+		IsDefault:   row.IsDefault,
 	}
 	if row.Source == SourceKubeconfig && row.SourceKey != nil {
 		spec.Source.Kubeconfig = &ClusterSpecSourceKubeconfig{Context: *row.SourceKey}
@@ -472,8 +468,7 @@ func (a clustersAPI) WatchCollectionByID(ctx context.Context, id ClusterID) (*St
 // landing before one reread surface as the Deleted alone, and a row created and
 // removed between two reads produces no frame.
 func (a clustersAPI) WatchCollection(ctx context.Context) (*Stream[ClusterCollectionWatchFrame], error) {
-	// KeyMonitorTargets too: a record's monitoring switch is its monitor target's.
-	rows := a.s.db.ListenForChanges(appdb.KeyClusters, appdb.KeyMonitorTargets)
+	rows := a.s.db.ListenForChanges(appdb.KeyClusters)
 	objs, err := a.s.clusterClient.WatchList(ctx)
 	if err != nil {
 		rows.Close()

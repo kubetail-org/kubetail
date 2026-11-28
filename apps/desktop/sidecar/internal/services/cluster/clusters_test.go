@@ -900,7 +900,7 @@ func TestToCluster(t *testing.T) {
 	uid := "uid-1"
 	row := ClusterRow{
 		ID: "7", Source: SourceKubeconfig, SourceKey: new("prod"), Name: new("Prod"),
-		Enabled: true, SyncEnabled: true, MonitoringEnabled: true,
+		Enabled: true, SyncEnabled: true,
 		CreatedAt: t0, UpdatedAt: t0.Add(time.Second),
 	}
 	obj := &beehive.Object[ClusterRuntimeSpec, ClusterStatus]{
@@ -918,7 +918,6 @@ func TestToCluster(t *testing.T) {
 	assert.Equal(t, "Prod", *c.Spec.Name)
 	assert.True(t, c.Spec.Enabled)
 	assert.True(t, c.Spec.SyncEnabled)
-	assert.True(t, c.Spec.MonitoringEnabled)
 	assert.Equal(t, "prod", c.Spec.Source.Kubeconfig.Context)
 	require.NotNil(t, c.Status.Server.UID)
 	assert.Equal(t, uid, *c.Status.Server.UID)
@@ -1517,30 +1516,6 @@ func TestClustersSetEnabledReportsAnUnknownID(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
-// A cluster's monitoring is its monitor target's switch, read with the row: on
-// until the monitor gives the cluster a target, then the target's.
-func TestAClustersMonitoringIsItsTargetsSwitch(t *testing.T) {
-	d := newTestDeps(t)
-	obj := createCluster(t, d, "prod")
-	clusters := serviceOver(t, d).Clusters()
-
-	got, err := clusters.Get(context.Background(), clusterIDOf(obj))
-	require.NoError(t, err)
-	assert.True(t, got.Spec.MonitoringEnabled, "no target yet")
-
-	_, err = d.db.Write.Exec(`INSERT INTO monitor_targets (id, integration, key, label, enabled, created_at, updated_at)
-		VALUES ('t1', 'kubernetes', ?, 'prod', 0, 0, 0)`, string(clusterIDOf(obj)))
-	require.NoError(t, err)
-	got, err = clusters.Get(context.Background(), clusterIDOf(obj))
-	require.NoError(t, err)
-	assert.False(t, got.Spec.MonitoringEnabled)
-
-	all, err := clusters.List(context.Background())
-	require.NoError(t, err)
-	require.Len(t, all, 1)
-	assert.False(t, all[0].Spec.MonitoringEnabled)
-}
-
 // SetDefault returns the record as the default, and wakes the watchers.
 func TestClustersSetDefault(t *testing.T) {
 	d, _ := newClusterStatusDeps(t)
@@ -1838,7 +1813,6 @@ func TestImportCreatesOneRowPerContext(t *testing.T) {
 	require.Len(t, rows, 2)
 	assert.True(t, rows["prod"].Enabled)
 	assert.True(t, rows["prod"].SyncEnabled)
-	assert.True(t, rows["prod"].MonitoringEnabled)
 	testutil.Recv(t, sub.Chan(), "the clusters signal")
 }
 

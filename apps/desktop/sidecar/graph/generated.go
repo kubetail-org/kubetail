@@ -368,12 +368,11 @@ type ComplexityRoot struct {
 	}
 
 	ClusterSpec struct {
-		Enabled           func(childComplexity int) int
-		IsDefault         func(childComplexity int) int
-		MonitoringEnabled func(childComplexity int) int
-		Name              func(childComplexity int) int
-		Source            func(childComplexity int) int
-		SyncEnabled       func(childComplexity int) int
+		Enabled     func(childComplexity int) int
+		IsDefault   func(childComplexity int) int
+		Name        func(childComplexity int) int
+		Source      func(childComplexity int) int
+		SyncEnabled func(childComplexity int) int
 	}
 
 	ClusterSpecSource struct {
@@ -712,7 +711,6 @@ type ComplexityRoot struct {
 		ClusterDefaultSet               func(childComplexity int, id apimeta.ClusterID, isDefault bool) int
 		ClusterDelete                   func(childComplexity int, id apimeta.ClusterID) int
 		ClusterEnabledSet               func(childComplexity int, id apimeta.ClusterID, enabled bool) int
-		ClusterMonitoringEnabledSet     func(childComplexity int, id apimeta.ClusterID, monitoringEnabled bool) int
 		ClusterSyncEnabledSet           func(childComplexity int, id apimeta.ClusterID, syncEnabled bool) int
 		EnvVarRemove                    func(childComplexity int, clusterID *apimeta.ClusterID, name string) int
 		EnvVarSet                       func(childComplexity int, clusterID *apimeta.ClusterID, name string, value string, target envvars.Target) int
@@ -1116,7 +1114,6 @@ type MutationResolver interface {
 	ProviderKeyDelete(ctx context.Context, providerID string) (bool, error)
 	ClusterEnabledSet(ctx context.Context, id apimeta.ClusterID, enabled bool) (*cluster.Cluster, error)
 	ClusterSyncEnabledSet(ctx context.Context, id apimeta.ClusterID, syncEnabled bool) (*cluster.Cluster, error)
-	ClusterMonitoringEnabledSet(ctx context.Context, id apimeta.ClusterID, monitoringEnabled bool) (*cluster.Cluster, error)
 	ClusterDefaultSet(ctx context.Context, id apimeta.ClusterID, isDefault bool) (*cluster.Cluster, error)
 	ClusterConnectionRetry(ctx context.Context, id apimeta.ClusterID) (bool, error)
 	ClusterDelete(ctx context.Context, id apimeta.ClusterID) (bool, error)
@@ -2453,12 +2450,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ClusterSpec.IsDefault(childComplexity), true
-	case "ClusterSpec.monitoringEnabled":
-		if e.ComplexityRoot.ClusterSpec.MonitoringEnabled == nil {
-			break
-		}
-
-		return e.ComplexityRoot.ClusterSpec.MonitoringEnabled(childComplexity), true
 	case "ClusterSpec.name":
 		if e.ComplexityRoot.ClusterSpec.Name == nil {
 			break
@@ -3854,17 +3845,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.ClusterEnabledSet(childComplexity, args["id"].(apimeta.ClusterID), args["enabled"].(bool)), true
-	case "Mutation.clusterMonitoringEnabledSet":
-		if e.ComplexityRoot.Mutation.ClusterMonitoringEnabledSet == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_clusterMonitoringEnabledSet_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.ComplexityRoot.Mutation.ClusterMonitoringEnabledSet(childComplexity, args["id"].(apimeta.ClusterID), args["monitoringEnabled"].(bool)), true
 	case "Mutation.clusterSyncEnabledSet":
 		if e.ComplexityRoot.Mutation.ClusterSyncEnabledSet == nil {
 			break
@@ -6210,8 +6190,6 @@ func (ec *executionContext) childFields_ClusterSpec(ctx context.Context, field g
 		return ec.fieldContext_ClusterSpec_enabled(ctx, field)
 	case "syncEnabled":
 		return ec.fieldContext_ClusterSpec_syncEnabled(ctx, field)
-	case "monitoringEnabled":
-		return ec.fieldContext_ClusterSpec_monitoringEnabled(ctx, field)
 	case "isDefault":
 		return ec.fieldContext_ClusterSpec_isDefault(ctx, field)
 	case "source":
@@ -7917,28 +7895,6 @@ func (ec *executionContext) field_Mutation_clusterEnabledSet_args(ctx context.Co
 		return nil, err
 	}
 	args["enabled"] = arg1
-	return args, nil
-}
-
-func (ec *executionContext) field_Mutation_clusterMonitoringEnabledSet_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
-		func(ctx context.Context, v any) (apimeta.ClusterID, error) {
-			return ec.unmarshalNClusterID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋlibᚋapimetaᚐClusterID(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["id"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "monitoringEnabled",
-		func(ctx context.Context, v any) (bool, error) {
-			return ec.unmarshalNBoolean2bool(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["monitoringEnabled"] = arg1
 	return args, nil
 }
 
@@ -13640,29 +13596,6 @@ func (ec *executionContext) fieldContext_ClusterSpec_syncEnabled(_ context.Conte
 	return graphql.NewScalarFieldContext("ClusterSpec", field, false, false, "Boolean")
 }
 
-func (ec *executionContext) _ClusterSpec_monitoringEnabled(ctx context.Context, field graphql.CollectedField, obj *cluster.ClusterSpec) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ClusterSpec_monitoringEnabled(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.MonitoringEnabled, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_ClusterSpec_monitoringEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ClusterSpec", field, false, false, "Boolean")
-}
-
 func (ec *executionContext) _ClusterSpec_isDefault(ctx context.Context, field graphql.CollectedField, obj *cluster.ClusterSpec) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -18485,50 +18418,6 @@ func (ec *executionContext) fieldContext_Mutation_clusterSyncEnabledSet(ctx cont
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_clusterSyncEnabledSet_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_clusterMonitoringEnabledSet(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Mutation_clusterMonitoringEnabledSet(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().ClusterMonitoringEnabledSet(ctx, fc.Args["id"].(apimeta.ClusterID), fc.Args["monitoringEnabled"].(bool))
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *cluster.Cluster) graphql.Marshaler {
-			return ec.marshalNCluster2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋservicesᚋclusterᚐCluster(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Mutation_clusterMonitoringEnabledSet(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Cluster(ctx, field)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_clusterMonitoringEnabledSet_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -29800,11 +29689,6 @@ func (ec *executionContext) _ClusterSpec(ctx context.Context, sel ast.SelectionS
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "monitoringEnabled":
-			out.Values[i] = ec._ClusterSpec_monitoringEnabled(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "isDefault":
 			out.Values[i] = ec._ClusterSpec_isDefault(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -31984,13 +31868,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "clusterSyncEnabledSet":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_clusterSyncEnabledSet(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "clusterMonitoringEnabledSet":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_clusterMonitoringEnabledSet(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++

@@ -31,7 +31,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph"
-	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/oauth"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster"
 )
@@ -1084,32 +1083,3 @@ type errAuth struct {
 }
 
 func (e errAuth) Disconnect(context.Context) error { return e.err }
-
-// fakeMonitor is the monitor's switch over one target per key it holds, each
-// switch recorded; err fails every call.
-type fakeMonitor struct {
-	mu       sync.Mutex
-	targets  map[string]string // key to target id
-	switched map[string]bool
-	err      error
-}
-
-func (f *fakeMonitor) TargetID(_ context.Context, integration, key string) (string, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.err != nil {
-		return "", f.err
-	}
-	id, ok := f.targets[integration+"/"+key]
-	if !ok {
-		return "", monitor.ErrNoTarget
-	}
-	return id, nil
-}
-
-func (f *fakeMonitor) SetEnabled(_ context.Context, targetID string, enabled bool) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.switched[targetID] = enabled
-	return nil
-}

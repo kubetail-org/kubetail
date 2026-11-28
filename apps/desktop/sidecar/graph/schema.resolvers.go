@@ -15,7 +15,6 @@ import (
 	gqlerrors "github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph/errors"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph/model"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat"
-	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor/kubesignals"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/apimeta"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/oauth"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/llm"
@@ -281,27 +280,6 @@ func (r *mutationResolver) ClusterEnabledSet(ctx context.Context, id apimeta.Clu
 func (r *mutationResolver) ClusterSyncEnabledSet(ctx context.Context, id apimeta.ClusterID, syncEnabled bool) (*cluster.Cluster, error) {
 	c, err := r.ClusterSvc.Clusters().SetSyncEnabled(ctx, id, syncEnabled)
 	return c, clusterErr(err)
-}
-
-// ClusterMonitoringEnabledSet is the resolver for the clusterMonitoringEnabledSet field.
-func (r *mutationResolver) ClusterMonitoringEnabledSet(ctx context.Context, id apimeta.ClusterID, monitoringEnabled bool) (*cluster.Cluster, error) {
-	// A marked cluster is refused before its switch moves, as every toggle is.
-	c, err := r.ClusterSvc.Clusters().Get(ctx, id)
-	if err == nil && (c == nil || c.DeletionRequestedAt != nil) {
-		err = cluster.ErrNotFound
-	}
-	if err != nil {
-		return nil, clusterErr(err)
-	}
-	targetID, err := r.Monitor.TargetID(ctx, kubesignals.Name, kubesignals.TargetKey(id))
-	if err == nil {
-		err = r.Monitor.SetEnabled(ctx, targetID, monitoringEnabled)
-	}
-	if err != nil {
-		return nil, clusterErr(err)
-	}
-	c.Spec.MonitoringEnabled = monitoringEnabled
-	return c, nil
 }
 
 // ClusterDefaultSet is the resolver for the clusterDefaultSet field. The previous
