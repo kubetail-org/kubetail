@@ -22,7 +22,10 @@ import { Tabs, TabsList, TabsTrigger } from '@kubetail/ui/elements/tabs';
 import { cn } from '@kubetail/ui/lib/utils';
 import { useEffect, useMemo, useState } from 'react';
 
+import { Age, ageSortValue, timestampMs } from '@/components/dashboard/age';
+import { ColumnPicker } from '@/components/dashboard/column-picker';
 import { TALL_ROW } from '@/components/dashboard/row-size';
+import { TABLE_CELLS, TABLE_HEADER } from '@/components/dashboard/table-style';
 import { VirtualTable } from '@/components/dashboard/virtual-table';
 import type { TableSort, VirtualColumn } from '@/components/dashboard/virtual-table';
 import { SearchBox } from '@/components/primitives/text-entry';
@@ -39,8 +42,7 @@ import { sortRows } from '@/lib/sort-rows';
 import { arrange, useTableColumns } from '@/lib/table-columns';
 
 import { actionsColumn } from './actions';
-import { ColumnPicker } from './column-picker';
-import { Age, ageSortValue, columnsForKind, toneForKind } from './columns';
+import { columnsForKind, toneForKind } from './columns';
 
 type ObjectsTableProps = {
   apiVersion: string;
@@ -104,7 +106,7 @@ const NAME_COLUMN: VirtualColumn<ClusterCachedDataObject> = {
 };
 
 function createdMs(o: ClusterCachedDataObject): number {
-  return o.creationTimestamp ? Date.parse(o.creationTimestamp) : Number.NaN;
+  return timestampMs(o.creationTimestamp);
 }
 
 const AGE_COLUMN: VirtualColumn<ClusterCachedDataObject> = {
@@ -115,11 +117,6 @@ const AGE_COLUMN: VirtualColumn<ClusterCachedDataObject> = {
   sortValue: (o) => ageSortValue(createdMs(o)),
   cell: (o) => <Age ms={createdMs(o)} />,
 };
-
-const HEADER = 'bg-muted [&_th]:h-9 [&_th]:text-xs [&_th]:text-muted-foreground';
-// Tighter than the library's cells: 12px between columns, 12px at the card's edges.
-const CELLS =
-  '[&_td]:px-1.5 [&_th]:px-1.5 [&_td:first-child]:pl-3 [&_th:first-child]:pl-3 [&_td:last-child]:pr-3 [&_th:last-child]:pr-3';
 
 // Name is never hidden: it is the row.
 function isShown(c: VirtualColumn<ClusterCachedDataObject>, choices: Readonly<Record<string, boolean>>): boolean {
@@ -302,14 +299,17 @@ export function ObjectsTable({
       </div>
       {/* A tab or a query that leaves no row draws the table empty, its footer counting zero. */}
       <div
-        className={cn('flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-background shadow-sm', CELLS)}
+        className={cn(
+          'flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-background shadow-sm',
+          TABLE_CELLS,
+        )}
       >
         <VirtualTable
           rows={rows}
           rowKey={rowKey}
           columns={columns}
           rowSize={TALL_ROW}
-          headerClassName={HEADER}
+          headerClassName={TABLE_HEADER}
           sort={sortColumn && sort}
           onSort={onSort}
         />

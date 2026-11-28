@@ -823,7 +823,7 @@ Pending work across the three parts of the app. Grouped by area; detailed items 
   fallback)` beside `persisted-flag.ts` that re-reads on a key change, under both column hooks.
 
 - **Two column pickers.** The log viewer's toolbar (`log-viewer/toolbar.tsx`) has its own Columns
-  popover of checkbox rows; `ColumnPicker` (`components/dashboard/objects-table/column-picker.tsx`) does the same
+  popover of checkbox rows; `ColumnPicker` (`components/dashboard/column-picker.tsx`) does the same
   and adds reordering and *Reset*. Their triggers already differ (a ghost icon button against an
   outlined one). **Fix:** the log viewer takes `ColumnPicker`, with reordering optional or on, or
   the two share one checkbox row. Whether the log viewer gains reordering is a product call.

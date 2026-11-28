@@ -16,6 +16,7 @@
 // columns.
 import ReactTimeAgo from 'react-timeago';
 
+import { ageSortValue } from '@/components/dashboard/age';
 import type { ClusterCachedDataObject } from '@/lib/cluster-cached-data-objects';
 import type { StatusTone } from '@/lib/cluster-health';
 import type { PrinterColumn } from '@/lib/dashboard-resources';
@@ -25,7 +26,7 @@ import { readPath } from '@/lib/jsonpath';
 
 import { accessKinds } from './access';
 import { clusterKinds } from './cluster';
-import { ageSortValue, DASH, Text } from './common';
+import { DASH, Text } from './common';
 import type { ObjectColumn } from './common';
 import { configKinds } from './config';
 import { draKinds } from './dra';

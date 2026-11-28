@@ -262,8 +262,8 @@
           "blob": "c2bffbcc872310abcc26fdb61c940709716849a3"
         },
         {
-          "path": "src/components/dashboard/objects-table/table.tsx",
-          "symbol": "HEADER",
+          "path": "src/components/dashboard/table-style.ts",
+          "symbol": "TABLE_HEADER",
           "blob": "d09afcc15e5b6b939dda49ea1d8b6a12d3dd4b14"
         }
       ]
