@@ -29,6 +29,7 @@ apps/desktop/src/components/chat/CLAUDE.md: 18944
 apps/desktop/src/components/cluster/CLAUDE.md: 5120
 apps/desktop/src/components/dashboard/CLAUDE.md: 11776
 apps/desktop/src/components/logs/CLAUDE.md: 8192
+apps/desktop/src/components/monitoring/CLAUDE.md: 3072
 apps/desktop/src/components/settings/CLAUDE.md: 5120
 apps/desktop/src/components/shell/CLAUDE.md: 5120
 apps/web/CLAUDE.md: 13824

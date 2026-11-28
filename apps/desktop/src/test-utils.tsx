@@ -19,6 +19,7 @@ import { expect, vi } from 'vitest';
 
 import type { Cluster } from '@/lib/clusters';
 import { setSubscriptionFlushScheduler } from '@/lib/graphql/use-folded-subscription';
+import type { Incident, IncidentOccurrence, MonitorTarget } from '@/lib/incidents';
 import type { LogWindow } from '@/lib/log-windows';
 
 export type FakeChannel = { onmessage?: (raw: string) => void };
@@ -184,6 +185,57 @@ export function clusterRecord({
               lastLiveAt: null,
             },
     },
+  };
+}
+
+// A monitor target as `monitorTargetCollectionWatch` delivers it: on, judged everything,
+// and reading the server `uid-1`.
+export function monitorTargetRecord(over: Partial<MonitorTarget> = {}): MonitorTarget {
+  return {
+    id: 't1',
+    integration: 'Kubernetes',
+    label: 'prod',
+    clusterID: 'id-prod',
+    currentUID: 'uid-1',
+    enabled: true,
+    readState: 'Ok',
+    unknownSignals: [],
+    ...over,
+  };
+}
+
+// An open incident on `t1`, opened under the server `uid-1`.
+export function incidentRecord(over: Partial<Incident> = {}): Incident {
+  return {
+    id: 'i1',
+    targetID: 't1',
+    targetUID: 'uid-1',
+    subjectLabel: 'Deployment default/web',
+    subjectAttributes: [{ label: 'kind', value: 'Deployment' }],
+    signal: 'kubernetes.crash_loop',
+    signalLabel: 'Crash loop',
+    severity: 'Critical',
+    firstSeenAt: '2026-11-01T00:00:00Z',
+    open: true,
+    occurrenceCount: 1,
+    lastStartedAt: '2026-11-01T00:00:00Z',
+    lastSeenAt: null,
+    lastEndReason: null,
+    ...over,
+  };
+}
+
+// An occurrence of `i1` that has not ended.
+export function occurrenceRecord(over: Partial<IncidentOccurrence> = {}): IncidentOccurrence {
+  return {
+    id: 'o1',
+    incidentID: 'i1',
+    number: 1,
+    startedAt: '2026-11-01T00:00:00Z',
+    endedAt: null,
+    endReason: null,
+    detail: [],
+    ...over,
   };
 }
 

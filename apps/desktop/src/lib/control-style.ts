@@ -38,3 +38,7 @@ export const SIDEBAR_CONTROL_CLASS = 'rounded-lg border-border bg-background sha
 // The stroke of a 12px Lucide icon in an `icon-xs` button. Lucide measures it in
 // its 24-unit viewBox, so 2.2 draws the design's 1.1px line.
 export const SMALL_ICON_STROKE = 2.2;
+
+// A pressable row in a list of records: the Incidents dialog's and the bell's.
+export const LIST_ROW_CLASS =
+  'flex w-full flex-col rounded-md px-2 py-1.5 text-left text-sm outline-none hover:bg-accent/50 focus-visible:ring-[3px] focus-visible:ring-ring/50';
