@@ -17,7 +17,7 @@ The desktop's ADRs are their own sequence, in [`docs/adr/`](docs/adr/README.md).
 
 ## Host↔sidecar transport
 
-Host and sidecar share one Unix socket / named pipe, served by the sidecar's `net/http` as HTTP/1.1 plus h2c (prior knowledge only), with no TLS. **GraphQL** (webview↔sidecar) rides HTTP/1.1 (POST + SSE); **gRPC** (host↔sidecar control: auth state, login/logout, resync poke) rides HTTP/2. The cluster surface is GraphQL-only. → [ADR: single-socket h2c from the standard library](docs/adr/2026-10-26-single-socket-h2c-from-the-standard-library.md).
+Host and sidecar share one Unix socket / named pipe, served by the sidecar's `net/http` as HTTP/1.1 plus h2c (prior knowledge only), with no TLS. **GraphQL** (webview↔sidecar) rides HTTP/1.1 (POST + SSE); **gRPC** (host↔sidecar control: auth state, login/logout, resync poke, the monitor's alert feed) rides HTTP/2. The cluster surface is GraphQL-only. → [ADR: single-socket h2c from the standard library](docs/adr/2026-10-26-single-socket-h2c-from-the-standard-library.md).
 
 ## Read contracts
 

@@ -221,6 +221,7 @@ export function incidentRecord(over: Partial<Incident> = {}): Incident {
     lastStartedAt: '2026-11-01T00:00:00Z',
     lastSeenAt: null,
     lastEndReason: null,
+    baseline: false,
     ...over,
   };
 }

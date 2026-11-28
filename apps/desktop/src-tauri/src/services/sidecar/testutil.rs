@@ -33,6 +33,8 @@ use super::grpc::auth::{
     AuthState, AuthStateWatchRequest, LogoutRequest, LogoutResponse, StartLoginRequest,
     StartLoginResponse,
 };
+use super::grpc::monitor::monitor_service_server::{MonitorService, MonitorServiceServer};
+use super::grpc::monitor::{AlertEventFeedFrame, SubscribeAlertEventFeedRequest};
 use super::grpc::poke::poke_service_server::{PokeService, PokeServiceServer};
 use super::grpc::poke::{PokeRequest, PokeResponse};
 use super::ipc::{bind_listener, cleanup_path, Endpoint};
@@ -47,11 +49,14 @@ pub async fn read_head(stream: &mut Stream) {
 }
 
 /// What the fake answers. With `refuse` set every call fails with it;
-/// otherwise each watch sends `watch`, then ends.
+/// otherwise each watch sends `watch`, and each alert feed `alerts`, then ends.
 #[derive(Clone, Default)]
 pub struct FakeGrpc {
     pub refuse: Option<tonic::Code>,
     pub watch: Vec<Result<AuthState, Status>>,
+    pub alerts: Vec<Result<AlertEventFeedFrame, Status>>,
+    /// Holds each alert feed open after `alerts`, as a live sidecar does.
+    pub hold_alerts: bool,
     /// Calls answered, of every kind.
     pub calls: Arc<watch::Sender<usize>>,
 }
@@ -66,7 +71,8 @@ impl FakeGrpc {
         });
         let server = Server::builder()
             .add_service(AuthServiceServer::new(self.clone()))
-            .add_service(PokeServiceServer::new(self))
+            .add_service(PokeServiceServer::new(self.clone()))
+            .add_service(MonitorServiceServer::new(self))
             .serve_with_incoming(incoming);
         // On Tauri's own runtime, so a test's paused clock does not reach it.
         let task = tauri::async_runtime::spawn(server);
@@ -123,6 +129,26 @@ impl AuthService for FakeGrpc {
 impl PokeService for FakeGrpc {
     async fn poke(&self, _: Request<PokeRequest>) -> Result<Response<PokeResponse>, Status> {
         self.answer(PokeResponse {})
+    }
+}
+
+#[tonic::async_trait]
+impl MonitorService for FakeGrpc {
+    type SubscribeAlertEventFeedStream =
+        Pin<Box<dyn futures_util::Stream<Item = Result<AlertEventFeedFrame, Status>> + Send>>;
+
+    async fn subscribe_alert_event_feed(
+        &self,
+        _: Request<SubscribeAlertEventFeedRequest>,
+    ) -> Result<Response<Self::SubscribeAlertEventFeedStream>, Status> {
+        use futures_util::StreamExt;
+        let frames = futures_util::stream::iter(self.alerts.clone());
+        let frames: Self::SubscribeAlertEventFeedStream = if self.hold_alerts {
+            Box::pin(frames.chain(futures_util::stream::pending()))
+        } else {
+            Box::pin(frames)
+        };
+        self.answer(frames)
     }
 }
 

@@ -17,6 +17,7 @@ package monitor
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync/atomic"
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/appdb"
@@ -67,8 +68,42 @@ func (m *Monitor) WatchIncidentCollection(ctx context.Context) (*Stream[Incident
 // starts or ends. An incident the incidents watch leaves out has none, and its
 // feed sends nothing once deleted.
 func (m *Monitor) SubscribeIncidentOccurrenceEventFeed(ctx context.Context, id IncidentID) (*Stream[IncidentOccurrenceEventFeedFrame], error) {
+	read := func(ctx context.Context) ([]IncidentOccurrence, error) { return m.store.servedOccurrences(ctx, id) }
+	frame := func(o IncidentOccurrence) IncidentOccurrenceEventFeedFrame {
+		return IncidentOccurrenceEventFeedFrame{Type: IncidentOccurrenceEventFeedFrameOccurrence, IncidentID: id, Occurrence: &o}
+	}
+	bookmark := IncidentOccurrenceEventFeedFrame{Type: IncidentOccurrenceEventFeedFrameBookmark, IncidentID: id}
 	return stream(ctx, m, func(ctx context.Context, out chan<- IncidentOccurrenceEventFeedFrame) error {
-		return m.pumpOccurrences(ctx, id, out)
+		return pumpEventFeed(ctx, m, out, read, servedOccurrenceID, frame, bookmark, true, appdb.KeyIncidents)
+	})
+}
+
+// SubscribeAlertEventFeed streams the retained alerts, the newest keepAlerts, in
+// the order they committed, one Bookmark, then each alert as it is raised, once.
+// Only an incidents commit raises one, so it re-reads on that key alone.
+func (m *Monitor) SubscribeAlertEventFeed(ctx context.Context) (*Stream[AlertEventFeedFrame], error) {
+	// An alert at or below the newest one read committed before it, so it is not
+	// new however it reaches the read: one returns into the newest keepAlerts
+	// when a newer incident is deleted. The pump reads on one goroutine.
+	var newest int64
+	read := func(ctx context.Context) ([]Alert, error) {
+		alerts, err := m.store.servedAlerts(ctx)
+		if err != nil {
+			return nil, err
+		}
+		since := newest
+		alerts = slices.DeleteFunc(alerts, func(a Alert) bool { return a.Seq <= since })
+		if len(alerts) > 0 {
+			newest = alerts[len(alerts)-1].Seq
+		}
+		return alerts, nil
+	}
+	frame := func(a Alert) AlertEventFeedFrame {
+		return AlertEventFeedFrame{Type: AlertEventFeedFrameAlert, Alert: &a}
+	}
+	bookmark := AlertEventFeedFrame{Type: AlertEventFeedFrameBookmark}
+	return stream(ctx, m, func(ctx context.Context, out chan<- AlertEventFeedFrame) error {
+		return pumpEventFeed(ctx, m, out, read, servedAlertID, frame, bookmark, false, appdb.KeyIncidents)
 	})
 }
 
@@ -82,6 +117,10 @@ func targetFrame(typ apimeta.CollectionWatchFrameType, t MonitorTarget) MonitorT
 }
 
 func servedIncidentID(i Incident) IncidentID { return i.ID }
+
+func servedOccurrenceID(o IncidentOccurrence) IncidentOccurrenceID { return o.ID }
+
+func servedAlertID(a Alert) IncidentID { return a.IncidentID }
 
 func incidentFrame(typ apimeta.CollectionWatchFrameType, i Incident) IncidentCollectionWatchFrame {
 	if typ == apimeta.CollectionWatchFrameBookmark {
@@ -160,23 +199,27 @@ func pumpCollection[K comparable, T comparable, F any](
 	}
 }
 
-// pumpOccurrences is the occurrence feed: listen, read, the snapshot and its
-// Bookmark, then on each notice every occurrence that is new or changed. One
-// trimmed or deleted is dropped unannounced.
-func (m *Monitor) pumpOccurrences(ctx context.Context, id IncidentID, out chan<- IncidentOccurrenceEventFeedFrame) error {
-	rx := m.store.db.ListenForChanges(appdb.KeyIncidents)
+// pumpEventFeed is an event feed over read: listen on keys, then read, each
+// record and one Bookmark, then on each notice each record not sent yet, and,
+// when resendChanged, each one that changed since it was sent. One that leaves
+// the read is dropped unannounced.
+func pumpEventFeed[K comparable, T comparable, F any](
+	ctx context.Context, m *Monitor, out chan<- F, read func(context.Context) ([]T, error),
+	key func(T) K, frame func(T) F, bookmark F, resendChanged bool, keys ...string,
+) error {
+	rx := m.store.db.ListenForChanges(keys...)
 	defer rx.Close()
 
-	sent := map[IncidentOccurrenceID]IncidentOccurrence{}
-	send := func(occurrences []IncidentOccurrence) bool {
-		kept := make(map[IncidentOccurrenceID]IncidentOccurrence, len(occurrences))
-		for _, o := range occurrences {
-			kept[o.ID] = o
-			if prev, ok := sent[o.ID]; ok && prev == o {
+	sent := map[K]T{}
+	send := func(records []T) bool {
+		kept := make(map[K]T, len(records))
+		for _, r := range records {
+			k := key(r)
+			kept[k] = r
+			if prev, ok := sent[k]; ok && (prev == r || !resendChanged) {
 				continue
 			}
-			frame := IncidentOccurrenceEventFeedFrame{Type: IncidentOccurrenceEventFeedFrameOccurrence, IncidentID: id, Occurrence: &o}
-			if !deltafold.Send(ctx, out, frame) {
+			if !deltafold.Send(ctx, out, frame(r)) {
 				return false
 			}
 		}
@@ -184,23 +227,22 @@ func (m *Monitor) pumpOccurrences(ctx context.Context, id IncidentID, out chan<-
 		return true
 	}
 
-	occurrences, err := m.store.servedOccurrences(ctx, id)
+	records, err := read(ctx)
 	if err != nil {
 		return err
 	}
-	bookmark := IncidentOccurrenceEventFeedFrame{Type: IncidentOccurrenceEventFeedFrameBookmark, IncidentID: id}
-	if !send(occurrences) || !deltafold.Send(ctx, out, bookmark) {
+	if !send(records) || !deltafold.Send(ctx, out, bookmark) {
 		return nil
 	}
 	for {
 		if _, err := rx.RecvContext(ctx); err != nil {
 			return nil
 		}
-		occurrences, err := m.store.servedOccurrences(ctx, id)
+		records, err := read(ctx)
 		if err != nil {
 			return err
 		}
-		if !send(occurrences) {
+		if !send(records) {
 			return nil
 		}
 	}

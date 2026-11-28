@@ -313,3 +313,4 @@ Every row of the model that no test enforces, and every residual an enforced row
 - [WEB-7](webview.md#web-7), residual. The sidecar draws no verdict, so the frontend tests are the fence.
 - [WEB-14](webview.md#web-14), By decision. No GraphQL field is served ahead of a consumer. Residual: A mutation with no caller is what review is for.
 - [WEB-15](webview.md#web-15), By decision, not built. The host forwards only operations the app ships. Residual: CSP reduces injection risk but does not restrict the authority of permitted bundled code.
+- [WEB-16](webview.md#web-16), residual. A label within its bounds shows as the cluster wrote it; macOS's center is checked by hand in a signed build.

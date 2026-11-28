@@ -22,7 +22,7 @@ mod service;
 pub mod testutil;
 
 pub use graphql::GraphqlResponse;
-pub use grpc::AuthState;
 #[cfg(test)]
 pub use grpc::Identity;
+pub use grpc::{alert_event_feed_frame, Alert, AlertEventFeedFrame, AuthState};
 pub use service::SidecarService;

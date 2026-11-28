@@ -75,6 +75,7 @@ export function IncidentSummary({ incident, target }: { incident: Incident; targ
       <span className="text-xs text-muted-foreground">
         <IncidentState incident={incident} />
       </span>
+      {incident.baseline && <span className="text-xs text-muted-foreground">Found when monitoring started</span>}
       {target.currentUID !== null && incident.targetUID !== target.currentUID && (
         <span className={cn('text-xs', TONE.attention.text)}>On a server this target no longer reaches</span>
       )}

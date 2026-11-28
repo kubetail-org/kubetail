@@ -15,7 +15,7 @@ This page covers what keeps hostile code and markup out of the webview, and what
 | WEB-5 | A chat answer is rendered to React elements, never an HTML string. Raw HTML in it stays text. | **Enforced** | — |
 | WEB-6 | Printer columns are evaluated by a restricted reader, not a template engine. | **Enforced** | — |
 | WEB-7 | An unverified cluster connection is visible in the UI. | **Enforced** | The sidecar draws no verdict, so the frontend tests are the fence. |
-| WEB-8 | No permission is granted to the webview ahead of a consumer: a window calls only the commands its capability allows, and no page emits an event or calls the menu, tray, image, resources, path or app API. An app window holds thirteen commands. | **Enforced** | — |
+| WEB-8 | No permission is granted to the webview ahead of a consumer: a window calls only the commands its capability allows, and no page emits an event or calls the menu, tray, image, resources, path or app API. An app window holds sixteen commands. | **Enforced** | — |
 | WEB-9 | A log window holds the viewer's commands and cannot open a window, change a preference, quit or open the account URL. | **Enforced** | — |
 | WEB-10 | The command list in `build.rs` is held to `invoke_handler`'s. | **Enforced** | — |
 | WEB-11 | Each log-window command also checks its caller's window kind. | **Enforced** | — |
@@ -23,6 +23,9 @@ This page covers what keeps hostile code and markup out of the webview, and what
 | WEB-13 | `tauri.conf.json` declares no windows. Chrome decisions stay in `build_window`. | **Enforced** | — |
 | WEB-14 | No GraphQL field is served ahead of a consumer. | **By decision** | A mutation with no caller is what review is for. |
 | WEB-15 | The host forwards only operations the app ships. | **By decision**, not built | CSP reduces injection risk but does not restrict the authority of permitted bundled code. |
+| WEB-16 | No window may send an OS notification. The host shows each monitoring alert as fixed text around the subject's, target's and signal's labels, each stripped of what draws as nothing and bounded. | **Enforced** | A label within its bounds shows as the cluster wrote it; macOS's center is checked by hand in a signed build. |
+| WEB-17 | A Linux notification's body reaches the notification server with `&`, `<` and `>` escaped, so a label draws no link and no bold text on a server that reads markup. | **Enforced** | — |
+| WEB-18 | A notification's press hands a page an incident's id and nothing else, and only the page of the window it surfaced takes it: `notification_press_take` reads the caller's label off its `Webview`. | **Enforced** | — |
 
 ## Evidence
 
@@ -107,3 +110,23 @@ This page covers what keeps hostile code and markup out of the webview, and what
 
 - **Records:** [no GraphQL operation allowlist](../adr/2026-09-03-no-graphql-operation-allowlist.md), [TODO](../TODO.md#security)
 - Note: what the schema's breadth costs is S-9's other half, in the TODO.
+
+### WEB-16
+
+- **Where:** `src-tauri/src/alerts/mod.rs`, `src-tauri/capabilities/default.json`, `src-tauri/capabilities/logs.json`
+- `no_window_may_send_a_notification` — neither capability grants a notification permission.
+- `alert_body_strips_control_characters_and_bounds_each_part` — a newline, an escape or 10,000 bytes yields one bounded line.
+- **Records:** [monitoring alerts](../security/2026-11-27-monitoring-alerts.md)
+
+### WEB-17
+
+- **Where:** `src-tauri/src/alerts/mod.rs`
+- `a_linux_body_escapes_markup_in_labels` — a label's link and bold tags reach the server as text.
+- **Records:** [monitoring alerts](../security/2026-11-27-monitoring-alerts.md)
+
+### WEB-18
+
+- **Where:** `src-tauri/src/window_manager.rs`, `src-tauri/src/commands.rs`
+- `notification_press_take_takes_the_callers_press` — another window's page takes nothing, and a take clears the press.
+- `a_press_waits_in_the_app_window_last_focused` — the press waits for the window it surfaced, a log window's focus aside.
+- **Records:** [monitoring alerts](../security/2026-11-27-monitoring-alerts.md)

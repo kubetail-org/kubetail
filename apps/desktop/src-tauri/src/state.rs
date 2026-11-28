@@ -18,6 +18,9 @@ use std::sync::{Arc, Mutex};
 use tokio_util::sync::CancellationToken;
 use tracing_appender::non_blocking::WorkerGuard;
 
+use crate::alerts::PermissionWatch;
+#[cfg(not(target_os = "macos"))]
+use crate::alerts::PluginNotices;
 use crate::log_windows::LogWindows;
 use crate::quit::Quit;
 use crate::services::sidecar::SidecarService;
@@ -48,6 +51,12 @@ pub struct AppState {
     pub webview_log: Mutex<Limiter>,
     /// The log windows and the app windows that opened them.
     pub log_windows: LogWindows,
+    /// Whether the OS shows the alerts' notifications, as each Monitoring tab
+    /// reads it.
+    pub notification_permission: PermissionWatch,
+    /// The notices `tauri-plugin-notification` showed, which its presses name.
+    #[cfg(not(target_os = "macos"))]
+    pub plugin_notices: PluginNotices,
 }
 
 impl AppState {
@@ -69,6 +78,9 @@ impl AppState {
             log_guards: Mutex::new(log_guards),
             webview_log: Mutex::new(Limiter::new(LimiterConfig::DEFAULT)),
             log_windows: LogWindows::default(),
+            notification_permission: PermissionWatch::default(),
+            #[cfg(not(target_os = "macos"))]
+            plugin_notices: PluginNotices::default(),
         }
     }
 

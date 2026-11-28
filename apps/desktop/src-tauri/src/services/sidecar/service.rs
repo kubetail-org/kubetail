@@ -26,7 +26,7 @@ use crate::error::{AppError, Result};
 use crate::paths::Folders;
 
 use super::graphql::{FrameSink, GraphqlResponse, QueryClient, SubscriptionClient};
-use super::grpc::{AuthStateStream, GrpcClient};
+use super::grpc::{AlertEventFeed, AuthStateStream, GrpcClient};
 use super::ipc::{Endpoint, Target};
 use super::logs::forward_sidecar_line;
 
@@ -269,6 +269,12 @@ impl SidecarService {
     /// the supervisor re-opens it.
     pub async fn watch_auth_state(&self) -> Result<AuthStateStream> {
         self.grpc_client.watch_auth_state().await
+    }
+
+    /// Opens the alert feed, which [`crate::alerts`] notifies. Error /
+    /// end-of-stream means the connection dropped — the listener re-opens it.
+    pub async fn subscribe_alert_event_feed(&self) -> Result<AlertEventFeed> {
+        self.grpc_client.subscribe_alert_event_feed().await
     }
 
     /// Best-effort resync nudge, driven by [`crate::wake`]; failures are the

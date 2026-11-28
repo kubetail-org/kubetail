@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The bell at the app bar's right end, beside Settings: every target's open incidents,
-// counted on the button, each opening the Incidents dialog on it in this window.
-// Labels a target returned are drawn through VisibleText.
+// The bell at the app bar's right end, beside Settings: every target's open incidents
+// but a baseline one, counted on the button, each opening the Incidents dialog on it
+// in this window. Labels a target returned are drawn through VisibleText.
 import { Button } from '@kubetail/ui/elements/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@kubetail/ui/elements/popover';
 import { Bell } from 'lucide-react';
@@ -37,11 +37,13 @@ export function NotificationButton() {
   const incidents = useIncidents();
 
   const targetLabels = useMemo(() => new Map(targets?.map((t) => [t.id, t.label])), [targets]);
-  // Newest start first, whatever the severity.
+  // Newest start first, whatever the severity. A baseline incident was there when
+  // monitoring started, and raised no alert: it is the list's alone.
   const openIncidents = useMemo(
     () =>
-      incidents?.filter((i) => i.open).toSorted((a, b) => Date.parse(b.lastStartedAt) - Date.parse(a.lastStartedAt)) ??
-      null,
+      incidents
+        ?.filter((i) => i.open && !i.baseline)
+        .toSorted((a, b) => Date.parse(b.lastStartedAt) - Date.parse(a.lastStartedAt)) ?? null,
     [incidents],
   );
   // The targets that would find nothing: off, or cannot be read.

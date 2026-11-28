@@ -15,7 +15,8 @@
 // The Incidents dialog: the filter's target lines and incidents beside one incident's
 // detail. The selection and the filter are its own state, so each window keeps its
 // own and both start over at each opening. A filter or selection whose target or
-// incident leaves the provider's lists is dropped in the render that sees it.
+// incident leaves the provider's lists is dropped in the render that sees it. An
+// incident opened on that held lists lack waits for the next live ones.
 import { Button } from '@kubetail/ui/elements/button';
 import { X } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -73,10 +74,19 @@ function IncidentsBody() {
   }, [heldTargets, heldIncidents, clusters]);
   if (!targets || !incidents) return <p className="px-6 py-4 text-sm text-muted-foreground">Loading…</p>;
   // An open while open chooses its filter and selection afresh; a reconnect keeps them.
-  return <IncidentsPanes key={host?.openSeq} targets={targets} incidents={incidents} />;
+  return <IncidentsPanes key={host?.openSeq} targets={targets} incidents={incidents} live={settled} />;
 }
 
-function IncidentsPanes({ targets, incidents }: { targets: MonitorTarget[]; incidents: Incident[] }) {
+function IncidentsPanes({
+  targets,
+  incidents,
+  live,
+}: {
+  targets: MonitorTarget[];
+  incidents: Incident[];
+  // Whether the lists are the provider's current ones, not held through a reconnect.
+  live: boolean;
+}) {
   const host = useDialogHost();
   const { clusterID } = useActiveCluster();
   const findOpenedOn = () => incidents.find((i) => i.id === host?.incidentID);
@@ -88,6 +98,19 @@ function IncidentsPanes({ targets, incidents }: { targets: MonitorTarget[]; inci
       ALL_TARGETS,
   );
   const [selectedID, setSelectedID] = useState(() => findOpenedOn()?.id ?? null);
+  // The incident opened on, while held lists lack it: a press can name one newer
+  // than they are. Selected when it appears; dropped once live lists lack it.
+  const [awaitedID, setAwaitedID] = useState(() => (live || findOpenedOn() ? null : (host?.incidentID ?? null)));
+  if (awaitedID !== null) {
+    const awaited = incidents.find((i) => i.id === awaitedID);
+    if (awaited) {
+      setAwaitedID(null);
+      setFilter(awaited.targetID);
+      setSelectedID(awaited.id);
+    } else if (live) {
+      setAwaitedID(null);
+    }
+  }
 
   const targetsByID = useMemo(() => new Map(targets.map((t) => [t.id, t])), [targets]);
   const filterTarget = targetsByID.get(filter);

@@ -17,13 +17,14 @@ use std::time::Instant;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State, Webview, WebviewWindow};
 
+use crate::alerts::NotificationPermission;
 use crate::error::Result;
 use crate::host_file::{self, HostFile, HostFilePatch};
 use crate::log_windows::{self, Call, Frame, Subscribed, View};
 use crate::services::sidecar::GraphqlResponse;
 use crate::state::AppState;
 use crate::webview_log::{self, WebviewRecord};
-use crate::window_manager::{self, on_blocking_pool};
+use crate::window_manager::{self, on_blocking_pool, Press};
 
 /// Probes the sidecar's IPC listener; the frontend's startup gate. `Err`
 /// (frontend `networkError`) once the connect budget elapses.
@@ -120,6 +121,30 @@ pub async fn graphql_subscribe<R: Runtime>(
 pub async fn graphql_unsubscribe(state: State<'_, AppState>, id: u64) -> Result<()> {
     state.sidecar.unsubscribe(id).await;
     Ok(())
+}
+
+/// Sends whether the OS shows the alerts' notifications on `channel`, at once
+/// and on each change. See `alerts`.
+#[tauri::command]
+pub fn notification_permission_state_watch<R: Runtime>(
+    state: State<'_, AppState>,
+    webview: Webview<R>,
+    channel: Channel<NotificationPermission>,
+) {
+    state
+        .notification_permission
+        .subscribe(webview.label(), channel);
+}
+
+/// Takes the notification press waiting for the calling window's page, if one
+/// is: the incident to open the Incidents dialog on, or none. See
+/// `WindowManager::open_incident`.
+#[tauri::command]
+pub fn notification_press_take<R: Runtime>(
+    state: State<'_, AppState>,
+    webview: Webview<R>,
+) -> Option<Press> {
+    state.window_manager.take_press(webview.label())
 }
 
 /// An app window subscribes to its log windows on `channel`, and gets the page its
@@ -429,6 +454,48 @@ mod tests {
 
         let withheld = state.webview_log.lock().unwrap().evict("window-1");
         assert_eq!(withheld, 1, "the second record is withheld");
+    }
+
+    /// The permission watch sends its value at once to the calling webview's
+    /// channel.
+    #[test]
+    fn notification_permission_state_watch_subscribes_the_caller() {
+        let scratch = Scratch::new();
+        let app = mock_app(scratch.path(), SidecarService::without_process(None));
+        let main = window(&app, "main");
+
+        let args = json!({ "channel": "__CHANNEL__:1" });
+        assert_eq!(
+            invoke(&main, "notification_permission_state_watch", args),
+            Ok(json!(null))
+        );
+    }
+
+    /// A page takes the press waiting for its own window, and once.
+    #[test]
+    fn notification_press_take_takes_the_callers_press() {
+        let scratch = Scratch::new();
+        let app = mock_app(scratch.path(), SidecarService::without_process(None));
+        let main = window(&app, "main");
+        let other = window(&app, "window-1");
+        let state = app.state::<AppState>();
+        state
+            .window_manager
+            .open_incident(app.handle(), Some("0193"))
+            .unwrap();
+
+        assert_eq!(
+            invoke(&other, "notification_press_take", json!({})),
+            Ok(json!(null))
+        );
+        assert_eq!(
+            invoke(&main, "notification_press_take", json!({})),
+            Ok(json!({ "incidentID": "0193" }))
+        );
+        assert_eq!(
+            invoke(&main, "notification_press_take", json!({})),
+            Ok(json!(null))
+        );
     }
 
     /// `main` subscribed, with its page.

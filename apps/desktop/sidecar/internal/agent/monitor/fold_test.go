@@ -420,3 +420,91 @@ func TestAnEndIsNeverBeforeTheFirstSighting(t *testing.T) {
 	require.Len(t, ch.ends, 1)
 	assert.Equal(t, t0, ch.ends[0].at)
 }
+
+// A signal's first judged reading opens its baseline window at the reading's time,
+// written once; a signal the reading leaves unknown opens its own when it is next
+// judged.
+func TestAJudgedSignalOpensItsBaselineWindow(t *testing.T) {
+	f := newFolder(t)
+	r := nothing()
+	r.Unknown = map[string]ReadErrorCode{flip.Name: CodeNotReady}
+
+	ch := f.at(0, r)
+	assert.Equal(t, map[string]time.Time{crash.Name: t0}, ch.baselines)
+	ch = f.at(30*time.Second, nothing())
+	assert.Equal(t, map[string]time.Time{crash.Name: t0, flip.Name: t0.Add(30 * time.Second)}, ch.baselines)
+	ch = f.at(time.Minute, nothing())
+	assert.Nil(t, ch.baselines, "an entry is written once")
+}
+
+// A pair first seen inside its signal's window, though the window's first reading
+// missed it, starts a baseline occurrence once it has held for open-after; one
+// first seen as the window closes starts an ordinary one.
+func TestAPairFirstSeenInTheWindowStartsABaselineOccurrence(t *testing.T) {
+	f := newFolder(t)
+	f.at(0, nothing())
+	f.every(30*time.Second, 4*time.Minute+30*time.Second, seeing(crash.Name, "web"))
+	f.every(5*time.Minute, 7*time.Minute, seeing(crash.Name, "web", "api"))
+
+	require.Len(t, f.all.starts, 2)
+	assert.Equal(t, t0.Add(30*time.Second), f.all.starts[0].startedAt)
+	assert.True(t, f.all.starts[0].baseline, "web was first seen in the window")
+	assert.Equal(t, t0.Add(5*time.Minute), f.all.starts[1].startedAt)
+	assert.False(t, f.all.starts[1].baseline, "api was first seen as it closed")
+}
+
+// The window runs by the wall clock: a signal unknown for most of it still has it
+// close at its resolve-after.
+func TestTheBaselineWindowRunsByTheWallClock(t *testing.T) {
+	f := newFolder(t)
+	f.at(0, nothing())
+	f.every(30*time.Second, 4*time.Minute, unknown(CodeUnavailable))
+	f.at(4*time.Minute+30*time.Second, seeing(crash.Name, "web"))
+	f.every(5*time.Minute, 7*time.Minute, seeing(crash.Name, "web", "api"))
+
+	require.Len(t, f.all.starts, 2)
+	assert.True(t, f.all.starts[0].baseline, "web")
+	assert.False(t, f.all.starts[1].baseline, "api")
+}
+
+// A reading stamped before its signal's entry, as after a clock set back, marks no
+// pair.
+func TestAReadingBeforeTheEntryMarksNoPair(t *testing.T) {
+	f := newFolder(t)
+	f.at(0, nothing())
+
+	f.at(-time.Minute, seeing(crash.Name, "web"))
+
+	p, ok := f.state.pairs[pairKey{crash.Name, "web"}]
+	require.True(t, ok)
+	assert.False(t, p.baseline)
+}
+
+// A reading under a new UID empties the baselines and opens the windows afresh,
+// so what it finds is baseline again.
+func TestANewUIDTakesANewBaseline(t *testing.T) {
+	f := newFolder(t)
+	f.at(0, nothing())
+	r := seeing(flip.Name, "web")
+	r.UID = "u2"
+
+	ch := f.at(time.Hour, r)
+
+	at := t0.Add(time.Hour)
+	assert.Equal(t, map[string]time.Time{crash.Name: at, flip.Name: at}, ch.baselines)
+	require.Len(t, ch.starts, 1)
+	assert.True(t, ch.starts[0].baseline)
+}
+
+// A signal whose resolve-after is zero takes its baseline from its first judged
+// reading alone; a subject keyed by the empty string is marked as any other.
+func TestAZeroWindowBaselineIsItsFirstReading(t *testing.T) {
+	f := newFolder(t)
+	first := f.at(0, seeing(flip.Name, ""))
+	next := f.at(30*time.Second, seeing(flip.Name, "", "web"))
+
+	require.Len(t, first.starts, 1)
+	assert.True(t, first.starts[0].baseline)
+	require.Len(t, next.starts, 1)
+	assert.False(t, next.starts[0].baseline)
+}

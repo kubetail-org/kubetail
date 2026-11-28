@@ -151,7 +151,27 @@ objc2-foundation = { version = "0.3", features = [
   # Reads the global-domain `AppleInterfaceStyle` to resolve the `system`
   # color-scheme preference before the first window exists (see os_theme.rs).
   "NSUserDefaults",
+  # Tells a bundled app from a bare binary, which the notification center
+  # refuses (alerts/macos.rs).
+  "NSBundle",
 ] }
+# The alerts' notifications, their permission and their press (alerts/macos.rs):
+# macOS keeps both the answer and the press in the notification center, which
+# tauri-plugin-notification's macOS side does not read. The versions Tauri
+# already pulls in.
+objc2-user-notifications = { version = "0.3", default-features = false, features = [
+  "std",
+  "block2",
+  "bitflags",
+  "UNNotification",
+  "UNNotificationContent",
+  "UNNotificationRequest",
+  "UNNotificationResponse",
+  "UNNotificationSettings",
+  "UNNotificationTrigger",
+  "UNUserNotificationCenter",
+] }
+block2 = "0.6"
 objc2-app-kit = { version = "0.3", features = [
   "NSApplication",
   "NSMenu",
@@ -167,6 +187,11 @@ objc2-app-kit = { version = "0.3", features = [
 # CFRunLoop from core-foundation) reports connectivity transitions.
 system-configuration = "0.8"
 core-foundation = "0.10"
+
+# The alerts' notifications on Windows and Linux (`alerts/`). It is granted to
+# no window: the host alone sends one.
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+tauri-plugin-notification = "2"
 
 # Unix-only: tao installs no signal handlers, so SIGTERM/SIGINT/SIGHUP are
 # captured and funneled into the graceful-exit path (see
