@@ -1301,6 +1301,7 @@ func TestResolverErrorsReachTheCaller(t *testing.T) {
 		"Mutation.clusterEnabledSet":               func() error { _, err := r.Mutation().ClusterEnabledSet(ctx, id, true); return err },
 		"Mutation.clusterSyncEnabledSet":           func() error { _, err := r.Mutation().ClusterSyncEnabledSet(ctx, id, true); return err },
 		"Mutation.monitorTargetEnabledSet":         func() error { _, err := r.Mutation().MonitorTargetEnabledSet(ctx, "t1", true); return err },
+		"Mutation.incidentTriage":                  func() error { _, err := r.Mutation().IncidentTriage(ctx, "i1", "fake", "fake", nil); return err },
 		"Subscription.incidentCollectionWatch":     func() error { _, err := r.Subscription().IncidentCollectionWatch(ctx); return err },
 		"Subscription.incidentOccurrenceEventFeed": func() error { _, err := r.Subscription().IncidentOccurrenceEventFeed(ctx, "i1"); return err },
 		"Mutation.clusterDefaultSet":               func() error { _, err := r.Mutation().ClusterDefaultSet(ctx, id, true); return err },
@@ -4826,8 +4827,17 @@ var otherRegistration = monitor.Registration{Name: "other", Cadence: time.Minute
 // other integration, served only when regs register it.
 func newMonitorServer(t *testing.T, regs ...monitor.Registration) (*httptest.Server, *appdb.DB, *monitor.Monitor) {
 	t.Helper()
+	return newMonitorServerOver(t, nil, regs...)
+}
+
+// newMonitorServerOver is newMonitorServer with triager as the Kubernetes
+// registration's Triager.
+func newMonitorServerOver(t *testing.T, triager monitor.Triager, regs ...monitor.Registration) (*httptest.Server, *appdb.DB, *monitor.Monitor) {
+	t.Helper()
 	db := appdbtest.Open(t)
-	mon, err := monitor.New(db, append([]monitor.Registration{kubesignals.Register(db, newFakeClusterService(nil))}, regs...)...)
+	kube := kubesignals.Register(db, newFakeClusterService(nil))
+	kube.Triager = triager
+	mon, err := monitor.New(db, append([]monitor.Registration{kube}, regs...)...)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, mon.Close()) })
 	for _, q := range []string{
@@ -4958,6 +4968,60 @@ func TestIncidentCollectionWatchServesEveryIncident(t *testing.T) {
 		"firstSeenAt": "1970-01-01T00:00:01Z", "open": true, "occurrenceCount": float64(2),
 		"lastStartedAt": "1970-01-01T00:00:03Z", "lastSeenAt": nil, "lastEndReason": nil, "baseline": false,
 	}, frames[0]["incident"])
+}
+
+// idleTriager is a Triager the never-started monitor never calls.
+type idleTriager struct{}
+
+func (idleTriager) Triage(context.Context, monitor.Target, string, string, monitor.TriageModel, monitor.Admit) (monitor.TriageResult, error) {
+	panic("a monitor that never started runs no triage")
+}
+
+// A target serves whether its integration can triage, and an incident its
+// triage, none until one is asked for.
+func TestATargetServesCanTriageAndAnIncidentItsTriage(t *testing.T) {
+	for _, c := range []struct {
+		triager monitor.Triager
+		want    bool
+	}{{nil, false}, {idleTriager{}, true}} {
+		srv, _, _ := newMonitorServerOver(t, c.triager)
+		resp, events := chatFrames(t, srv, `subscription { monitorTargetCollectionWatch { type target { id canTriage } } }`)
+		assert.Equal(t, map[string]any{"id": "t1", "canTriage": c.want}, targetsByID(t, events)["t1"])
+		resp.Body.Close()
+	}
+
+	srv, _, _ := newMonitorServer(t)
+	resp, events := chatFrames(t, srv, `subscription { incidentCollectionWatch { type incident { id triage {
+		state verdict error report providerID modelID effort } } } }`)
+	defer resp.Body.Close()
+	assert.Equal(t, map[string]any{
+		"state": "None", "verdict": nil, "error": nil, "report": nil, "providerID": nil, "modelID": nil, "effort": nil,
+	}, framesUntilBookmark(t, events)[0]["incident"].(map[string]any)["triage"])
+}
+
+// incidentTriage queues a triage and returns the incident queued; it is refused
+// for an unknown id, for a target that cannot triage, for one queued, and for an
+// incident its target has moved off.
+func TestIncidentTriageQueuesATriage(t *testing.T) {
+	srv, db, _ := newMonitorServerOver(t, idleTriager{})
+	const triage = `mutation { incidentTriage(id: "i1", providerID: "fake", modelID: "fake-1", effort: "low") { id triage { state report } } }`
+
+	data := mutate(t, srv, triage)
+
+	assert.Equal(t, map[string]any{"id": "i1", "triage": map[string]any{"state": "Queued", "report": nil}}, data["incidentTriage"])
+	assert.Contains(t, string(postGQL(t, srv.URL, `{"query":`+strconv.Quote(triage)+`}`)), "KUBETAIL_VALIDATION_ERROR", "already queued")
+
+	_, err := db.Write.Exec(`UPDATE incidents SET triage_state = 'none', triage_request_id = NULL`)
+	require.NoError(t, err)
+	_, err = db.Write.Exec(`UPDATE monitor_targets SET current_uid = 'srv-2'`)
+	require.NoError(t, err)
+	assert.Contains(t, string(postGQL(t, srv.URL, `{"query":`+strconv.Quote(triage)+`}`)), "KUBETAIL_VALIDATION_ERROR", "the target moved")
+
+	unknown := `mutation { incidentTriage(id: "nope", providerID: "fake", modelID: "fake-1") { id } }`
+	assert.Contains(t, string(postGQL(t, srv.URL, `{"query":`+strconv.Quote(unknown)+`}`)), "KUBETAIL_RECORD_NOT_FOUND")
+
+	srv, _, _ = newMonitorServer(t)
+	assert.Contains(t, string(postGQL(t, srv.URL, `{"query":`+strconv.Quote(triage)+`}`)), "KUBETAIL_VALIDATION_ERROR", "no Triager")
 }
 
 // An incident's feed sends its occurrences, highest number first, each frame

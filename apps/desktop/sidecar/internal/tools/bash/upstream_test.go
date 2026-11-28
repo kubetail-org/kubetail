@@ -63,7 +63,7 @@ func TestAClaimIsTheLeaseForTheTargetsUID(t *testing.T) {
 	lease := &fakeLease{serverUID: "uid-1"}
 	tl := &Tool{clusterSvc: fakeService{lease: lease}}
 
-	up, err := tl.claim(t.Context(), "7", "uid-1")
+	up, err := tl.claim(t.Context(), "7", "uid-1", nil)
 
 	require.NoError(t, err)
 	u := up.(upstream)
@@ -81,7 +81,7 @@ func TestAClaimWhoseRecordCannotBeWatched(t *testing.T) {
 	lease := &fakeLease{serverUID: "uid-1"}
 	tl := &Tool{clusterSvc: fakeService{lease: lease, watchErr: errDisk}}
 
-	_, err := tl.claim(t.Context(), "7", "uid-1")
+	_, err := tl.claim(t.Context(), "7", "uid-1", nil)
 
 	assert.ErrorIs(t, err, errDisk)
 	assert.Equal(t, int32(1), lease.released.Load())
@@ -107,7 +107,7 @@ func TestAClaimIsRevoked(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			frames := make(chan cluster.ClusterCollectionWatchFrame)
 			tl := &Tool{clusterSvc: fakeService{lease: &fakeLease{serverUID: "uid-1"}, frames: frames}}
-			up, err := tl.claim(t.Context(), "7", "uid-1")
+			up, err := tl.claim(t.Context(), "7", "uid-1", nil)
 			require.NoError(t, err)
 			defer up.Close()
 
@@ -176,7 +176,7 @@ func TestAClaimThatCannotBeMade(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			tl := &Tool{clusterSvc: fakeService{acquireErr: c.acquireErr}}
 
-			up, err := tl.claim(t.Context(), "7", c.uid)
+			up, err := tl.claim(t.Context(), "7", c.uid, nil)
 
 			if c.fails != nil {
 				assert.ErrorIs(t, err, c.fails)
@@ -214,6 +214,23 @@ func TestUpstreamIsTheTargetsCluster(t *testing.T) {
 	lease.err = context.Canceled
 	_, err = upstream{lease: lease, serverUID: "uid-1"}.Endpoint(t.Context())
 	assert.ErrorIs(t, err, context.Canceled, "any other error as it is")
+}
+
+// A connection that reaches another server than the claim's tells the run, which
+// a monitor run ends on; one of the claim's server does not.
+func TestAConnectionToAnotherServerTellsTheRun(t *testing.T) {
+	lease := &fakeLease{serverUID: "uid-2", conn: &cluster.Connection{HTTPClient: &http.Client{}}}
+	moved := 0
+	up := upstream{lease: lease, serverUID: "uid-1", moved: func() { moved++ }}
+
+	_, err := up.Endpoint(t.Context())
+	assert.ErrorIs(t, err, kubeproxy.ErrIdentityMismatch)
+	assert.Equal(t, 1, moved)
+
+	lease.serverUID = "uid-1"
+	_, err = up.Endpoint(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, 1, moved)
 }
 
 // A connection handed out is done once the claim is revoked, so a watch open

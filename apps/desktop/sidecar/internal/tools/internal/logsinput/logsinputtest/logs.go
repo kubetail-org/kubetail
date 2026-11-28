@@ -44,8 +44,11 @@ type Logs struct {
 func LogsOf(t *testing.T, objects ...map[string]any) *Logs {
 	t.Helper()
 	f := MirrorOf(t, objects...)
-	// The service claims the cluster's log file by its server's uid.
-	f.Active.Cache.Spec.ServerUID = "uid-1"
+	// The service claims the cluster's log file by its server's uid, the one the
+	// record's probe named.
+	uid := "uid-1"
+	f.Active.Cluster.Status.Server.UID = &uid
+	f.Active.Cache.Spec.ServerUID = uid
 	server := logstest.New()
 	srv := httptest.NewUnstartedServer(server)
 	srv.EnableHTTP2 = true

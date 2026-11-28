@@ -141,10 +141,11 @@ func (st stream) run() logline.Cursor {
 // resolve reads view over one reading of cluster id's active cache, and for a
 // tail whether a container of it is starting. A cache missing or withholding its
 // rows is refused as the LogsView tool refuses it, and so is a kind the cache does
-// not mirror and a view of more than MaxStreams containers.
-func resolve(ctx context.Context, svc cluster.Service, id cluster.ClusterID, scope Scope, forTail bool) (target, error) {
+// not mirror and a view of more than MaxStreams containers. A resolve pinned to
+// serverUID ("" for any) reads no cache of another server: ErrIdentityMismatch.
+func resolve(ctx context.Context, svc cluster.Service, id cluster.ClusterID, serverUID string, scope Scope, forTail bool) (target, error) {
 	var t target
-	err := svc.CachedData().ReadActive(ctx, id, maxRows, maxBytes, func(q cluster.CacheReading, active cluster.ActiveCluster) error {
+	err := svc.CachedData().ReadActive(ctx, id, serverUID, maxRows, maxBytes, func(q cluster.CacheReading, active cluster.ActiveCluster) error {
 		r := reading{q}
 		streams, states, uids, err := r.streamsOf(scope)
 		var deferred error

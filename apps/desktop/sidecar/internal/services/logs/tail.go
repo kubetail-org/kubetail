@@ -145,7 +145,7 @@ func (s *Service) TailFromCursor(ctx context.Context, id cluster.ClusterID, q Ta
 	if err != nil {
 		return TailResponse{}, err
 	}
-	t, err := resolve(ctx, s.clusters, id, scope, true)
+	t, err := resolve(ctx, s.clusters, id, "", scope, true)
 	if err != nil {
 		return openFailed(ctx, q, err)
 	}
@@ -565,7 +565,7 @@ func (f *cursorTail) readOnly(ctx context.Context) error {
 	cur := f.start
 	for {
 		q := pageQuery{scope: f.scope, grep: f.grep, mode: logline.Newer, cur: &cur, limit: MaxPageSize, grepAll: true}
-		ms, err := f.s.pageOver(ctx, f.id, f.target, f.file, f.only, q)
+		ms, err := f.s.pageOver(ctx, f.id, f.target, f.file, f.only, "", q)
 		if err != nil {
 			return err
 		}
@@ -1418,7 +1418,7 @@ func (f *cursorTail) noteDeleted(frame cluster.ClusterCachedDataObjectCollection
 // run again without its source, since another source may read a pod of its name.
 func (f *cursorTail) resolve(ctx context.Context) (target, bool, error) {
 	for {
-		t, err := resolve(ctx, f.s.clusters, f.id, f.live(), true)
+		t, err := resolve(ctx, f.s.clusters, f.id, "", f.live(), true)
 		switch {
 		case errors.Is(err, ErrNoCache), errors.Is(err, ErrSyncing), err == nil && t.noNodes != nil:
 			f.askAgain()

@@ -73,6 +73,66 @@ func TestFetchAnswersADeploymentsLastLines(t *testing.T) {
 	assert.Equal(t, "eu-1a", page.Records[0].Place.Zone)
 }
 
+// A fetch for one server reads no other: one resolved against another server's
+// cache is refused before any claim, and one whose connection reaches another is
+// refused, each as cluster.ErrIdentityMismatch. A fetch for any server skips such
+// a stream, as it skips any it cannot read.
+func TestAFetchForOneServerReadsNoOther(t *testing.T) {
+	t.Parallel()
+	s := newLogServer()
+	s.Add("prod/web-1/app", logstest.Stamped(0, "a line"))
+	svc, f := serviceOver(t, webMirror(t), s)
+	acquired := 0
+	f.onAcquire = func() { acquired++ }
+
+	_, err := svc.Fetch(t.Context(), "7", FetchRequest{Scope: webScope, PageFrom: PageFromLast, PageSize: 5, ServerUID: "uid-2"})
+	assert.ErrorIs(t, err, cluster.ErrIdentityMismatch)
+	assert.Zero(t, acquired, "no claim is taken on another server's cache")
+
+	f.lease.serverUID = "uid-2"
+	_, err = svc.Fetch(t.Context(), "7", FetchRequest{Scope: webScope, PageFrom: PageFromLast, PageSize: 5, ServerUID: "uid-1"})
+	assert.ErrorIs(t, err, cluster.ErrIdentityMismatch, "the connection reaches another server")
+
+	_, err = svc.Fetch(t.Context(), "7", FetchRequest{Scope: webScope, PageFrom: PageFromLast, PageSize: 5})
+	assert.NotErrorIs(t, err, cluster.ErrIdentityMismatch, "a page for any server skips the stream")
+}
+
+// A fetch for one server is refused as cluster.ErrIdentityMismatch once its record
+// names another, before anything of that server's cache is read: its rows, its
+// health, or whether it has one.
+func TestAFetchForOneServerReadsNothingOfAnothersCache(t *testing.T) {
+	t.Parallel()
+	for name, change := range map[string]func(*fakeService){
+		"a cache":        func(*fakeService) {},
+		"no cache":       func(f *fakeService) { f.active.Cache = nil },
+		"an untrusted":   func(f *fakeService) { f.health.Reason = "Connecting" },
+		"rows that fail": func(f *fakeService) { f.queryErr = errors.New("db closed") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			svc, f := serviceOver(t, webMirror(t), newLogServer())
+			f.active.Cluster = recordAt("uid-2")
+			change(f)
+
+			_, err := svc.Fetch(t.Context(), "7", FetchRequest{Scope: webScope, PageFrom: PageFromLast, PageSize: 5, ServerUID: "uid-1"})
+
+			assert.ErrorIs(t, err, cluster.ErrIdentityMismatch)
+		})
+	}
+}
+
+// A pinned page's stream that reached another server refuses the page ahead of
+// whatever cancelled the rest; a page for any server answers the cancel.
+func TestAStreamOnAnotherServerOutranksTheCancel(t *testing.T) {
+	moved := []streamFill{{}, {err: fmt.Errorf("%w: another cluster", cluster.ErrIdentityMismatch)}}
+	cancelled := context.DeadlineExceeded
+
+	assert.ErrorIs(t, fillsErr("uid-1", moved, cancelled), cluster.ErrIdentityMismatch)
+	assert.ErrorIs(t, fillsErr("", moved, cancelled), cancelled)
+	assert.ErrorIs(t, fillsErr("uid-1", []streamFill{{}}, cancelled), cancelled)
+	assert.NoError(t, fillsErr("uid-1", []streamFill{{}}, nil))
+}
+
 // A first page from a moment reads past it, grep keeps the matching lines, and its
 // Next goes on from the last line the stream passed on the page.
 func TestFetchReadsForwardAfterACursor(t *testing.T) {
@@ -5554,7 +5614,7 @@ func TestAWalkReportsTheRowsItRead(t *testing.T) {
 	scope := web1Scope
 	scope.Grep = grep.String()
 
-	ms, err := svc.page(t.Context(), "7", pageQuery{scope: scope, grep: grep, mode: logline.Newer, limit: 1})
+	ms, err := svc.page(t.Context(), "7", "", pageQuery{scope: scope, grep: grep, mode: logline.Newer, limit: 1})
 
 	require.NoError(t, err)
 	require.Len(t, ms[0].reaches, 1)

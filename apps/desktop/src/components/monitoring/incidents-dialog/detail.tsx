@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// One incident: the facts its row shows, its subject's attributes, and its
-// occurrences from the feed, which is subscribed while the detail is mounted.
+// One incident: the facts its row shows, its subject's attributes, its triage, and
+// its occurrences from the feed, which is subscribed while the detail is mounted.
 import { humanDuration } from '@/lib/human-duration';
 import { END_REASON_TEXT, MAX_OCCURRENCES, useIncidentOccurrenceEventFeed } from '@/lib/incidents';
 import type { Incident, IncidentOccurrence, MonitorTarget } from '@/lib/incidents';
 
 import { Attributes } from './attributes';
 import { IncidentSummary } from './list';
+import { IncidentTriageSection } from './triage';
 
 export function IncidentDetail({ incident, target }: { incident: Incident; target: MonitorTarget }) {
   const { occurrences, snapshotComplete } = useIncidentOccurrenceEventFeed(incident.id);
@@ -29,6 +30,7 @@ export function IncidentDetail({ incident, target }: { incident: Incident; targe
         <IncidentSummary incident={incident} target={target} />
       </div>
       <Attributes attributes={incident.subjectAttributes} />
+      <IncidentTriageSection incident={incident} target={target} />
       <div className="flex flex-col gap-2">
         <h4 className="text-xs font-medium text-muted-foreground">Occurrences</h4>
         {snapshotComplete ? (

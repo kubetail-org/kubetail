@@ -76,6 +76,13 @@ const (
 	stmtSelectServedIncidents
 	stmtSelectServedOccurrences
 	stmtSelectServedAlerts
+	stmtSelectServedIncident
+	stmtSelectTriageSubject
+	stmtQueueTriage
+	stmtSelectTargetMoved
+	stmtAdmitTriage
+	stmtFinishTriage
+	stmtFailStrandedTriages
 	numStmts int = iota
 )
 
@@ -141,14 +148,7 @@ var statements = []sqlstmt.Statement{
 	// and what is under them: the ? is their names, as a JSON array.
 	stmtSelectServedTargets: sqlstmt.OnReader(`SELECT ` + servedTargetColumns + ` FROM monitor_targets
 	WHERE integration IN (SELECT value FROM json_each(?))`),
-	// Each incident with its newest occurrence, which says whether it is open: the
-	// one numbered its occurrence_count.
-	stmtSelectServedIncidents: sqlstmt.OnReader(`SELECT i.id, i.target_id, i.target_uid, i.subject_label, i.subject_attributes,
-	  i.signal, i.signal_label, i.severity, i.first_seen_at, i.last_seen_at, i.occurrence_count, o.started_at, o.end_reason, i.baseline
-	FROM incidents i
-	JOIN monitor_targets t ON t.id = i.target_id
-	JOIN incident_occurrences o ON o.incident_id = i.id AND o.number = i.occurrence_count
-	WHERE t.integration IN (SELECT value FROM json_each(?))`),
+	stmtSelectServedIncidents: sqlstmt.OnReader(servedIncidentsQuery),
 	stmtSelectServedOccurrences: sqlstmt.OnReader(`SELECT o.id, o.number, o.started_at, o.ended_at, o.end_reason, o.detail
 	FROM incident_occurrences o
 	JOIN incidents i ON i.id = o.incident_id
@@ -164,10 +164,49 @@ var statements = []sqlstmt.Statement{
 	  ORDER BY i.alert_seq DESC
 	  LIMIT ` + strconv.Itoa(keepAlerts) + `
 	) ORDER BY alert_seq`),
+	// On the writer, so the mutation answers what its own commit wrote.
+	stmtSelectServedIncident: sqlstmt.OnWriter(servedIncidentsQuery + ` AND i.id = ?`),
+
+	// What a triage's run is handed and checked against, read in the transaction
+	// that queues it: the newest occurrence's detail is the one numbered highest.
+	stmtSelectTriageSubject: sqlstmt.OnWriter(`SELECT t.id, t.integration, t.key, t.label, t.generation, coalesce(t.current_uid, ''),
+	  i.target_uid, i.triage_state, i.subject_label, i.subject_attributes, i.signal_label, i.first_seen_at, i.occurrence_count,
+	  coalesce((SELECT o.detail FROM incident_occurrences o WHERE o.incident_id = i.id ORDER BY o.number DESC LIMIT 1), '{}')
+	FROM incidents i JOIN monitor_targets t ON t.id = i.target_id
+	WHERE i.id = ? AND t.integration IN (SELECT value FROM json_each(?))`),
+	// A new request clears the last triage's link, verdict and error, so the row
+	// describes the request alone.
+	stmtQueueTriage: sqlstmt.OnWriter(`UPDATE incidents SET triage_state = 'queued', triage_request_id = ?,
+	  triage_run_id = NULL, triage_verdict = NULL, triage_error = NULL WHERE id = ?`),
+	// The admit, run on the run's own transaction: it links the run only while the
+	// incident holds the request and the target is on under the request's generation.
+	// Whether the incident's target reads another server than the incident opened on.
+	stmtSelectTargetMoved: sqlstmt.OnWriter(`SELECT EXISTS (SELECT 1 FROM incidents i JOIN monitor_targets t ON t.id = i.target_id
+	WHERE i.id = ? AND coalesce(t.current_uid, '') != i.target_uid)`),
+	stmtAdmitTriage: sqlstmt.OnWriter(`UPDATE incidents SET triage_run_id = ?
+	WHERE id = ? AND triage_request_id = ?
+	  AND EXISTS (SELECT 1 FROM monitor_targets t WHERE t.id = incidents.target_id AND t.enabled = 1 AND t.generation = ?)`),
+	stmtFinishTriage: sqlstmt.OnWriter(`UPDATE incidents SET triage_state = ?, triage_request_id = NULL, triage_verdict = ?, triage_error = ?
+	WHERE id = ? AND triage_request_id = ?`),
+	stmtFailStrandedTriages: sqlstmt.OnWriter(`UPDATE incidents SET triage_state = 'failed', triage_request_id = NULL,
+	  triage_error = '` + string(TriageCodeInterrupted) + `' WHERE triage_state = 'queued'`),
 }
 
 // nextAlertSeq is the alert_seq the next alert takes.
 const nextAlertSeq = `(SELECT coalesce(max(last), 0) + 1 FROM monitor_alert_seq)`
+
+// servedIncidentsQuery is each served incident with its newest occurrence, which
+// says whether it is open: the one numbered its occurrence_count. Its triage's run
+// gives the report and the model. The ? is the integrations' names, as a JSON array.
+const servedIncidentsQuery = `SELECT i.id, i.target_id, i.target_uid, i.subject_label, i.subject_attributes,
+	  i.signal, i.signal_label, i.severity, i.first_seen_at, i.last_seen_at, i.occurrence_count, o.started_at, o.end_reason, i.baseline,
+	  i.triage_state, coalesce(i.triage_verdict, ''), coalesce(i.triage_error, ''),
+	  coalesce(r.result, ''), coalesce(r.provider, ''), coalesce(r.model, ''), coalesce(r.effort, '')
+	FROM incidents i
+	JOIN monitor_targets t ON t.id = i.target_id
+	JOIN incident_occurrences o ON o.incident_id = i.id AND o.number = i.occurrence_count
+	LEFT JOIN agent_runs r ON r.id = i.triage_run_id
+	WHERE t.integration IN (SELECT value FROM json_each(?))`
 
 // servedTargetColumns is what storedTarget scans, in its order.
 const servedTargetColumns = `id, integration, key, label, enabled, coalesce(current_uid, ''), unknown_signals, last_read_at IS NOT NULL`
@@ -634,17 +673,9 @@ func (s *store) servedIncidents(ctx context.Context) ([]Incident, error) {
 	defer rows.Close()
 	var out []Incident
 	for rows.Next() {
-		var i Incident
-		var firstSeen, lastSeen, lastStarted int64
-		var reason sql.NullString
-		if err := rows.Scan(&i.ID, &i.TargetID, &i.TargetUID, &i.SubjectLabel, &i.AttributesJSON, &i.Signal, &i.SignalLabel,
-			&i.Severity, &firstSeen, &lastSeen, &i.OccurrenceCount, &lastStarted, &reason, &i.Baseline); err != nil { // coverage:ignore the statement's columns are these types, CHECKed by the schema
+		i, err := scanServedIncident(rows)
+		if err != nil { // coverage:ignore the statement's columns are these types, CHECKed by the schema
 			return nil, fmt.Errorf("read incidents: %w", err)
-		}
-		i.FirstSeenAt, i.LastStartedAt = fromMillis(firstSeen), fromMillis(lastStarted)
-		// An open incident's last sighting moves with every reading, so it is not served.
-		if i.Open = !reason.Valid; !i.Open {
-			i.LastSeenAt, i.LastEndReason = fromMillis(lastSeen), EndReason(reason.String)
 		}
 		out = append(out, i)
 	}
@@ -653,6 +684,136 @@ func (s *store) servedIncidents(ctx context.Context) ([]Incident, error) {
 	}
 	return out, nil
 }
+
+// servedIncident is incident id as servedIncidents holds it: ErrNoIncident for
+// one it does not.
+func (s *store) servedIncident(ctx context.Context, id IncidentID) (Incident, error) {
+	i, err := scanServedIncident(s.set.Stmts().QueryRow(ctx, stmtSelectServedIncident, s.integrations, string(id)))
+	switch {
+	case errors.Is(err, sql.ErrNoRows): // coverage:ignore the caller queued the incident on the writer just before, and a delete would need its target gone in between
+		return Incident{}, ErrNoIncident
+	case err != nil: // coverage:ignore a read on the writer fails only on a closed pool, which outlives the monitor
+		return Incident{}, fmt.Errorf("read incident: %w", err)
+	}
+	return i, nil
+}
+
+// scanServedIncident is one row of servedIncidentsQuery.
+func scanServedIncident(r scanner) (Incident, error) {
+	var i Incident
+	var firstSeen, lastSeen, lastStarted int64
+	var reason sql.NullString
+	tr := &i.Triage
+	if err := r.Scan(&i.ID, &i.TargetID, &i.TargetUID, &i.SubjectLabel, &i.AttributesJSON, &i.Signal, &i.SignalLabel,
+		&i.Severity, &firstSeen, &lastSeen, &i.OccurrenceCount, &lastStarted, &reason, &i.Baseline,
+		&tr.State, &tr.Verdict, &tr.Error, &tr.Report, &tr.ProviderID, &tr.ModelID, &tr.Effort); err != nil { // coverage:ignore the statement's columns are these types, CHECKed by the schema
+		return Incident{}, err
+	}
+	i.FirstSeenAt, i.LastStartedAt = fromMillis(firstSeen), fromMillis(lastStarted)
+	// An open incident's last sighting moves with every reading, so it is not served.
+	if i.Open = !reason.Valid; !i.Open {
+		i.LastSeenAt, i.LastEndReason = fromMillis(lastSeen), EndReason(reason.String)
+	}
+	// The report is the run's once it has ended; a run under way has written none.
+	if tr.State == TriageStateQueued {
+		tr.Report = ""
+	}
+	return i, nil
+}
+
+// queueTriage queues a triage of incident id under requestID, in one
+// transaction that reads what its run is handed: ErrNoIncident for an incident
+// the reads do not serve, ErrCannotTriage for one whose integration canTriage
+// refuses, ErrTriageQueued for one queued, ErrTargetMoved for one opened under
+// a UID its target no longer has. It notifies KeyIncidents after the commit.
+func (s *store) queueTriage(ctx context.Context, id IncidentID, requestID string, canTriage func(integration string) bool) (triageRequest, error) {
+	req := triageRequest{id: requestID, incidentID: id}
+	err := s.set.InTx(ctx, func(st stmts) error {
+		var currentUID string
+		var state TriageState
+		var subject briefSubject
+		var attributes, detail string
+		var firstSeen int64
+		err := st.QueryRow(ctx, stmtSelectTriageSubject, string(id), s.integrations).Scan(
+			&req.targetID, &req.integration, &req.target.Key, &req.target.Label, &req.generation, &currentUID,
+			&req.uid, &state, &subject.label, &attributes, &subject.signalLabel, &firstSeen, &subject.occurrences, &detail)
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrNoIncident
+		case err != nil: // coverage:ignore a read inside a write transaction fails only on a closed pool, which outlives the monitor
+			return fmt.Errorf("read incident: %w", err)
+		case !canTriage(req.integration):
+			return ErrCannotTriage
+		case state == TriageStateQueued:
+			return ErrTriageQueued
+		case req.uid != currentUID:
+			return ErrTargetMoved
+		}
+		subject.firstSeen = fromMillis(firstSeen)
+		if err := json.Unmarshal([]byte(attributes), &subject.attributes); err != nil { // coverage:ignore the column holds the JSON object of strings writeStart marshals
+			return fmt.Errorf("read subject attributes: %w", err)
+		}
+		if err := json.Unmarshal([]byte(detail), &subject.detail); err != nil { // coverage:ignore the column holds the JSON object of strings writeStart marshals
+			return fmt.Errorf("read occurrence detail: %w", err)
+		}
+		req.brief = triageBrief(subject)
+		if _, err := st.Exec(ctx, stmtQueueTriage, requestID, string(id)); err != nil { // coverage:ignore the row was just read in this transaction, and the write sets values the CHECKs allow
+			return fmt.Errorf("queue triage: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return triageRequest{}, err
+	}
+	s.db.Notify(appdb.KeyIncidents)
+	return req, nil
+}
+
+// admitTriage is req's admit, run on tx, the transaction that inserted run
+// runID: it links the run and admits it while the incident holds req and its
+// target is on under req's generation. A target that a fold has since moved to
+// another server is ErrTargetMoved. Nothing notifies: the run's end does.
+func (s *store) admitTriage(ctx context.Context, tx *sql.Tx, req triageRequest, runID string) (bool, error) {
+	var moved bool
+	if err := s.set.On(tx).QueryRow(ctx, stmtSelectTargetMoved, string(req.incidentID)).Scan(&moved); err != nil { // coverage:ignore a read on the run's own open transaction fails only on a closed pool, which outlives the monitor
+		return false, fmt.Errorf("admit triage: %w", err)
+	}
+	if moved {
+		return false, ErrTargetMoved
+	}
+	res, err := s.set.On(tx).Exec(ctx, stmtAdmitTriage, runID, string(req.incidentID), req.id, req.generation)
+	if err != nil { // coverage:ignore a write on the run's own open transaction fails only on a closed pool, which outlives the monitor
+		return false, fmt.Errorf("admit triage: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n == 1, nil
+}
+
+// finishTriage writes how req ended while the incident still holds it, and
+// notifies KeyIncidents after a commit that wrote it.
+func (s *store) finishTriage(ctx context.Context, req triageRequest, o triageOutcome) error {
+	res, err := s.set.Stmts().Exec(ctx, stmtFinishTriage, string(o.state), nullable(string(o.verdict)), nullable(string(o.code)),
+		string(req.incidentID), req.id)
+	if err != nil { // coverage:ignore a write on the writer fails only on a closed pool, which outlives the monitor
+		return fmt.Errorf("finish triage: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		s.db.Notify(appdb.KeyIncidents)
+	}
+	return nil
+}
+
+// failStrandedTriages fails every triage still queued, which no worker of this
+// process holds: the app stopped before it ended.
+func (s *store) failStrandedTriages(ctx context.Context) error {
+	if _, err := s.set.Stmts().Exec(ctx, stmtFailStrandedTriages); err != nil { // coverage:ignore the statement runs on the schema app.db was just migrated to
+		return fmt.Errorf("fail stranded triages: %w", err)
+	}
+	return nil
+}
+
+// nullable is s, NULL for "".
+func nullable(s string) sql.NullString { return sql.NullString{String: s, Valid: s != ""} }
 
 // servedOccurrences is an incident's retained occurrences, highest number first:
 // none for an incident servedIncidents does not hold.

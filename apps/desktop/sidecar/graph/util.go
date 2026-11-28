@@ -181,12 +181,17 @@ func memoryErr(err error) error {
 }
 
 // monitorRefusals maps the monitor's named errors onto wire codes: an unknown
-// target, and a subscription opened as the monitor stops.
+// target or incident, a triage the incident cannot take, and a subscription or
+// a triage asked for as the monitor stops.
 var monitorRefusals = []struct {
 	err  error
 	wire *gqlerror.Error
 }{
 	{monitor.ErrNoTarget, gqlerrors.ErrRecordNotFound},
+	{monitor.ErrNoIncident, gqlerrors.ErrRecordNotFound},
+	{monitor.ErrTriageQueued, gqlerrors.ErrValidationError},
+	{monitor.ErrCannotTriage, gqlerrors.ErrValidationError},
+	{monitor.ErrTargetMoved, gqlerrors.ErrValidationError},
 	{monitor.ErrStopping, gqlerrors.ErrServiceUnavailable},
 }
 

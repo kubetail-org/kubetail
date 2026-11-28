@@ -495,8 +495,8 @@ func (f fakeCachedData) ReadOwn(context.Context, cluster.ClusterID, cluster.Clus
 	return false, nil
 }
 
-func (f fakeCachedData) ReadActive(ctx context.Context, id cluster.ClusterID, maxRows, maxBytes int, read func(cluster.CacheReading, cluster.ActiveCluster) error) error {
-	return cluster.ReadActiveCache(ctx, f.s, id, maxRows, maxBytes, read)
+func (f fakeCachedData) ReadActive(ctx context.Context, id cluster.ClusterID, serverUID string, maxRows, maxBytes int, read func(cluster.CacheReading, cluster.ActiveCluster) error) error {
+	return cluster.ReadActiveCache(ctx, f.s, id, serverUID, maxRows, maxBytes, read)
 }
 
 func (f fakeCachedData) ListKinds(_ context.Context, clusterID cluster.ClusterID, _ cluster.ClusterCacheID, namespace string) ([]cluster.ClusterCachedDataKind, error) {
@@ -1092,6 +1092,10 @@ func (errMonitor) ListSignals() []monitor.MonitorSignal { return nil }
 
 func (e errMonitor) SetEnabled(context.Context, monitor.MonitorTargetID, bool) (monitor.MonitorTarget, error) {
 	return monitor.MonitorTarget{}, e.err
+}
+
+func (e errMonitor) Triage(context.Context, monitor.IncidentID, monitor.TriageModel) (monitor.Incident, error) {
+	return monitor.Incident{}, e.err
 }
 
 func (e errMonitor) WatchTargetCollection(context.Context) (*monitor.Stream[monitor.MonitorTargetCollectionWatchFrame], error) {

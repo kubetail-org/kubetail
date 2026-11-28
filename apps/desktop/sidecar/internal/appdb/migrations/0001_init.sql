@@ -588,6 +588,14 @@ CREATE TABLE monitor_targets (
 -- set again; alerted_at is when that occurrence raised its alert, by the wall
 -- clock, and alert_seq its place in the order the alerts committed, which the
 -- alert feed reads.
+--
+-- The triage columns hold the incident's newest triage, which the user asks for.
+-- triage_state is none, queued while its request waits or its run lasts, then
+-- done or failed. triage_request_id names the request queued, set while queued
+-- alone: a worker writes only while it holds that id. triage_run_id is the
+-- request's run, linked in the transaction that inserts it; the run's result is
+-- the report. triage_verdict is set on a done triage alone, triage_error, one of
+-- the monitor's fixed codes, on a failed one.
 CREATE TABLE incidents (
   id                 TEXT    PRIMARY KEY,
   target_id          TEXT    NOT NULL REFERENCES monitor_targets(id) ON DELETE CASCADE,
@@ -604,12 +612,22 @@ CREATE TABLE incidents (
   baseline           INTEGER NOT NULL DEFAULT 0 CHECK (baseline IN (0, 1)),
   alerted_at         INTEGER,
   alert_seq          INTEGER,
-  CHECK ((alerted_at IS NULL) = (alert_seq IS NULL))
+  triage_state       TEXT    NOT NULL DEFAULT 'none' CHECK (triage_state IN ('none', 'queued', 'done', 'failed')),
+  triage_request_id  TEXT,
+  triage_run_id      TEXT    REFERENCES agent_runs(id) ON DELETE SET NULL,
+  triage_verdict     TEXT    CHECK (triage_verdict IN ('attention', 'dismiss')),
+  triage_error       TEXT,
+  CHECK ((alerted_at IS NULL) = (alert_seq IS NULL)),
+  CHECK ((triage_state = 'queued') = (triage_request_id IS NOT NULL)),
+  CHECK ((triage_state = 'done') = (triage_verdict IS NOT NULL)),
+  CHECK ((triage_state = 'failed') = (triage_error IS NOT NULL))
 ) STRICT;
 
 CREATE INDEX incidents_subject ON incidents (target_id, target_uid, signal, subject_key);
 CREATE INDEX incidents_last_seen ON incidents (last_seen_at);
 CREATE UNIQUE INDEX incidents_alerted ON incidents (alert_seq) WHERE alert_seq IS NOT NULL;
+-- A run's delete sets its triage's link to NULL through this index.
+CREATE INDEX incidents_triage_run ON incidents (triage_run_id) WHERE triage_run_id IS NOT NULL;
 
 -- monitor_alert_seq: the last alert_seq given, so an alerted incident's delete
 -- never frees its number. No row before the first alert.

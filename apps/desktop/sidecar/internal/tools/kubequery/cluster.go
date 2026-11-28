@@ -39,14 +39,19 @@ type answer struct {
 var errNoCache = errors.New("kubequery: the cluster has no cache")
 
 // query runs sql over clusterID's active cache inside one reading of the cluster, so
-// the verdict and the rows describe one cache.
-func (t *Tool) query(ctx context.Context, clusterID cluster.ClusterID, sql string, maxRows int) (answer, error) {
+// the verdict and the rows describe one cache. A reading of another server than
+// serverUID, or one whose identity moved under it, is cluster.ErrIdentityMismatch.
+func (t *Tool) query(ctx context.Context, clusterID cluster.ClusterID, serverUID, sql string, maxRows int) (answer, error) {
 	var a answer
 	err := t.svc.Clusters().ReadActive(ctx, clusterID, func(ctx context.Context, active cluster.ActiveCluster) error {
+		if !active.ReadsServer(serverUID) {
+			return cluster.ErrIdentityMismatch
+		}
 		var err error
 		a, err = t.read(ctx, clusterID, active, sql, maxRows)
 		return err
 	})
+	err = cluster.PinnedReadErr(serverUID, err)
 	if errors.Is(err, cluster.ErrNotFound) || errors.Is(err, cluster.ErrIdentityMoved) {
 		return answer{}, errNoCache
 	}

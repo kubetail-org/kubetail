@@ -119,9 +119,9 @@ func (t *Tool) RunShown(ctx context.Context, rt tools.Runtime, raw json.RawMessa
 	}
 	q := logs.TailRequest{Cursor: in.cursor, MaxMessageBytes: in.maxMessageBytes, ForModel: true}
 	if in.cursor == nil {
-		view, _, err := logsinput.Resolve(ctx, t.svc, now, rt.ClusterID, in.Input)
+		view, _, err := logsinput.Resolve(ctx, t.svc, now, rt.ClusterID, rt.ServerUID, in.Input)
 		if err != nil {
-			return logsinput.Refusal(err), true, nil
+			return logsinput.RefusalIn(rt, err), true, nil
 		}
 		q.Scope, q.Since = view.LogsScopeInput, &in.since
 	}

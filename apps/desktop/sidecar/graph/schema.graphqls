@@ -2467,6 +2467,8 @@ type MonitorTarget {
   readState: MonitorReadState!
   "Each signal the last reading could not judge, sorted by name. Empty while `readState` is `NeverRead` or `Ok`."
   unknownSignals: [MonitorUnknownSignal!]!
+  "Whether the target's integration can triage its incidents. Fixed for the life of the sidecar."
+  canTriage: Boolean!
 }
 
 type MonitorTargetCollectionWatchFrame {
@@ -2519,6 +2521,69 @@ type Incident {
   lastEndReason: IncidentOccurrenceEndReason
   "True until the incident has had an ordinary occurrence: what it found was there when monitoring started, and it raised no alert."
   baseline: Boolean!
+  "The incident's newest triage."
+  triage: IncidentTriage!
+}
+
+"Where an incident's newest triage is."
+enum IncidentTriageState {
+  "Never asked for."
+  None
+  "Waiting for the target's earlier triages, or its run under way."
+  Queued
+  "Its run reported, with a verdict."
+  Done
+  "It could not run, or its run failed; `error` says why."
+  Failed
+}
+
+"What a done triage's report opens with."
+enum IncidentTriageVerdict {
+  "The user should look at the incident."
+  Attention
+  "The incident needs nothing from the user."
+  Dismiss
+}
+
+"Why a triage failed or could not start."
+enum IncidentTriageError {
+  "The target's monitoring was switched off after the triage was asked for."
+  MonitoringOff
+  "The target reaches another server than the one the incident opened on."
+  ServerChanged
+  "The target is gone or being deleted."
+  TargetGone
+  "No sandbox confines a run on this machine."
+  NoSandbox
+  "The model picked is not offered now."
+  ModelUnavailable
+  "The run failed, a provider's error among the causes."
+  RunFailed
+  "The run was cancelled, as the app stopped."
+  Cancelled
+  "The app stopped before the triage ended."
+  Interrupted
+  "The run could not start for another reason."
+  Unavailable
+}
+
+"""
+An incident's newest triage: one monitor run of a model over the incident's
+target, which reads it and changes nothing. The report is model output, to draw
+as plain text.
+"""
+type IncidentTriage {
+  state: IncidentTriageState!
+  "Null unless `Done`."
+  verdict: IncidentTriageVerdict
+  "Null unless `Failed`."
+  error: IncidentTriageError
+  "The run's report: its first line is the verdict. Null until the triage has ended, and for a run that wrote none."
+  report: String
+  "The model the run asked, null until its run is inserted. The incidents watch may deliver it only once the triage ends."
+  providerID: String
+  modelID: String
+  effort: String
 }
 
 type IncidentCollectionWatchFrame {
@@ -2696,6 +2761,8 @@ type Mutation {
   # --- Monitoring ---
   "Turn the monitor's reading of a target on or off. Off ends the target's open occurrences as `Stopped` before it returns; a switch to the state the target holds changes nothing. Refused (KUBETAIL_RECORD_NOT_FOUND) for an unknown id. Returns the target as `monitorTargetCollectionWatch` then delivers it."
   monitorTargetEnabledSet(id: MonitorTargetID!, enabled: Boolean!): MonitorTarget!
+  "Queue a triage of an incident on the model given: one monitor run of the incident's target, after the target's earlier triages. Refused (KUBETAIL_RECORD_NOT_FOUND) for an unknown id, and (KUBETAIL_VALIDATION_ERROR) for an incident whose triage is `Queued`, whose target cannot triage (`canTriage`), or whose `targetUID` is not its target's `currentUID`. Returns the incident as `incidentCollectionWatch` then delivers it, `Queued`."
+  incidentTriage(id: IncidentID!, providerID: String!, modelID: String!, effort: String): Incident!
 
   # --- Memory ---
   "Create a memory, or rewrite one by `id`; a rewrite can rename it and move it between one cluster and every cluster. Written by the user. Refused `KUBETAIL_MEMORY_NAME_TAKEN` for a name the target scope holds, `KUBETAIL_MEMORY_FULL` for a scope with no room for the memory, `KUBETAIL_MEMORY_SECRET` for a credential, `KUBETAIL_VALIDATION_ERROR` for a note out of shape, and `KUBETAIL_RECORD_NOT_FOUND` for an unknown id or a missing cluster."

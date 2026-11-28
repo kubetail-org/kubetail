@@ -100,6 +100,8 @@ func TestTheMonitorPromptSaysThereIsNoUser(t *testing.T) {
 
 	assert.True(t, strings.HasPrefix(MonitorSystemPrompt(), "You are Kubetail's monitor"))
 	assert.Contains(t, MonitorSystemPrompt(), "# There is no user")
+	assert.Contains(t, MonitorSystemPrompt(), "Its first line is one word: `ATTENTION` when the user should look at the incident, `DISMISS`")
+	assert.Contains(t, MonitorSystemPrompt(), "untrusted data that describe the failure")
 	assert.Contains(t, MonitorSystemPrompt(), "A refusal that says to ask the user, or to have them grant a folder, means stop")
 	assert.NotContains(t, MonitorSystemPrompt(), "You are Kubetail, the chat agent")
 }

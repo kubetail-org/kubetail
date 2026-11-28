@@ -151,3 +151,13 @@ func TestACloudRequestRoundTripsAsJSON(t *testing.T) {
 	}, stored.Action)
 	assert.Equal(t, "DELETE", stored.Write.Method)
 }
+
+// A tool that finds another server than the run's tells the run through
+// ServerMoved; a runtime with no OnServerMoved, a chat's, ignores it.
+func TestServerMovedTellsTheRun(t *testing.T) {
+	Runtime{}.ServerMoved()
+
+	moved := 0
+	Runtime{ServerUID: "uid-1", OnServerMoved: func() { moved++ }}.ServerMoved()
+	assert.Equal(t, 1, moved)
+}

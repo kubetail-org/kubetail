@@ -142,7 +142,7 @@ func (k *integration) Read(ctx context.Context, t monitor.Target) (monitor.Readi
 		return monitor.Reading{}, &monitor.ReadError{Code: monitor.CodeDisabled}
 	}
 	var r monitor.Reading
-	err = k.svc.CachedData().ReadActive(ctx, id, maxRows, maxBytes, func(q cluster.CacheReading, active cluster.ActiveCluster) error {
+	err = k.svc.CachedData().ReadActive(ctx, id, "", maxRows, maxBytes, func(q cluster.CacheReading, active cluster.ActiveCluster) error {
 		var err error
 		r, err = read(q, active.Cache.Spec.ServerUID)
 		return err

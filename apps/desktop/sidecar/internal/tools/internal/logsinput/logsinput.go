@@ -26,6 +26,7 @@ import (
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs/logline"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/logs/refusal"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools"
 )
 
 // Refusal is an error as the model reads it: bad arguments by field and source, a
@@ -60,6 +61,8 @@ func Refusal(err error) string {
 			out["containers"] = rf.Containers
 		}
 		return Result(out)
+	case errors.Is(err, cluster.ErrIdentityMismatch):
+		return `{"error":"server-changed"}`
 	case errors.Is(err, cluster.ErrNoCache):
 		return `{"error":"no-cache"}`
 	case errors.Is(err, cluster.ErrSyncing):
@@ -75,4 +78,13 @@ func Result(v any) string {
 	enc.SetEscapeHTML(false)
 	_ = enc.Encode(v) // strings, string slices, ints and maps of them always encode
 	return strings.TrimSuffix(b.String(), "\n")
+}
+
+// RefusalIn is Refusal for a call of rt's run. A cache or a connection of
+// another server than the run reads ends the run, as well as refusing the call.
+func RefusalIn(rt tools.Runtime, err error) string {
+	if errors.Is(err, cluster.ErrIdentityMismatch) {
+		rt.ServerMoved()
+	}
+	return Refusal(err)
 }

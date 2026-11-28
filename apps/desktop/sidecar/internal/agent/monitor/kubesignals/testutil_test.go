@@ -85,8 +85,8 @@ func (f fakeCaches) Health(context.Context, cluster.ClusterID, cluster.ClusterCa
 	return f.health, true, nil
 }
 
-func (f fakeData) ReadActive(ctx context.Context, id cluster.ClusterID, maxRows, maxBytes int, read func(cluster.CacheReading, cluster.ActiveCluster) error) error {
-	return cluster.ReadActiveCache(ctx, f.fakeService, id, maxRows, maxBytes, read)
+func (f fakeData) ReadActive(ctx context.Context, id cluster.ClusterID, serverUID string, maxRows, maxBytes int, read func(cluster.CacheReading, cluster.ActiveCluster) error) error {
+	return cluster.ReadActiveCache(ctx, f.fakeService, id, serverUID, maxRows, maxBytes, read)
 }
 
 func (f fakeData) ReadOwn(ctx context.Context, _ cluster.ClusterID, _ cluster.ClusterCacheID, read func(cluster.OwnQuery) error) (bool, error) {

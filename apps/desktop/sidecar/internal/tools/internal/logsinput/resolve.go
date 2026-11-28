@@ -58,11 +58,13 @@ type Note struct {
 
 // Resolve is the view in reads, over one reading of the cluster's active cache:
 // each source checked against the mirror, its containers defaulted and its
-// previous instance found, resolved at now. Its anchor is the tool's to set.
-func Resolve(ctx context.Context, svc cluster.Service, now time.Time, clusterID cluster.ClusterID, in Input) (tools.LogsViewAction, []Note, error) {
+// previous instance found, resolved at now. Its anchor is the tool's to set. A
+// reading of another server than serverUID ("" for any) is
+// cluster.ErrIdentityMismatch, with nothing read.
+func Resolve(ctx context.Context, svc cluster.Service, now time.Time, clusterID cluster.ClusterID, serverUID string, in Input) (tools.LogsViewAction, []Note, error) {
 	var view tools.LogsViewAction
 	var notes []Note
-	err := svc.CachedData().ReadActive(ctx, clusterID, maxRows, maxBytes, func(q cluster.CacheReading, _ cluster.ActiveCluster) error {
+	err := svc.CachedData().ReadActive(ctx, clusterID, serverUID, maxRows, maxBytes, func(q cluster.CacheReading, _ cluster.ActiveCluster) error {
 		var err error
 		view, notes, err = resolveIn(q, in)
 		return err

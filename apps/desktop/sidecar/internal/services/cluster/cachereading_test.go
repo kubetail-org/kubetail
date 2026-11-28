@@ -96,7 +96,7 @@ func TestReadActiveCacheRunsOverATrustedCache(t *testing.T) {
 
 	svc := watchingService()
 	var rows [][]any
-	err := ReadActiveCache(t.Context(), svc, "7", 10, 20, func(r CacheReading, active ActiveCluster) error {
+	err := ReadActiveCache(t.Context(), svc, "7", "", 10, 20, func(r CacheReading, active ActiveCluster) error {
 		assert.Equal(t, ClusterCacheID(41), active.Cache.ID)
 		assert.Equal(t, svc.health, r.Health(), "the health the reading was admitted under")
 		res, err := r.Query("SELECT ?", "x")
@@ -136,12 +136,43 @@ func TestReadActiveCacheRefusesWhatHasNoTrustedRows(t *testing.T) {
 			svc := watchingService()
 			tc.change(svc)
 
-			err := ReadActiveCache(t.Context(), svc, "7", 10, 20, func(r CacheReading, _ ActiveCluster) error {
+			err := ReadActiveCache(t.Context(), svc, "7", "", 10, 20, func(r CacheReading, _ ActiveCluster) error {
 				_, err := r.Query("SELECT 1")
 				return err
 			})
 
 			assert.ErrorIs(t, err, tc.want)
+		})
+	}
+}
+
+// A reading pinned to a server is ErrIdentityMismatch, with nothing of the cache
+// read, when the record names another: before the cache is missed, its health
+// read or its rows withheld. An identity that moves under it is the same.
+func TestReadActiveCacheRefusesAnotherServerFirst(t *testing.T) {
+	for name, change := range map[string]func(*readingService){
+		"trusted":       func(*readingService) {},
+		"no cache":      func(f *readingService) { f.active.Cache = nil },
+		"no health":     func(f *readingService) { f.noHealth = true },
+		"health failed": func(f *readingService) { f.healthErr = errors.New("db closed") },
+		"syncing":       func(f *readingService) { f.health.Reason = "Connecting" },
+		"identity moved": func(f *readingService) {
+			f.readErr = ErrIdentityMoved
+			f.active.Cluster.Status.Server.UID = new("uid-1")
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			svc := watchingService()
+			svc.active.Cluster = &Cluster{}
+			svc.active.Cluster.Status.Server.UID = new("uid-other")
+			change(svc)
+
+			err := ReadActiveCache(t.Context(), svc, "7", "uid-1", 10, 20, func(CacheReading, ActiveCluster) error {
+				t.Error("another server's cache was read")
+				return nil
+			})
+
+			assert.ErrorIs(t, err, ErrIdentityMismatch)
 		})
 	}
 }

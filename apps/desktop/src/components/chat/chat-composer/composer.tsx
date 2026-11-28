@@ -22,6 +22,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Ref } from 'react';
 import { useMutation } from 'urql';
 
+import { ModelPicker } from '@/components/primitives/model-picker';
 import { PROSE_TEXT } from '@/components/primitives/text-entry';
 import { VisibleText } from '@/components/primitives/visible-text';
 import { graphql } from '@/gql';
@@ -42,7 +43,6 @@ import { useRightSidebar } from '@/lib/right-sidebar';
 
 import { ContextPopover } from './context-popover';
 import { ChatGrants } from './grants';
-import { ModelPicker } from './model-picker';
 import { NetworkSwitch } from './network-switch';
 import { SandboxPopover } from './sandbox-popover';
 

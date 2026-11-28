@@ -37,8 +37,9 @@ type claimed interface {
 // cluster gone since the target read it is errClusterGone.
 //
 // The claim watches the record, so a cluster disabled, marked for deletion or
-// gone while the run lasts is refused from then on.
-func (t *Tool) claim(ctx context.Context, id apimeta.ClusterID, serverUID string) (claimed, error) {
+// gone while the run lasts is refused from then on. moved, when set, is told of
+// each connection refused for reaching another server.
+func (t *Tool) claim(ctx context.Context, id apimeta.ClusterID, serverUID string, moved func()) (claimed, error) {
 	if serverUID == "" {
 		return refused{kubeproxy.ErrNotIdentified}, nil
 	}
@@ -61,7 +62,7 @@ func (t *Tool) claim(ctx context.Context, id apimeta.ClusterID, serverUID string
 	}
 	revoked := make(chan struct{})
 	go watchRevoked(watchCtx, stream, revoked)
-	return upstream{lease: lease, serverUID: serverUID, revoked: revoked, stop: stop}, nil
+	return upstream{lease: lease, serverUID: serverUID, moved: moved, revoked: revoked, stop: stop}, nil
 }
 
 // watchRevoked closes revoked once stream shows the cluster Kubetail no longer
@@ -100,6 +101,8 @@ func (refused) Close() {}
 type upstream struct {
 	lease     cluster.Lease
 	serverUID string
+	// moved, when set, is told of a connection that reaches another server.
+	moved func()
 	// revoked closes once the record says Kubetail no longer connects to the
 	// cluster.
 	revoked <-chan struct{}
@@ -119,6 +122,9 @@ func (u upstream) Endpoint(ctx context.Context) (kubeproxy.Endpoint, error) {
 	conn, err := u.lease.ConnFor(ctx, u.serverUID)
 	switch {
 	case errors.Is(err, cluster.ErrIdentityMismatch):
+		if u.moved != nil {
+			u.moved()
+		}
 		return kubeproxy.Endpoint{}, kubeproxy.ErrIdentityMismatch
 	case err != nil:
 		return kubeproxy.Endpoint{}, err

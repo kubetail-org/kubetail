@@ -44,8 +44,13 @@ type OwnQuery func(sql string, maxRows, maxBytes int, args ...any) (ClusterCache
 // ReadActiveCache is CachedData().ReadActive over svc. Exported because a fake
 // CachedData outside this package answers ReadActive through it, over its own
 // readings, health and query.
-func ReadActiveCache(ctx context.Context, svc Service, id ClusterID, maxRows, maxBytes int, read func(CacheReading, ActiveCluster) error) error {
+func ReadActiveCache(ctx context.Context, svc Service, id ClusterID, serverUID string, maxRows, maxBytes int, read func(CacheReading, ActiveCluster) error) error {
 	err := svc.Clusters().ReadActive(ctx, id, func(ctx context.Context, active ActiveCluster) error {
+		// First: another server's cache, its health and its rows are none of a
+		// pinned reading's business.
+		if !active.ReadsServer(serverUID) {
+			return ErrIdentityMismatch
+		}
 		if active.Cache == nil {
 			return ErrNoCache
 		}
@@ -67,6 +72,7 @@ func ReadActiveCache(ctx context.Context, svc Service, id ClusterID, maxRows, ma
 		}
 		return err
 	})
+	err = PinnedReadErr(serverUID, err)
 	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrIdentityMoved) {
 		return ErrNoCache
 	}

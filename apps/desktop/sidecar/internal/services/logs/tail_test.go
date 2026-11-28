@@ -1549,7 +1549,7 @@ func TestAHeldStreamWaitsOutItsBackoff(t *testing.T) {
 	c, err := kubelet.Acquire(ctx, fake, "7", "uid-1")
 	require.NoError(t, err)
 	view := Scope{Sources: []ScopeSource{{Namespace: "prod", Kind: SourcePod, Name: "web-1", Containers: []string{"app"}}}}
-	tg, err := resolve(ctx, svc.clusters, "7", view, true)
+	tg, err := resolve(ctx, svc.clusters, "7", "", view, true)
 	require.NoError(t, err)
 	f := &cursorTail{
 		s: svc, id: "7", scope: view, start: startAt(t, view, time.Hour), claim: c, file: fileOf(t, svc, fake), tails: svc.registryFor("7", tg),
@@ -2558,7 +2558,7 @@ func TestATailFromACursorWaitsForAStartingContainer(t *testing.T) {
 // with its row's id.
 func filed(t *testing.T, svc *Service, f *fakeService) (target, stream, int64) {
 	t.Helper()
-	tg, err := resolve(t.Context(), svc.clusters, "7", webScope, true)
+	tg, err := resolve(t.Context(), svc.clusters, "7", "", webScope, true)
 	require.NoError(t, err)
 	rows, err := fileStreams(t.Context(), fileOf(t, svc, f), tg.streams)
 	require.NoError(t, err)
