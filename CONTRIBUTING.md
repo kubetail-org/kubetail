@@ -118,9 +118,9 @@ Signed-off-by: Your Name <you@example.com>
 
 The scope is `<component>[/<part>]`, from this list:
 
-- A component, as its release tag names it: `cli`, `dashboard`, `cluster-api`, `cluster-agent`, `desktop`. Or `web`, `libs`, `e2e`.
+- A component, as its release tag names it: `cli`, `dashboard`, `cluster-api`, `cluster-agent`, `desktop`. Or `web`, `libs`, `e2e`, or `repo` for what belongs to no component.
 - A part, only where it has a guide of its own: `desktop/webview`, `desktop/host`, `desktop/sidecar`, `libs/proto`, `libs/graphql`, `libs/go-common`. A change that spans a component's parts uses the component alone.
-- For changes that belong to no component: `deps`, `ci`, `repo`.
+- `deps`, for dependency updates.
 
 A scope is never a package, crate or file name; put those in the title. The title doesn't repeat the scope: write `feat(desktop/sidecar): add X`, not `feat(desktop/sidecar): add X to the sidecar`.
 
