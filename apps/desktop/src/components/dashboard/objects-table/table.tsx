@@ -23,14 +23,13 @@ import { cn } from '@kubetail/ui/lib/utils';
 import { useEffect, useMemo, useState } from 'react';
 
 import { TALL_ROW } from '@/components/dashboard/row-size';
-import { HEALTH_TONE } from '@/components/dashboard/status-pill';
-import type { StatusTone } from '@/components/dashboard/status-pill';
 import { VirtualTable } from '@/components/dashboard/virtual-table';
 import type { TableSort, VirtualColumn } from '@/components/dashboard/virtual-table';
 import { SearchBox } from '@/components/primitives/text-entry';
 import { VisibleText } from '@/components/primitives/visible-text';
 import type { ClusterCachedDataObject } from '@/lib/cluster-cached-data-objects';
-import { TONE } from '@/lib/cluster-health';
+import { HEALTH_TONE, TONE } from '@/lib/cluster-health';
+import type { StatusTone } from '@/lib/cluster-health';
 import type { PrinterColumn } from '@/lib/dashboard-resources';
 import type { SubscriptionPhase } from '@/lib/graphql/use-folded-subscription';
 import type { ObjectAction } from '@/lib/object-actions';

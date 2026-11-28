@@ -268,11 +268,6 @@ export function resolveDashboardResource(resource: DashboardResource | undefined
   return resource || DEFAULT_DASHBOARD_RESOURCE;
 }
 
-// Whether an id could name a kind once the catalog lands. Only Overview never will.
-export function mayNameDiscoveredKind(id: DashboardResource): boolean {
-  return id !== DEFAULT_DASHBOARD_RESOURCE;
-}
-
 // The catalog row behind a tree id.
 export function serverKindForResource(kinds: readonly ServerKind[], id: DashboardResource): ServerKind | undefined {
   return kinds.find((k) => navIdOf(k) === id);

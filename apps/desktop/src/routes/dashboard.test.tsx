@@ -85,6 +85,11 @@ const { useClusterCachedDataObjectsMock, useClusterCachedDataEventsMock } = vi.h
 }));
 vi.mock('@/lib/cluster-cached-data-objects', () => ({ useClusterCachedDataObjects: useClusterCachedDataObjectsMock }));
 vi.mock('@/lib/cluster-cached-data-events', () => ({ useClusterCachedDataEvents: useClusterCachedDataEventsMock }));
+vi.mock('@/lib/active-cluster', () => ({ useActiveCluster: () => ({ cluster: undefined }) }));
+// The window's namespaces provider sits in the layout, above the route.
+vi.mock('@/lib/cluster-namespaces', () => ({
+  useClusterNamespaces: () => ({ namespaces: [], active: true, phase: 'live' }),
+}));
 
 // The catalog draws the page again on `catalog.emit()`, as its watch does on each frame.
 const { useClusterCachedDataKindsMock, catalog } = vi.hoisted(() => {
@@ -190,16 +195,15 @@ describe('dashboard route', () => {
     useClusterCachedDataKindsMock.mockReturnValue({ kinds: [], active: true, cacheID: 'cache-1', phase: 'connecting' });
     await renderWithRouter(testRoot.addChildren([appRoute.addChildren([dashboardRoute])]), '/dashboard?resource=pods');
     expect(screen.getByText(/loading resources/i)).toBeInTheDocument();
-    expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument();
   });
 
-  it('shows Overview its placeholder at once, with no catalog to wait for', async () => {
+  it('shows the Overview page at once, with no catalog to wait for', async () => {
     useClusterCachedDataKindsMock.mockReturnValue({ kinds: [], active: true, cacheID: 'cache-1', phase: 'connecting' });
     await renderWithRouter(
       testRoot.addChildren([appRoute.addChildren([dashboardRoute])]),
       '/dashboard?resource=overview',
     );
-    expect(screen.getByText(/coming soon/i)).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Needs attention' })).toBeInTheDocument();
     expect(screen.queryByText(/loading resources/i)).not.toBeInTheDocument();
   });
 
@@ -223,7 +227,6 @@ describe('dashboard route', () => {
   it('says a kind the synced catalog lacks is not served by this cluster', async () => {
     await render('/dashboard?resource=ingresses', [KIND]);
     expect(screen.getByText(/this cluster does not serve ingresses/i)).toBeInTheDocument();
-    expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument();
   });
 
   // Contexts are listed but none resolves: every page gives way to the one note.
@@ -244,22 +247,24 @@ describe('dashboard route', () => {
     });
     await renderWithRouter(testRoot.addChildren([appRoute.addChildren([dashboardRoute])]), '/dashboard?resource=pods');
     expect(screen.getByText(/no synced cache for this cluster yet/i)).toBeInTheDocument();
-    expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/loading resources/i)).not.toBeInTheDocument();
   });
 
-  it('keeps Overview’s placeholder while the cluster has no active cache', async () => {
+  it('says the Overview is not synced while the cluster has no active cache', async () => {
     useClusterCachedDataKindsMock.mockReturnValue({
       kinds: [],
       active: false,
       cacheID: undefined,
       phase: 'connecting',
     });
+    useClusterCachedDataObjectsMock.mockReturnValue({ objects: [], active: false, phase: 'connecting' });
+    useClusterCachedDataEventsMock.mockReturnValue({ events: [], active: false, phase: 'connecting' });
     await renderWithRouter(
       testRoot.addChildren([appRoute.addChildren([dashboardRoute])]),
       '/dashboard?resource=overview',
     );
-    expect(screen.getByText(/coming soon/i)).toBeInTheDocument();
+    expect(screen.getByText(/no synced cache for this cluster yet — the overview/i)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Needs attention' })).not.toBeInTheDocument();
   });
 
   it('keeps the table it shows as the catalog’s counts churn', async () => {

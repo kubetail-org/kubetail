@@ -22,10 +22,10 @@ import ReactTimeAgo from 'react-timeago';
 import type { Formatter } from 'react-timeago';
 
 import { StatusPill } from '@/components/dashboard/status-pill';
-import type { StatusTone } from '@/components/dashboard/status-pill';
 import type { VirtualColumn } from '@/components/dashboard/virtual-table';
 import { VisibleText } from '@/components/primitives/visible-text';
 import type { ClusterCachedDataObject } from '@/lib/cluster-cached-data-objects';
+import type { StatusTone } from '@/lib/cluster-health';
 import { gvrKey } from '@/lib/gvr';
 import { humanDuration } from '@/lib/human-duration';
 import type { SortValue } from '@/lib/sort-rows';

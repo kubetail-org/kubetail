@@ -16,13 +16,8 @@
 import { cn } from '@kubetail/ui/lib/utils';
 
 import { VisibleText } from '@/components/primitives/visible-text';
-import { TONE } from '@/lib/cluster-health';
-import type { Tone } from '@/lib/cluster-health';
-
-export type StatusTone = 'ok' | 'pending' | 'failing';
-
-// An object's tone in the palette cluster health uses: green, amber, red.
-export const HEALTH_TONE: Record<StatusTone, Tone> = { ok: 'ok', pending: 'attention', failing: 'error' };
+import { HEALTH_TONE, TONE } from '@/lib/cluster-health';
+import type { StatusTone } from '@/lib/cluster-health';
 
 export function StatusPill({ label, tone }: { label: string; tone: StatusTone }) {
   return (

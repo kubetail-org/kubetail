@@ -21,7 +21,6 @@ import {
   DEFAULT_DASHBOARD_RESOURCE,
   filterNav,
   groupCount,
-  mayNameDiscoveredKind,
   navPlaceOf,
   resolveDashboardResource,
   serverKindForResource,
@@ -196,14 +195,6 @@ describe('resolveDashboardResource', () => {
     expect(resolveDashboardResource(undefined)).toBe('overview');
     expect(resolveDashboardResource('')).toBe('overview');
     expect(resolveDashboardResource('apps/controllerrevisions')).toBe('apps/controllerrevisions');
-  });
-});
-
-describe('mayNameDiscoveredKind', () => {
-  it('is false for Overview alone, which no kind backs', () => {
-    expect(mayNameDiscoveredKind('overview')).toBe(false);
-    expect(mayNameDiscoveredKind('pods')).toBe(true);
-    expect(mayNameDiscoveredKind('workloads')).toBe(true);
   });
 });
 

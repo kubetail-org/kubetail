@@ -20,6 +20,8 @@ import { clusterForContext } from '@/lib/clusters';
 import type { Cluster, ClusterCacheHealth } from '@/lib/clusters';
 
 export type Tone = 'ok' | 'attention' | 'error' | 'muted';
+// An object's tone, as its status reads: healthy, on its way somewhere, or broken.
+export type StatusTone = 'ok' | 'pending' | 'failing';
 // A record still named by the kubeconfig, or one whose cache outlived its context.
 export type Group = 'active' | 'orphaned';
 
@@ -30,6 +32,9 @@ export const TONE: Record<Tone, { severity: number; dot: string; text: string }>
   ok: { severity: 1, dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
   muted: { severity: 0, dot: 'bg-muted-foreground/50', text: 'text-muted-foreground' },
 };
+
+// An object's tone in the palette cluster health uses: green, amber, red.
+export const HEALTH_TONE: Record<StatusTone, Tone> = { ok: 'ok', pending: 'attention', failing: 'error' };
 
 export type Status = { label: string; tone: Tone };
 export type Health = { tone: Tone; summary: string };
@@ -87,6 +92,18 @@ export function cacheFailureSummary(reason: string | undefined, failure?: string
   return 'Cache error';
 }
 
+// Catching up, or discovery hasn't landed: not a fault.
+const CATCHING_UP = new Set(['Syncing', 'Unknown']);
+
+// Whether the active cache is still catching up with the cluster, so its rows may not hold
+// every object yet. Reads the sidecar's per-kind rollup, dominated by the worst kind: neither
+// the cache's coarse Synced condition nor any single kind's would do. No rollup yet means
+// nothing observed, only work in progress.
+export function cacheCatchingUp(c: Cluster): boolean {
+  const health = c.activeCache?.health;
+  return !health || CATCHING_UP.has(health.reason);
+}
+
 // Gates on the live `Connected` condition first (a dropped connection leaves the
 // engine reporting a stale "Watching"), then reads the rollup.
 export function syncStatus(c: Cluster, group: Group): Status {
@@ -97,11 +114,8 @@ export function syncStatus(c: Cluster, group: Group): Status {
   // Muted, not amber: the fault is on the connection axis, and graying the gated
   // sync value keeps it reading as a downstream symptom.
   if (connected?.status === 'False') return { label: 'Stalled', tone: 'muted' };
-  // The sidecar's per-kind rollup, dominated by the worst kind. Neither the cache's
-  // coarse Synced condition nor any single kind's would do.
   const health = c.activeCache?.health;
-  // No rollup yet: nothing observed, only work in progress.
-  if (!health) return { label: 'Syncing', tone: 'ok' };
+  if (!health || CATCHING_UP.has(health.reason)) return { label: 'Syncing', tone: 'ok' };
   switch (health.reason) {
     case 'SyncFailed':
       return { label: 'Error', tone: 'error' };
@@ -123,10 +137,6 @@ export function syncStatus(c: Cluster, group: Group): Status {
     // instantly on resume, before the kinds' reconciles land.
     case 'Paused':
       return { label: 'Paused', tone: 'muted' };
-    // Catching up, or discovery hasn't landed: not a fault.
-    case 'Syncing':
-    case 'Unknown':
-      return { label: 'Syncing', tone: 'ok' };
     // An unknown reason is DEGRADED, not healthy (the schema and the sidecar's fold
     // both read it that way); green here would paint every future verdict healthy.
     default:

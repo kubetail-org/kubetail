@@ -116,7 +116,7 @@ Pending work across the three parts of the app. Grouped by area; detailed items 
   [#881](https://github.com/kstackhq/kstack/issues/881)). The objects and events watches could
   take a `namespace` argument, as `clusterCachedDataKindCollectionWatch` does.
 
-- **A health verdict per object and per kind.** The dashboard has no shared definition of a problem, so the sidebar draws no problem badges and no *Show only kinds with problems*, and the kind pages' status tabs and the Overview's *Needs attention* have nothing to count (a data gap of the new dashboard, [#881](https://github.com/kstackhq/kstack/issues/881)). The client cannot fill the gap: the kinds watch carries counts alone, and judging objects in the webview would mean streaming every kind's objects to badge the sidebar.
+- **A health verdict per object and per kind.** The dashboard has no shared definition of a problem, so the sidebar draws no problem badges and no *Show only kinds with problems*, the kind pages' status tabs have nothing to count, and the Overview's *Needs attention* lists pods alone, judged in the webview (a data gap of the new dashboard, [#881](https://github.com/kstackhq/kstack/issues/881)). The client cannot fill the gap: the kinds watch carries counts alone, and judging objects in the webview would mean streaming every kind's objects to badge the sidebar.
   - **Decide the definition first — it is a product call.** Per kind, which state is a problem: a Pod failed or unknown, a container waiting on CrashLoopBackOff or ImagePullBackOff, or not ready; a Deployment, StatefulSet or DaemonSet below its desired ready replicas; a failed Job; a Node not Ready or under pressure; a PVC Pending or Lost. Whether restarts count, and which kinds have no verdict at all. Record it in an ADR.
   - **Shape:** the sidecar judges each object as it writes it, next to what `projectObject` already extracts (`status_summary`, `ready_count`/`total_count`, `restart_count`), and serves a verdict on `ClusterCachedDataObject` and a problem count on `ClusterCachedDataKind`, streamed like `count`.
   - **Then the webview:** a `ProblemBadge` on `NavItem` and `NavGroup` (a closed group sums its kinds), *Show only kinds with problems*, and Overview's badge, whose meaning the Overview page settles.
@@ -792,13 +792,10 @@ Pending work across the three parts of the app. Grouped by area; detailed items 
 - **The new dashboard is unfinished** ([#881](https://github.com/kstackhq/kstack/issues/881), from
   the *K8s Dashboard (imported)* page of the
   [Kubetail Figma file](https://www.figma.com/design/TeS8ZaScKc01RDfYJ06A8N/Kubetail)). The sidebar,
-  the namespace scope, the page header and the kind tables are built. Still to build:
+  the namespace scope, the page header, the Overview and the kind tables are built. Still to build:
   - **A pod detail page** (`Pod detail / Overview`, `Pod detail / Logs`): a route for one object,
     with a header (status, owner, node, IP, age, restarts) and Overview, Logs, Events and YAML
     tabs. The route never builds or parses an `ObjectID`.
-  - **The Overview page** (`Overview (all namespaces)`): today it reads "coming soon". Build the
-    tiles existing data fills: *Needs attention*, *Nodes ready*, *Pods running*, and *Namespaces*
-    with workload counts.
   - **The data gaps** not filed above (*Namespaced watches* and *A health verdict* are, under
     *Sidecar — cluster service*): object search across kinds, for the sidebar's search; usage
     metrics, for CPU and Memory columns; resource requests across the cluster; cluster facts
@@ -831,14 +828,19 @@ Pending work across the three parts of the app. Grouped by area; detailed items 
   outlined one). **Fix:** the log viewer takes `ColumnPicker`, with reordering optional or on, or
   the two share one checkbox row. Whether the log viewer gains reordering is a product call.
 
-- **A pod's tone has names of its own.** `status-pill.tsx`'s `StatusTone` (`ok`, `pending`,
+- **The objects table's ages have a formatter of their own.** `Age` (`objects-table/columns/common.tsx`)
+  draws through react-timeago with its own largest-unit formatter (`3h`), where every other
+  length of time is `humanDuration` (`3h20m`), as `src/CLAUDE.md` asks. **Fix:** draw the Age
+  column and `ageColumn`'s cells with `Elapsed`, and drop react-timeago if nothing else reads it.
+
+- **A pod's tone has names of its own.** `cluster-health.ts`'s `StatusTone` (`ok`, `pending`,
   `failing`) maps one-to-one onto cluster health's `Tone` (`ok`, `attention`, `error`) through
   `HEALTH_TONE`, so callers translate (`TONE[HEALTH_TONE[b]].text` in `objects-table/table.tsx`), and the
   pill draws its own dot beside `ClusterDot` at another size. **Fix:** type pod tones as `Tone`,
   drop `StatusTone` and `HEALTH_TONE`, and draw the dot with `ClusterDot`.
 
 - **One gate for a watch's not-synced and loading states.** `ObjectsTable`, `EventsTable`, and
-  `PlaceholderPage` in `routes/dashboard.tsx` each draw "not synced" without an
+  `MissingKindPage` in `routes/dashboard.tsx` each draw "not synced" without an
   active cache, a spinner until the `Bookmark`, then their content, and their wording has drifted
   (*Loading…* against *Loading pods…*). **Fix:** one component (`<WatchGate active phase noun>`)
   that draws the note or the spinner, else its children, so the never-empty-before-the-`Bookmark`
