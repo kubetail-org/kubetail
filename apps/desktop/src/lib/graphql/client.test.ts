@@ -110,6 +110,22 @@ describe('createGraphqlClient', () => {
     expect(result.error?.networkError).toBeDefined();
   });
 
+  // A mutation whose answer is lost may have committed: sending it again could undo
+  // a newer change another window made.
+  it('does not retry a mutation that fails with a network error', async () => {
+    vi.useFakeTimers();
+    invokeMock.mockRejectedValue('sidecar momentarily unreachable');
+
+    const client = createGraphqlClient();
+    const pending = client.mutation('mutation { ping }', {}).toPromise();
+
+    await vi.advanceTimersByTimeAsync(RETRY_DRAIN_MS);
+    const result = await pending;
+
+    expect(result.error?.networkError).toBeDefined();
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+  });
+
   it('does not retry a GraphQL error (deterministic — only transport failures retry)', async () => {
     vi.useFakeTimers();
     invokeMock.mockResolvedValue({ status: 200, body: '{"errors":[{"message":"bad field"}]}' });

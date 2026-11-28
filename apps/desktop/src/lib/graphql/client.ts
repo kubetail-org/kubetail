@@ -19,15 +19,17 @@ import { errorReportExchange } from './error-exchange';
 import { invokeFetch } from './invoke-fetch';
 import { tauriSubscriptionExchange } from './subscribe-exchange';
 
-// Retries only `networkError` failures (package default `retryIf`) — GraphQL
-// errors are deterministic and must NOT be retried. Bounded so a hard-down
-// sidecar fails fast; subscription reconnect owns long-term recovery.
-// `randomDelay` de-correlates the several queries a route fires at once.
+// Retries only a query's `networkError` — GraphQL errors are deterministic and
+// must NOT be retried, and a mutation whose answer was lost may have committed,
+// so sending it again could undo a newer change. Bounded so a hard-down sidecar
+// fails fast; subscription reconnect owns long-term recovery. `randomDelay`
+// de-correlates the several queries a route fires at once.
 const networkRetryExchange = retryExchange({
   initialDelayMs: 500,
   maxDelayMs: 5_000,
   maxNumberAttempts: 3,
   randomDelay: true,
+  retryIf: (error, operation) => !!error.networkError && operation.kind === 'query',
 });
 
 export function createGraphqlClient() {
