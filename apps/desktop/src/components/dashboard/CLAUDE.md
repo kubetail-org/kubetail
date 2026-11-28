@@ -1,6 +1,6 @@
 # src/components/dashboard — the dashboard
 
-The resource nav, the pages, the objects and events tables, the object panel and `VirtualTable`. Also owns `src/lib/`'s `dashboard-resources.ts`, `cluster-cached-data-*.tsx`, `cluster-namespaces.tsx`, `object-*.ts[x]`, `table-columns.ts`, `sort-rows.ts` and `jsonpath.ts`. How the window bounds a table's scroll is in `src/CLAUDE.md` (*Window state*).
+The resource nav, the pages, the objects and events tables, the object panel and `VirtualTable`. Also owns `src/lib/`'s `dashboard-resources.ts`, `cluster-cached-data-*.tsx`, `cluster-namespaces.tsx`, `object-*.ts[x]`, `overview.ts`, `pod-status.ts`, `table-columns.ts`, `sort-rows.ts` and `jsonpath.ts`. How the window bounds a table's scroll is in `src/CLAUDE.md` (*Window state*).
 
 ## The resource nav
 
@@ -19,7 +19,7 @@ All three cached-data hooks resolve the cluster/cache through `useActiveCluster(
 
 ## Pages
 
-`routes/dashboard.tsx` picks a page from `resource`. A resolved discovered kind's `KindPage` is keyed by cache **plus** `apiVersion`+`resource`, and held through a reconnect's replay of the catalog so the table stays mounted. **A page owns its watch and filters it by the namespace scope**; a cluster-scoped kind is not filtered and says so under a namespace. `useDashboardNavPlace` names the page in the breadcrumb bar by placing the one kind without building the tree. A resource the catalog lacks reads "not synced" with no active cache, a spinner before the Bookmark, and "not served" after it. `rawJSON` is the full native body (`unknown`). Both tables take their rows, `active` and `phase` as props and gate on them: no active cache → "not synced", `connecting` → spinner, `live` with no rows → "No …".
+`routes/dashboard.tsx` picks a page from `resource`. A resolved discovered kind's `KindPage` is keyed by cache **plus** `apiVersion`+`resource`, and held through a reconnect's replay of the catalog so the table stays mounted. **A page owns its watch and filters it by the namespace scope**; a cluster-scoped kind is not filtered and says so under a namespace. `useDashboardNavPlace` names the page in the breadcrumb bar by placing the one kind without building the tree. A resource the catalog lacks reads "not synced" with no active cache, a spinner before the Bookmark, and "not served" after it. **Overview** (`overview/`) takes every number from `useOverview` (`src/lib/overview.ts`), so a tile and its card never disagree; its watches are `unshared` and mount only while it shows, and each section spins until its own watches' snapshots land. A snapshot is the cache's, not the cluster's: until `cacheCatchingUp` clears, the page says its counts may be short and claims no empty state. Its layout follows its own width (container queries), since the right sidebar narrows a page to 320px. `rawJSON` is the full native body (`unknown`). Both tables take their rows, `active` and `phase` as props and gate on them: no active cache → "not synced", `connecting` → spinner, `live` with no rows → "No …".
 
 ## Columns
 

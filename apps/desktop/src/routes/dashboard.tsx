@@ -19,6 +19,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { DashboardBreadcrumbBar } from '@/components/dashboard/breadcrumb-bar';
 import { EventsTable } from '@/components/dashboard/events-table';
 import { ObjectsTable } from '@/components/dashboard/objects-table';
+import { OverviewPage } from '@/components/dashboard/overview';
 import { PageHeader } from '@/components/dashboard/page-header';
 import { VisibleText } from '@/components/primitives/visible-text';
 import { useActiveKubeContext } from '@/lib/active-kube-context';
@@ -27,12 +28,12 @@ import { useClusterCachedDataKinds } from '@/lib/cluster-cached-data-kinds';
 import { useClusterCachedDataObjects } from '@/lib/cluster-cached-data-objects';
 import type { ClusterCachedDataObject } from '@/lib/cluster-cached-data-objects';
 import {
+  DEFAULT_DASHBOARD_RESOURCE,
   dashboardResourceLabel,
-  mayNameDiscoveredKind,
   resolveDashboardResource,
   serverKindForResource,
 } from '@/lib/dashboard-resources';
-import type { DashboardResource, ServerKind } from '@/lib/dashboard-resources';
+import type { ServerKind } from '@/lib/dashboard-resources';
 import type { SubscriptionPhase } from '@/lib/graphql/use-folded-subscription';
 import { useNamespaceScope } from '@/lib/namespace-scope';
 import type { ObjectAction } from '@/lib/object-actions';
@@ -51,10 +52,11 @@ export const Route = createRoute({
 // The kind a resource last resolved to, under the cache it came from.
 type HeldKind = { cacheID: string | undefined; resource: string; kind: ServerKind };
 
-// Each resource is a page under the breadcrumb bar, a note over a panel: `events` → `EventsPage`; a resolved
-// discovered kind → `KindPage`; anything else → `PlaceholderPage`. Label and kind resolve
-// against the same live catalog the sidebar uses. A window on no cluster, with contexts
-// to pick from, draws one note in place of every page.
+// Each resource is a page under the breadcrumb bar, a note over a panel: `overview` →
+// `OverviewPage`; `events` → `EventsPage`; a resolved discovered kind → `KindPage`; anything
+// else → `MissingKindPage`. Label and kind resolve against the same live catalog the
+// sidebar uses. A window on no cluster, with contexts to pick from, draws one note in
+// place of every page.
 function Dashboard() {
   const { resource } = Route.useSearch();
   const { noneSelected } = useActiveKubeContext();
@@ -80,12 +82,14 @@ function Dashboard() {
   let page;
   if (noneSelected) {
     page = <Note>No cluster selected. Pick one from the cluster menu at the top of the window.</Note>;
+  } else if (resolved === DEFAULT_DASHBOARD_RESOURCE) {
+    page = <OverviewPage />;
   } else if (resolved === 'events') {
     page = <EventsPage />;
   } else if (kind) {
     page = <KindPage kind={kind} label={label} />;
   } else {
-    page = <PlaceholderPage label={label} resource={resolved} active={active} phase={phase} />;
+    page = <MissingKindPage label={label} active={active} phase={phase} />;
   }
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -186,30 +190,22 @@ function EventsNote({ count, namespace }: { count?: number; namespace?: string }
   );
 }
 
-type PlaceholderPageProps = { label: string; resource: DashboardResource; active: boolean; phase: SubscriptionPhase };
+type MissingKindPageProps = { label: string; active: boolean; phase: SubscriptionPhase };
 
-// A page with nothing to list. Overview reads "coming soon" at once. A resource the
-// catalog could name (`mayNameDiscoveredKind`) and does not reads "not synced" with no
-// active cache, waits behind a spinner for the Bookmark, and after it is not served by
-// this cluster.
-function PlaceholderPage({ label, resource, active, phase }: PlaceholderPageProps) {
+// A resource the catalog does not name: "not synced" with no active cache, a spinner until
+// the Bookmark, and after it not served by this cluster.
+function MissingKindPage({ label, active, phase }: MissingKindPageProps) {
   const name = label.toLowerCase();
-  let note;
-  if (!mayNameDiscoveredKind(resource)) {
-    note = <Note>The {name} view is coming soon.</Note>;
-  } else if (!active) {
-    note = <Note>No synced cache for this cluster yet — {name} appear once syncing has started.</Note>;
-  } else if (phase === 'connecting') {
-    note = (
+  if (!active) return <Note>No synced cache for this cluster yet — {name} appear once syncing has started.</Note>;
+  if (phase === 'connecting') {
+    return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Spinner size="sm" />
         Loading resources…
       </div>
     );
-  } else {
-    note = <Note>This cluster does not serve {name}, or your credentials cannot list them.</Note>;
   }
-  return note;
+  return <Note>This cluster does not serve {name}, or your credentials cannot list them.</Note>;
 }
 
 function Note({ children }: { children: React.ReactNode }) {
