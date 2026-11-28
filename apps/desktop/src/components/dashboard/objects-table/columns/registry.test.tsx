@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 import type { ClusterCachedDataObject } from '@/lib/cluster-cached-data-objects';
 
 import type { ObjectColumn } from './common';
-import { columnsForKind, toneForKind } from './registry';
+import { columnsForKind, statusForKind, toneForKind } from './registry';
 import { cellText, objectWith } from './testutil';
 
 const widgetGVR = { apiVersion: 'example.com/v1', resource: 'widgets' };
@@ -148,5 +148,39 @@ describe('sort values', () => {
 describe('toneForKind', () => {
   it('gives a kind without a status no tone', () => {
     expect(toneForKind(widgetGVR)).toBeUndefined();
+  });
+});
+
+describe('statusForKind', () => {
+  const pods = { apiVersion: 'v1', resource: 'pods' };
+
+  it('gives a kind without a status none', () => {
+    expect(statusForKind(widgetGVR)).toBeUndefined();
+  });
+
+  // The detail's pill and the table's tabs read the same column.
+  it.each([
+    ['a ready pod', { status: { phase: 'Running', conditions: [{ type: 'Ready', status: 'True' }] } }],
+    [
+      'a crash-looping pod',
+      { status: { phase: 'Running', containerStatuses: [{ state: { waiting: { reason: 'CrashLoopBackOff' } } }] } },
+    ],
+    ['a pending pod', { status: { phase: 'Pending' } }],
+  ])('agrees with the tone for %s', (_, rawJSON) => {
+    const o = objectWith(rawJSON);
+    expect(statusForKind(pods)!(o)?.tone).toBe(toneForKind(pods)!(o));
+  });
+
+  it('names the label the table’s pill draws', () => {
+    expect(statusForKind(pods)!(objectWith({ status: { phase: 'Pending' } }))).toEqual({
+      label: 'Pending',
+      tone: 'pending',
+    });
+  });
+
+  it('reads no status where the pill draws a dash, and the tabs count it pending', () => {
+    const o = objectWith({});
+    expect(statusForKind(pods)!(o)).toBeUndefined();
+    expect(toneForKind(pods)!(o)).toBe('pending');
   });
 });

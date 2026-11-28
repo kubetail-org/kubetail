@@ -14,6 +14,9 @@
 
 // The cluster's own kinds: nodes, namespaces, and the scheduling, lease and API priority
 // kinds behind them.
+import { nodeAddress, nodeRoles } from '@/lib/node-detail';
+import type { NodeBody } from '@/lib/node-detail';
+
 import {
   ageColumn,
   conditionStatus,
@@ -30,17 +33,6 @@ import type { Status } from './common';
 
 type Conditions = { type?: string; status?: string; message?: string; error?: string }[];
 
-type NodeBody = {
-  metadata?: { labels?: Record<string, string> };
-  spec?: { unschedulable?: boolean; taints?: unknown[] };
-  status?: {
-    conditions?: Conditions;
-    addresses?: { type?: string; address?: string }[];
-    capacity?: { cpu?: string; memory?: string; pods?: string };
-    nodeInfo?: { kubeletVersion?: string; osImage?: string; kernelVersion?: string; containerRuntimeVersion?: string };
-  };
-};
-
 // kubectl's: the Ready condition, then SchedulingDisabled for a cordoned node.
 function nodeStatus(b: NodeBody): Status {
   const ready = conditionStatus(b.status?.conditions, 'Ready');
@@ -49,20 +41,6 @@ function nodeStatus(b: NodeBody): Status {
   if (ready === 'True') return { label: `Ready${suffix}`, tone: cordoned ? 'pending' : 'ok' };
   return { label: `${ready === 'False' ? 'NotReady' : 'Unknown'}${suffix}`, tone: 'failing' };
 }
-
-const ROLE_PREFIX = 'node-role.kubernetes.io/';
-
-// kubectl's: every `node-role.kubernetes.io/<role>` label, and `kubernetes.io/role`'s value.
-function nodeRoles(b: NodeBody): string[] {
-  const roles = new Set<string>();
-  for (const [key, value] of Object.entries(b.metadata?.labels ?? {})) {
-    if (key.startsWith(ROLE_PREFIX) && key.length > ROLE_PREFIX.length) roles.add(key.slice(ROLE_PREFIX.length));
-    else if (key === 'kubernetes.io/role' && value) roles.add(value);
-  }
-  return [...roles].toSorted();
-}
-
-const address = (b: NodeBody, type: string) => b.status?.addresses?.find((a) => a.type === type)?.address;
 
 type NamespaceBody = { status?: { phase?: string } };
 
@@ -115,8 +93,8 @@ export const clusterKinds = [
     statusColumn('Status', 200, nodeStatus),
     listColumn('Roles', 128, nodeRoles),
     textColumn('Version', 112, (b) => b.status?.nodeInfo?.kubeletVersion),
-    textColumn('Internal IP', 120, (b) => address(b, 'InternalIP'), { hidden: true, mono: true }),
-    textColumn('External IP', 120, (b) => address(b, 'ExternalIP'), { hidden: true, mono: true }),
+    textColumn('Internal IP', 120, (b) => nodeAddress(b, 'InternalIP'), { hidden: true, mono: true }),
+    textColumn('External IP', 120, (b) => nodeAddress(b, 'ExternalIP'), { hidden: true, mono: true }),
     textColumn('OS image', 192, (b) => b.status?.nodeInfo?.osImage, { hidden: true }),
     textColumn('Kernel', 160, (b) => b.status?.nodeInfo?.kernelVersion, { hidden: true }),
     textColumn('Container runtime', 176, (b) => b.status?.nodeInfo?.containerRuntimeVersion, {

@@ -12,6 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The columns and tone of each kind's table. Nothing outside imports a kind's file.
-export type { ObjectColumn } from './common';
-export { columnsForKind, toneForKind } from './registry';
+// The columns, status and tone of each kind's table. Nothing outside imports a kind's file.
+export type { ObjectColumn, Status } from './common';
+export { columnsForKind, statusForKind, toneForKind } from './registry';
