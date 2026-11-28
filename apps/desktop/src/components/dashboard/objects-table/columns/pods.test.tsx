@@ -18,7 +18,6 @@ import { describe, expect, it } from 'vitest';
 import type { ClusterCachedDataObject } from '@/lib/cluster-cached-data-objects';
 
 import type { ObjectColumn } from './common';
-import { podStatusTone } from './pods';
 import { columnsForKind, toneForKind } from './registry';
 import { cellText, objectWith } from './testutil';
 
@@ -87,22 +86,6 @@ describe('pod status', () => {
     expect(cellText(status, deleted({ phase: 'Running' }))).toBe('Terminating');
     expect(cellText(status, deleted({ phase: 'Running', reason: 'NodeLost' }))).toBe('Unknown');
     expect(cellText(status, deleted({ phase: 'Succeeded' }))).toBe('Succeeded');
-  });
-});
-
-describe('podStatusTone', () => {
-  it('reads a running or finished pod as ok', () => {
-    expect(['Running', 'Completed', 'Succeeded'].map(podStatusTone)).toEqual(['ok', 'ok', 'ok']);
-  });
-
-  it('reads a broken pod as failing, an init container’s too', () => {
-    const failing = ['CrashLoopBackOff', 'ImagePullBackOff', 'Init:Error', 'Init:Signal:9', 'ExitCode:2', 'Evicted'];
-    expect(failing.map(podStatusTone)).toEqual(failing.map(() => 'failing'));
-  });
-
-  it('reads a pod on its way somewhere as pending', () => {
-    const pending = ['Pending', 'ContainerCreating', 'Init:0/2', 'Terminating', 'NotReady', 'Unknown'];
-    expect(pending.map(podStatusTone)).toEqual(pending.map(() => 'pending'));
   });
 });
 

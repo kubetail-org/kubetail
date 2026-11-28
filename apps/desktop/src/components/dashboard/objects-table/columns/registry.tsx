@@ -16,8 +16,8 @@
 // columns.
 import ReactTimeAgo from 'react-timeago';
 
-import type { StatusTone } from '@/components/dashboard/status-pill';
 import type { ClusterCachedDataObject } from '@/lib/cluster-cached-data-objects';
+import type { StatusTone } from '@/lib/cluster-health';
 import type { PrinterColumn } from '@/lib/dashboard-resources';
 import { gvrKey } from '@/lib/gvr';
 import type { GVR } from '@/lib/gvr';

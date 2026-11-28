@@ -20,6 +20,8 @@ import { clusterForContext } from '@/lib/clusters';
 import type { Cluster, ClusterCacheHealth } from '@/lib/clusters';
 
 export type Tone = 'ok' | 'attention' | 'error' | 'muted';
+// An object's tone, as its status reads: healthy, on its way somewhere, or broken.
+export type StatusTone = 'ok' | 'pending' | 'failing';
 // A record still named by the kubeconfig, or one whose cache outlived its context.
 export type Group = 'active' | 'orphaned';
 
@@ -30,6 +32,9 @@ export const TONE: Record<Tone, { severity: number; dot: string; text: string }>
   ok: { severity: 1, dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
   muted: { severity: 0, dot: 'bg-muted-foreground/50', text: 'text-muted-foreground' },
 };
+
+// An object's tone in the palette cluster health uses: green, amber, red.
+export const HEALTH_TONE: Record<StatusTone, Tone> = { ok: 'ok', pending: 'attention', failing: 'error' };
 
 export type Status = { label: string; tone: Tone };
 export type Health = { tone: Tone; summary: string };

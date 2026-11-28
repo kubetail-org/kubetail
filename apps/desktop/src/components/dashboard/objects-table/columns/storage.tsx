@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Storage kinds' columns: kubectl's, with a phase pill where the kind has one.
-import type { StatusTone } from '@/components/dashboard/status-pill';
+import type { StatusTone } from '@/lib/cluster-health';
 
 import { countColumn, kind, labelsText, listColumn, quantityColumn, statusColumn, textColumn } from './common';
 import type { KindColumn, Status } from './common';
