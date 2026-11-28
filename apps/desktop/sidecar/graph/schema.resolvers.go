@@ -285,6 +285,36 @@ func (r *incidentOccurrenceResolver) Detail(ctx context.Context, obj *monitor.In
 	return monitorAttributes(obj.DetailJSON)
 }
 
+// Verdict is the resolver for the verdict field.
+func (r *incidentTriageResolver) Verdict(ctx context.Context, obj *monitor.IncidentTriage) (*monitor.TriageVerdict, error) {
+	return nonZero(obj.Verdict), nil
+}
+
+// Error is the resolver for the error field.
+func (r *incidentTriageResolver) Error(ctx context.Context, obj *monitor.IncidentTriage) (*monitor.TriageErrorCode, error) {
+	return nonZero(obj.Error), nil
+}
+
+// Report is the resolver for the report field.
+func (r *incidentTriageResolver) Report(ctx context.Context, obj *monitor.IncidentTriage) (*string, error) {
+	return nonZero(obj.Report), nil
+}
+
+// ProviderID is the resolver for the providerID field.
+func (r *incidentTriageResolver) ProviderID(ctx context.Context, obj *monitor.IncidentTriage) (*string, error) {
+	return nonZero(obj.ProviderID), nil
+}
+
+// ModelID is the resolver for the modelID field.
+func (r *incidentTriageResolver) ModelID(ctx context.Context, obj *monitor.IncidentTriage) (*string, error) {
+	return nonZero(obj.ModelID), nil
+}
+
+// Effort is the resolver for the effort field.
+func (r *incidentTriageResolver) Effort(ctx context.Context, obj *monitor.IncidentTriage) (*string, error) {
+	return nonZero(obj.Effort), nil
+}
+
 // Integration is the resolver for the integration field.
 func (r *monitorSignalResolver) Integration(ctx context.Context, obj *monitor.MonitorSignal) (model.MonitorIntegration, error) {
 	return monitorIntegrationOf(obj.Integration)
@@ -571,6 +601,16 @@ func (r *mutationResolver) MonitorTargetEnabledSet(ctx context.Context, id monit
 		return nil, monitorErr(err)
 	}
 	return &t, nil
+}
+
+// IncidentTriage is the resolver for the incidentTriage field. The triage's
+// progress reaches the webview through the incidents watch.
+func (r *mutationResolver) IncidentTriage(ctx context.Context, id monitor.IncidentID, providerID string, modelID string, effort *string) (*monitor.Incident, error) {
+	i, err := r.Monitor.Triage(ctx, id, monitor.TriageModel{ProviderID: providerID, ModelID: modelID, Effort: valueOf(effort)})
+	if err != nil {
+		return nil, monitorErr(err)
+	}
+	return &i, nil
 }
 
 // MemorySave is the resolver for the memorySave field: an update with an id, a
@@ -1409,6 +1449,9 @@ func (r *Resolver) IncidentOccurrence() IncidentOccurrenceResolver {
 	return &incidentOccurrenceResolver{r}
 }
 
+// IncidentTriage returns IncidentTriageResolver implementation.
+func (r *Resolver) IncidentTriage() IncidentTriageResolver { return &incidentTriageResolver{r} }
+
 // MonitorSignal returns MonitorSignalResolver implementation.
 func (r *Resolver) MonitorSignal() MonitorSignalResolver { return &monitorSignalResolver{r} }
 
@@ -1458,6 +1501,7 @@ type (
 	googleConnectionResolver        struct{ *Resolver }
 	incidentResolver                struct{ *Resolver }
 	incidentOccurrenceResolver      struct{ *Resolver }
+	incidentTriageResolver          struct{ *Resolver }
 	monitorSignalResolver           struct{ *Resolver }
 	monitorTargetResolver           struct{ *Resolver }
 	mutationResolver                struct{ *Resolver }

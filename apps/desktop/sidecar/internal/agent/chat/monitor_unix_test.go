@@ -192,7 +192,7 @@ func defaultPath(context.Context) (settings.RunPath, error) {
 func (r sandboxRig) monitorRuns(t *testing.T, clusterID apimeta.ClusterID, calls ...llm.Block) []storedToolCall {
 	t.Helper()
 	fakeOf(r.s).SetToolCalls(calls...)
-	res, err := r.s.RunMonitor(t.Context(), clusterID, fakeTarget(r.s), "look", admitted)
+	res, err := r.s.RunMonitor(t.Context(), clusterID, "uid-1", fakeTarget(r.s), "look", admitted)
 	require.NoError(t, err)
 	rows := toolCallRows(t, r.s.db, res.RunID)
 	require.Len(t, rows, len(calls))

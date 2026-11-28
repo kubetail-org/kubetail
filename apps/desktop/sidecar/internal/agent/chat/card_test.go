@@ -150,6 +150,10 @@ func (blockingClusterCards) ClusterCard(ctx context.Context, _ apimeta.ClusterID
 	return clustercard.Unavailable
 }
 
+func (c blockingClusterCards) ClusterCardAt(ctx context.Context, id apimeta.ClusterID, _ string) (string, bool) {
+	return c.ClusterCard(ctx, id), true
+}
+
 // The timeout is the render's alone: the question is accepted with the unavailable
 // card, and its rows go in on the send's own context.
 func TestACardThatTimesOutIsUnavailable(t *testing.T) {
@@ -262,6 +266,10 @@ func (c *deletingClusterCards) ClusterCard(ctx context.Context, _ apimeta.Cluste
 		}
 	}
 	return "card"
+}
+
+func (c *deletingClusterCards) ClusterCardAt(ctx context.Context, id apimeta.ClusterID, _ string) (string, bool) {
+	return c.ClusterCard(ctx, id), true
 }
 
 func TestSendIntoAChatDeletedWhileItsCardRendersIsGone(t *testing.T) {

@@ -56,6 +56,7 @@ type MonitorTarget struct {
 	// UnknownJSON is each registered signal the last reading could not judge, by
 	// name, with its ReadErrorCode, as a JSON object with sorted keys.
 	UnknownJSON string
+	CanTriage   bool // its integration has a Triager
 }
 
 // MonitorSignal is a registered signal as the list serves it.
@@ -83,6 +84,7 @@ type Incident struct {
 	LastSeenAt      time.Time // zero while open
 	LastEndReason   EndReason // "" while open
 	Baseline        bool      // no occurrence of it has been ordinary yet
+	Triage          IncidentTriage
 }
 
 // IncidentOccurrence is an occurrence as the occurrence feed serves it.
@@ -212,5 +214,6 @@ func (m *Monitor) servedTarget(row storedTarget) (MonitorTarget, error) {
 	return MonitorTarget{
 		ID: MonitorTargetID(row.id), Integration: row.integration, Key: row.key, Label: row.label,
 		CurrentUID: row.uid, Enabled: row.enabled, ReadState: state, UnknownJSON: string(b),
+		CanTriage: reg.Triager != nil,
 	}, nil
 }

@@ -19,6 +19,7 @@ import (
 	"errors"
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/apimeta"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster/clustercard"
 )
 
@@ -44,26 +45,31 @@ var errClusterGone = errors.New("the chat's cluster is gone")
 const unnamedContext = "kubetail"
 
 // target reads the cluster's record from the cluster service, makes the
-// kubectl cache for the server it serves, and names the kube-context off it.
-func (t *Tool) target(ctx context.Context, id apimeta.ClusterID) (target, error) {
-	cluster, err := t.clusterSvc.Clusters().Get(ctx, id)
+// kubectl cache for the server it serves, and names the kube-context off it. A
+// record that names another server than serverUID ("" for any) is
+// cluster.ErrIdentityMismatch, with nothing made.
+func (t *Tool) target(ctx context.Context, id apimeta.ClusterID, serverUID string) (target, error) {
+	rec, err := t.clusterSvc.Clusters().Get(ctx, id)
 	if err != nil {
 		return target{}, err
 	}
-	if cluster == nil || cluster.DeletionRequestedAt != nil {
+	if rec == nil || rec.DeletionRequestedAt != nil {
 		return target{}, errClusterGone
 	}
+	if !rec.ReadsServer(serverUID) {
+		return target{}, cluster.ErrIdentityMismatch
+	}
 	uid := ""
-	if cluster.Status.Server.UID != nil {
-		uid = *cluster.Status.Server.UID
+	if rec.Status.Server.UID != nil {
+		uid = *rec.Status.Server.UID
 	}
 	cacheDir, err := makeKubectlCache(t.kubectlDir, id, uid)
 	if err != nil {
 		return target{}, err
 	}
-	name := clustercard.ContextName(cluster)
+	name := clustercard.ContextName(rec)
 	if name == "" {
 		name = unnamedContext
 	}
-	return target{id: id, context: name, scopeContext: cluster.KubeContext(), cacheDir: cacheDir, serverUID: uid}, nil
+	return target{id: id, context: name, scopeContext: rec.KubeContext(), cacheDir: cacheDir, serverUID: uid}, nil
 }

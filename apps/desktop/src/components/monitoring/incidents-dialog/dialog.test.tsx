@@ -77,6 +77,8 @@ vi.mock('@/lib/clusters', () => ({
     return { clusters: state.clusterIDs?.map((id) => ({ id })) ?? null };
   },
 }));
+// The triage section is its own test's.
+vi.mock('./triage', () => ({ IncidentTriageSection: () => null }));
 
 const { DialogProvider, useDialog } = await import('@/lib/dialog');
 const { IncidentsDialog } = await import('./dialog');
@@ -261,6 +263,22 @@ describe('IncidentsDialog', () => {
     await openIncidentsDialog();
     expect(rows()[0]).toHaveTextContent('Found when monitoring started');
     expect(rows()[1]).not.toHaveTextContent('Found when monitoring started');
+  });
+
+  it('marks an incident its triage dismissed and keeps it listed', async () => {
+    const triage = incidentRecord().triage;
+    state.incidents = [
+      incidentRecord({ id: 'dismissed', targetID: 't-prod', triage: { ...triage, state: 'Done', verdict: 'Dismiss' } }),
+      incidentRecord({
+        id: 'attention',
+        targetID: 't-prod',
+        triage: { ...triage, state: 'Done', verdict: 'Attention' },
+      }),
+    ];
+    await openIncidentsDialog();
+    expect(rows()).toHaveLength(2);
+    expect(rows()[0]).toHaveTextContent('Dismissed by triage');
+    expect(rows()[1]).not.toHaveTextContent('Dismissed by triage');
   });
 
   it('draws a subject label, its attributes and an occurrence detail as visible text', async () => {

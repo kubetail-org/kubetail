@@ -367,3 +367,32 @@ func TestReadOfAClusterWithNoCacheReadsNoCache(t *testing.T) {
 	assert.Nil(t, facts.Cache)
 	assert.Empty(t, f.asked)
 }
+
+// A card read at a server is the card while the record names that server, and
+// no card once it names another: a monitor run reads the server its incident
+// opened on, or nothing.
+func TestCardAtAServerIsRefusedForAnother(t *testing.T) {
+	card, ok := New(healthy()).ClusterCardAt(context.Background(), "7", "uid-2")
+	assert.True(t, ok)
+	assert.Equal(t, cardOf(healthy()), card)
+
+	f := healthy()
+	card, ok = New(f).ClusterCardAt(context.Background(), "7", "uid-1")
+	assert.False(t, ok, "the context moved to another server")
+	assert.Empty(t, card)
+	assert.Empty(t, f.asked, "nothing of the other server's cache is read")
+
+	f = healthy()
+	f.readErr = errRead
+	card, ok = New(f).ClusterCardAt(context.Background(), "7", "uid-2")
+	assert.True(t, ok, "a failed read is no other server")
+	assert.Equal(t, Unavailable, card)
+	f = healthy()
+	f.readErr = cluster.ErrIdentityMoved
+	card, ok = New(f).ClusterCardAt(context.Background(), "7", "uid-2")
+	assert.False(t, ok, "an identity that moved under the reading")
+	assert.Empty(t, card)
+	card, ok = New(f).ClusterCardAt(context.Background(), "7", "")
+	assert.True(t, ok, "a chat's card, read at whichever server")
+	assert.Equal(t, Unavailable, card)
+}

@@ -206,7 +206,9 @@ writer of the end.** → [ADR](../../../docs/adr/2026-09-25-an-agent-is-a-tool-i
 
 **A monitor run is a run of the chat service** (`RunMonitor`): one per cluster
 (`ErrMonitorInFlight`), refused without a sandbox or for a gone cluster, and `ErrMonitoringOff`
-when the caller's `Admit`, called inside the run's insert, refuses. It runs in
+when the caller's `Admit`, called after the insert in its transaction, refuses. **It reads one
+server** (`serverUID`): `ErrServerChanged` before the insert, and `Runtime.ServerMoved` fails it
+mid-run. It runs in
 `monitorSession()`, told the card alone (never memory), offered `MonitorBox`, which keeps `LogsRead`
 and drops `LogsView` and `LogsWatch`; nothing it asks is approved. →
 [ADR](../../../docs/adr/2026-10-05-a-monitor-run-is-a-run-of-the-chat-service.md),
@@ -311,7 +313,8 @@ A `Registration` per integration; `monitor/kubesignals` is the one, a target per
 one package that reads a key as a cluster's id (`ClusterID`).
 
 - **The core knows no integration**: it never parses a target's key, nor reads a subject's
-  attributes or a `detail`, and is tested over a fake integration. A signal carries its
+  attributes or a `detail` but to fence them into a triage's brief, and is tested over a fake
+  integration. A signal carries its
   integration's prefix (`New` refuses one without) and both its windows.
 - **An integration lists durable targets.** The reconcile listens before it lists, and a failed
   listing deletes none; a target whose integration the build lacks is left alone.
@@ -329,6 +332,10 @@ one package that reads a key as a cluster's id (`ClusterID`).
   resolve-after, by the wall clock; a pair first seen in it starts `baseline`, which never alerts.
   A restart takes none; the switch off and a new UID drop it. An incident alerts once, at its
   first ordinary start (`alerted_at`), served by `SubscribeAlertEventFeed`.
+- **A triage is the user's press alone** (`Monitor.Triage`), queued per target and run through
+  its `Triager` (`monitor/kubetriage`, the one importer of `chat`). The admit and the outcome write
+  only while the incident holds the request, the admit only under its queued generation. A first
+  line of `DISMISS` dismisses; anything else is attention.
 - **The reads serve the registered integrations' targets alone**, and what is under them. Each
   record is comparable (a zero value for null, JSON as stored, which the resolver decodes), so a
   watch diffs with `==`. A subscription joins `wg` through `enter`; `Close` ends it too.

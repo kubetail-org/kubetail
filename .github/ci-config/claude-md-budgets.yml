@@ -7,7 +7,7 @@ CLAUDE.md: 31232
 apps/desktop/CLAUDE.md: 8704
 apps/desktop/design/CLAUDE.md: 21504
 apps/desktop/sidecar/CLAUDE.md: 27136
-apps/desktop/sidecar/internal/agent/CLAUDE.md: 24576
+apps/desktop/sidecar/internal/agent/CLAUDE.md: 25600
 apps/desktop/sidecar/internal/llm/CLAUDE.md: 15360
 apps/desktop/sidecar/internal/run/CLAUDE.md: 26112
 apps/desktop/sidecar/internal/services/cluster/CLAUDE.md: 15360
@@ -29,7 +29,7 @@ apps/desktop/src/components/chat/CLAUDE.md: 18944
 apps/desktop/src/components/cluster/CLAUDE.md: 5120
 apps/desktop/src/components/dashboard/CLAUDE.md: 11264
 apps/desktop/src/components/logs/CLAUDE.md: 8192
-apps/desktop/src/components/monitoring/CLAUDE.md: 3072
+apps/desktop/src/components/monitoring/CLAUDE.md: 3584
 apps/desktop/src/components/settings/CLAUDE.md: 5120
 apps/desktop/src/components/shell/CLAUDE.md: 5120
 apps/web/CLAUDE.md: 13824

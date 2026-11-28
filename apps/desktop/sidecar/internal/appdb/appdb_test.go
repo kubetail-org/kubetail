@@ -205,6 +205,7 @@ func requireTables(t *testing.T, db *sql.DB) {
 		"CREATE UNIQUE INDEX incidents_alerted ON incidents (alert_seq) WHERE alert_seq IS NOT NULL",
 		"CREATE INDEX incidents_last_seen ON incidents (last_seen_at)",
 		"CREATE INDEX incidents_subject ON incidents (target_id, target_uid, signal, subject_key)",
+		"CREATE INDEX incidents_triage_run ON incidents (triage_run_id) WHERE triage_run_id IS NOT NULL",
 		"CREATE UNIQUE INDEX llm_calls_run_idx ON llm_calls (run_id, seq)",
 		"CREATE UNIQUE INDEX memories_name ON memories (ifnull(cluster_id, ''), name)",
 		"CREATE INDEX messages_run_idx ON messages (run_id)",
@@ -432,6 +433,24 @@ func TestTheMonitorTablesHoldWhatTheirChecksAllow(t *testing.T) {
 	assert.Zero(t, incidentBaseline)
 	assert.Nil(t, alertedAt)
 	assert.ErrorContains(t, exec(`UPDATE incidents SET baseline = 2`), "CHECK")
+	var triageState string
+	require.NoError(t, db.Read.QueryRow(`SELECT triage_state FROM incidents`).Scan(&triageState))
+	assert.Equal(t, "none", triageState)
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'maybe'`), "CHECK")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'queued'`), "CHECK", "a queued triage has its request")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_request_id = 'r1'`), "CHECK", "and only a queued one")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'done'`), "CHECK", "a done triage has its verdict")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'done', triage_verdict = 'shrug'`), "CHECK")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_state = 'failed'`), "CHECK", "a failed triage has its error")
+	assert.ErrorContains(t, exec(`UPDATE incidents SET triage_run_id = 'nope'`), "FOREIGN KEY")
+	require.NoError(t, exec(`INSERT INTO clusters (id, source, created_at, updated_at) VALUES ('c1', 'kubeconfig', 0, 0)`))
+	require.NoError(t, exec(`INSERT INTO agent_runs (id, agent_type, app_version, trigger, cluster_id, provider, model, dialect, created_at)
+		VALUES ('r1', 'monitor', 'test', 'monitor', 'c1', 'fake', 'fake', 'fake', 0)`))
+	require.NoError(t, exec(`UPDATE incidents SET triage_state = 'done', triage_verdict = 'dismiss', triage_run_id = 'r1'`))
+	require.NoError(t, exec(`DELETE FROM agent_runs WHERE id = 'r1'`))
+	var runID *string
+	require.NoError(t, db.Read.QueryRow(`SELECT triage_run_id FROM incidents`).Scan(&runID))
+	assert.Nil(t, runID, "a run's delete leaves its triage")
 
 	const occurrence = `INSERT INTO incident_occurrences (id, incident_id, number, started_at, ended_at, end_reason) VALUES (?, 'i1', ?, 10, ?, ?)`
 	require.NoError(t, exec(occurrence, "o1", 1, 20, "resolved"))
@@ -483,7 +502,7 @@ func TestOpenRefusesANewerFile(t *testing.T) {
 // line in the PR that writes it. Once a desktop release carries a migration, every
 // installed app.db has run it, so its line never changes again.
 var shippedMigrations = map[string]string{
-	"0001_init.sql": "f060a8fc986ea6199242a4c9d59d1d3f7826adaf5357ea7021e5ee22a2071622",
+	"0001_init.sql": "d2e4130fb7014bb754b1b64e302c29ed223478ff3ff74b1dac1e1fc597b5aff0",
 }
 
 func TestAShippedMigrationIsNeverEdited(t *testing.T) {

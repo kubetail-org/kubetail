@@ -108,7 +108,7 @@ func (s *Service) podsGone(ctx context.Context, cacheID int64, uids []string) ([
 	}
 	arg, _ := json.Marshal(uids) // a list of strings always marshals
 	var gone []string
-	err = s.clusters.CachedData().ReadActive(ctx, cache.Spec.ClusterID, len(uids)+1, maxBytes, func(q cluster.CacheReading, active cluster.ActiveCluster) error {
+	err = s.clusters.CachedData().ReadActive(ctx, cache.Spec.ClusterID, "", len(uids)+1, maxBytes, func(q cluster.CacheReading, active cluster.ActiveCluster) error {
 		// Set whole, never appended to: ReadActive may run this twice.
 		gone = nil
 		r := reading{q}

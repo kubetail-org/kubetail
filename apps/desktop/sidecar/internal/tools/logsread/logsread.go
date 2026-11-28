@@ -120,18 +120,23 @@ func (t *Tool) RunShown(ctx context.Context, rt tools.Runtime, raw json.RawMessa
 	var view tools.LogsViewAction
 	var notes []logsinput.Note
 	if in.cursor == nil {
-		if view, notes, err = logsinput.Resolve(ctx, t.svc, now, rt.ClusterID, in.Input); err != nil {
-			return logsinput.Refusal(err), true, nil
+		if view, notes, err = logsinput.Resolve(ctx, t.svc, now, rt.ClusterID, rt.ServerUID, in.Input); err != nil {
+			return logsinput.RefusalIn(rt, err), true, nil
 		}
 	}
 	readCtx, cancel := context.WithTimeout(ctx, t.readTimeout)
 	defer cancel()
-	resp, err := t.logs.Fetch(readCtx, rt.ClusterID, in.request(view.LogsScopeInput))
+	q := in.request(view.LogsScopeInput)
+	q.ServerUID = rt.ServerUID
+	resp, err := t.logs.Fetch(readCtx, rt.ClusterID, q)
 	switch {
+	// Before the deadline: a server move ends the run however the read ended.
+	case errors.Is(err, cluster.ErrIdentityMismatch):
+		return logsinput.RefusalIn(rt, err), true, nil
 	case err != nil && errors.Is(readCtx.Err(), context.DeadlineExceeded):
 		return `{"error":"timed-out"}`, true, nil
 	case err != nil:
-		return logsinput.Refusal(err), true, nil
+		return logsinput.RefusalIn(rt, err), true, nil
 	}
 	s := sampleOf(resp)
 	read := s.action()

@@ -16,6 +16,7 @@ package clustercard
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -36,17 +37,31 @@ func New(svc cluster.Service) *ClusterCards { return &ClusterCards{svc: svc} }
 // record is gone, a read fails, the identity moves under the reading twice, or ctx
 // ends first. The send is never refused over it.
 func (c *ClusterCards) ClusterCard(ctx context.Context, clusterID apimeta.ClusterID) string {
+	card, _ := c.ClusterCardAt(ctx, clusterID, "")
+	return card
+}
+
+// ClusterCardAt is ClusterCard read at serverUID's server, and false with no card
+// when the record names another or its identity moves under the reading: a reading
+// that would describe it is refused before anything of its cache is read. "" reads whichever server the record names.
+func (c *ClusterCards) ClusterCardAt(ctx context.Context, clusterID apimeta.ClusterID, serverUID string) (string, bool) {
 	var f Facts
 	err := c.svc.Clusters().ReadActive(ctx, clusterID, func(ctx context.Context, a cluster.ActiveCluster) error {
+		if !a.ReadsServer(serverUID) {
+			return cluster.ErrIdentityMismatch
+		}
 		var err error
 		f, err = Read(ctx, c.svc, a)
 		return err
 	})
-	if err != nil {
+	switch err = cluster.PinnedReadErr(serverUID, err); {
+	case errors.Is(err, cluster.ErrIdentityMismatch):
+		return "", false
+	case err != nil:
 		slog.Debug("the cluster card is unavailable", "cluster", clusterID, "err", err)
-		return Unavailable
+		return Unavailable, true
 	}
-	return Render(f)
+	return Render(f), true
 }
 
 // Read gathers the card's facts for the cluster it is handed: the record's fields,

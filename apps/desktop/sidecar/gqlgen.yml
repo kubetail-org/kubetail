@@ -330,6 +330,60 @@ models:
         resolver: true
       lastEndReason:
         resolver: true
+  IncidentTriage:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.IncidentTriage
+    fields:
+      verdict:
+        resolver: true
+      error:
+        resolver: true
+      report:
+        resolver: true
+      providerID:
+        resolver: true
+      modelID:
+        resolver: true
+      effort:
+        resolver: true
+  IncidentTriageState:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageState
+    enum_values:
+      None:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageStateNone
+      Queued:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageStateQueued
+      Done:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageStateDone
+      Failed:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageStateFailed
+  IncidentTriageVerdict:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageVerdict
+    enum_values:
+      Attention:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageVerdictAttention
+      Dismiss:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageVerdictDismiss
+  IncidentTriageError:
+    model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageErrorCode
+    enum_values:
+      MonitoringOff:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeMonitoringOff
+      ServerChanged:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeServerChanged
+      TargetGone:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeTargetGone
+      NoSandbox:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeNoSandbox
+      ModelUnavailable:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeModelUnavailable
+      RunFailed:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeRunFailed
+      Cancelled:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeCancelled
+      Interrupted:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeInterrupted
+      Unavailable:
+        value: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.TriageCodeUnavailable
   IncidentCollectionWatchFrame:
     model: github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor.IncidentCollectionWatchFrame
   IncidentOccurrence:
