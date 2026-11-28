@@ -18,7 +18,10 @@
 package clustertest
 
 import (
+	"bytes"
+	"compress/zlib"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -31,13 +34,15 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/watch"
 
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/sqlitepool"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/services/cluster/internal/kubestore"
 )
 
 // Store is one cache's store, open for the test's life.
 type Store struct {
-	s *kubestore.Store
+	s    *kubestore.Store
+	path string
 	// applied counts the bodies applied, the resourceVersion the next one takes.
 	applied int
 }
@@ -56,7 +61,7 @@ func NewStore(t testing.TB) *Store {
 	s, err := m.OpenOrCreate(1)
 	require.NoError(t, err)
 	t.Cleanup(s.Release)
-	return &Store{s: s}
+	return &Store{s: s, path: filepath.Join(dir, "1.db")}
 }
 
 // emptyStore is the bytes of cache 1's file, migrated and closed, made on first use.
@@ -133,4 +138,47 @@ func (s *Store) Read(ctx context.Context, read func(cluster.OwnQuery) error) err
 			return cluster.ClusterCachedDataQueryResult{Columns: res.Columns, Rows: res.Rows, More: res.More}, nil
 		})
 	})
+}
+
+// SetBody stores body as uid's raw_json, compressed as the store compresses it,
+// and leaves every column the store wrote from the old body as it was: a test
+// tells by it whether a statement decompressed a body.
+func (s *Store) SetBody(t testing.TB, uid string, body map[string]any) {
+	t.Helper()
+	raw, err := json.Marshal(body)
+	require.NoError(t, err)
+	var buf bytes.Buffer
+	w := zlib.NewWriter(&buf)
+	_, err = w.Write(raw)
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	db, err := sqlitepool.OpenWriter(s.path)
+	require.NoError(t, err)
+	defer db.Close()
+	res, err := db.Exec(`UPDATE objects SET raw_json = ? WHERE uid = ?`, buf.Bytes(), uid)
+	require.NoError(t, err)
+	n, err := res.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(1), n, "no object %s", uid)
+}
+
+// Plan is the query plan of sql over the store's file, a line per step, for a
+// test that pins the index a statement searches.
+func (s *Store) Plan(t testing.TB, sql string) []string {
+	t.Helper()
+	db, err := sqlitepool.OpenWriter(s.path)
+	require.NoError(t, err)
+	defer db.Close()
+	rows, err := db.Query(`EXPLAIN QUERY PLAN ` + sql)
+	require.NoError(t, err)
+	defer rows.Close()
+	var plan []string
+	for rows.Next() {
+		var id, parent, unused int
+		var detail string
+		require.NoError(t, rows.Scan(&id, &parent, &unused, &detail))
+		plan = append(plan, detail)
+	}
+	require.NoError(t, rows.Err())
+	return plan
 }
