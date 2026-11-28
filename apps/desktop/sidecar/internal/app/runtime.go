@@ -29,6 +29,7 @@ import (
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor/kubesignals"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor/kubetriage"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/appdb"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/filelock"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/lifecycle"
@@ -341,8 +342,11 @@ func build(ctx context.Context, cfg Config) (*Runtime, error) {
 	}
 	rt.add("chat service", rt.Chat)
 
-	// Kubernetes is the one integration: a target per cluster, read from its cache.
-	rt.Monitor, err = monitor.New(db, kubesignals.Register(db, rt.Cluster))
+	// Kubernetes is the one integration: a target per cluster, read from its cache,
+	// and triaged by a monitor run of the chat service.
+	kube := kubesignals.Register(db, rt.Cluster)
+	kube.Triager = kubetriage.New(rt.Chat, rt.LLM)
+	rt.Monitor, err = monitor.New(db, kube)
 	if err != nil { // coverage:ignore the statements prepare on the schema app.db was just migrated to, and the registration is fixed
 		return fail(err)
 	}
