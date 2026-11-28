@@ -94,6 +94,13 @@ vi.mock('@/lib/cluster-namespaces', () => ({
     return <div data-testid="namespace-list">{children}</div>;
   },
 }));
+// The incidents' provider subscribes too; mark its place, and stand in for the bell.
+vi.mock('@/lib/incidents', () => ({
+  IncidentsProvider: ({ children }: { children: React.ReactNode }) => <div data-testid="incidents">{children}</div>,
+}));
+vi.mock('@/components/shell/app-bar/notification-button', () => ({
+  NotificationButton: () => <button type="button" aria-label="Notifications" />,
+}));
 vi.mock('@/components/dashboard/dashboard-resource-nav', () => ({
   DashboardResourceNav: () => <nav aria-label="Resources" />,
 }));
@@ -223,6 +230,13 @@ describe('AppLayout', () => {
   it('pauses the kind catalog in chat mode', async () => {
     await renderWithRouter(buildTree(), '/chat');
     expect(catalogEnabled).toHaveBeenLastCalledWith(false);
+  });
+
+  it('holds the incidents above the bell and the page', async () => {
+    await renderWithRouter(buildTree(), '/chat');
+    const incidents = screen.getByTestId('incidents');
+    expect(incidents.contains(screen.getByRole('button', { name: 'Notifications' }))).toBe(true);
+    expect(incidents.contains(screen.getByTestId('page-content'))).toBe(true);
   });
 
   it('holds the namespace list above the page, and runs it on the dashboard alone', async () => {

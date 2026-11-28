@@ -38,6 +38,7 @@ import { ChatSwitchProvider } from '@/lib/chat-switch';
 import { ClusterCachedDataKindsProvider } from '@/lib/cluster-cached-data-kinds';
 import { ClusterNamespacesProvider } from '@/lib/cluster-namespaces';
 import { DialogProvider } from '@/lib/dialog';
+import { IncidentsProvider } from '@/lib/incidents';
 import { LogWindowsProvider } from '@/lib/log-windows';
 import { LogsViewProvider } from '@/lib/logs-view';
 import { ObjectViewProvider } from '@/lib/object-view';
@@ -66,32 +67,35 @@ export function AppLayout() {
     <ChatOutboxProvider>
       <ChatSwitchProvider>
         <DialogProvider>
-          <ConnectionStatus />
-          <FixWindowContext />
-          {/* Both sidebars' states wrap the bar and the row alike: their toggles are
+          {/* Above the bar and the dialogs alike: the bell and the Incidents dialog read
+          the same watches, so neither joins a shared stream late. */}
+          <IncidentsProvider>
+            <ConnectionStatus />
+            <FixWindowContext />
+            {/* Both sidebars' states wrap the bar and the row alike: their toggles are
           in one, their panels in the other. The library's provider owns the left
           sidebar's narrow-window state and `Cmd/Ctrl+B`; it hardcodes `min-h-svh`,
           taller than the `WindowFrame` inset on Linux, and only `min-h-0` displaces
           it (same tailwind-merge group) — `h-` alone would not. */}
-          <RightSidebarProvider mode={mode}>
-            {/* The focused view and the focused object open the right sidebar when
+            <RightSidebarProvider mode={mode}>
+              {/* The focused view and the focused object open the right sidebar when
             set, so they sit inside the sidebar's state and above the row that draws it. */}
-            <ObjectViewProvider>
-              <LogsViewProvider>
-                {/* The log windows move the focused view out of the sidebar, so they sit
+              <ObjectViewProvider>
+                <LogsViewProvider>
+                  {/* The log windows move the focused view out of the sidebar, so they sit
               inside both. */}
-                <LogWindowsProvider>
-                  {/* Above the sidebar and the routes: both read the catalog, and the
+                  <LogWindowsProvider>
+                    {/* Above the sidebar and the routes: both read the catalog, and the
                 breadcrumb bar's namespace picker reads the namespaces on every page. */}
-                  <ClusterCachedDataKindsProvider enabled={onDashboard}>
-                    <ClusterNamespacesProvider enabled={onDashboard}>
-                      <SidebarProvider
-                        open={sidebarOpen}
-                        onOpenChange={setSidebarOpen}
-                        className="h-(--app-min-h) min-h-0 flex-col bg-app-bar"
-                      >
-                        <AppBar />
-                        {/* The content row, a box inset 8px from the window's left, right and
+                    <ClusterCachedDataKindsProvider enabled={onDashboard}>
+                      <ClusterNamespacesProvider enabled={onDashboard}>
+                        <SidebarProvider
+                          open={sidebarOpen}
+                          onOpenChange={setSidebarOpen}
+                          className="h-(--app-min-h) min-h-0 flex-col bg-app-bar"
+                        >
+                          <AppBar />
+                          {/* The content row, a box inset 8px from the window's left, right and
                       bottom edges; the column's fill, the bar's colour, shows around it.
                       `relative`: too narrow for the sidebar beside the page, `LeftSidebar`
                       floats it over this box as a drawer. `overflow-clip`: the three items'
@@ -99,25 +103,26 @@ export function AppLayout() {
                       nearer positioned ancestor anchors here, past `main`'s clip, and the
                       children clip to the rounded corners. `@container`: the left sidebar caps
                       its width by the box's (`leftSidebarRoom`). */}
-                        <div className="@container relative mx-2 mb-2 flex min-h-0 flex-1 overflow-clip rounded-xl border border-border shadow-[0_1px_1px_rgb(0_0_0/0.1),0_1px_1.5px_rgb(0_0_0/0.1)]">
-                          <LeftSidebar nav={onDashboard ? <DashboardResourceNav /> : <ChatNav mode="chat" />} />
-                          <main
-                            ref={pageRef}
-                            className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
-                            style={{ minWidth: pageMinWidth }}
-                          >
-                            <Outlet />
-                          </main>
-                          <RightSidebar page={pageRef} />
-                        </div>
-                      </SidebarProvider>
-                    </ClusterNamespacesProvider>
-                  </ClusterCachedDataKindsProvider>
-                </LogWindowsProvider>
-              </LogsViewProvider>
-            </ObjectViewProvider>
-          </RightSidebarProvider>
-          <AppDialogs />
+                          <div className="@container relative mx-2 mb-2 flex min-h-0 flex-1 overflow-clip rounded-xl border border-border shadow-[0_1px_1px_rgb(0_0_0/0.1),0_1px_1.5px_rgb(0_0_0/0.1)]">
+                            <LeftSidebar nav={onDashboard ? <DashboardResourceNav /> : <ChatNav mode="chat" />} />
+                            <main
+                              ref={pageRef}
+                              className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
+                              style={{ minWidth: pageMinWidth }}
+                            >
+                              <Outlet />
+                            </main>
+                            <RightSidebar page={pageRef} />
+                          </div>
+                        </SidebarProvider>
+                      </ClusterNamespacesProvider>
+                    </ClusterCachedDataKindsProvider>
+                  </LogWindowsProvider>
+                </LogsViewProvider>
+              </ObjectViewProvider>
+            </RightSidebarProvider>
+            <AppDialogs />
+          </IncidentsProvider>
         </DialogProvider>
       </ChatSwitchProvider>
     </ChatOutboxProvider>

@@ -80,6 +80,7 @@ vi.mock('./tools', () => ({ ToolsSettings: () => <p>The tools</p> }));
 
 const { ThemeProvider } = await import('@/lib/theme');
 const { SettingsDialog } = await import('./dialog');
+const { DialogProvider, useDialog } = await import('@/lib/dialog');
 
 function renderDialog(onOpenChange = vi.fn()) {
   render(
@@ -120,6 +121,22 @@ describe('SettingsDialog', () => {
     expect(screen.getByRole('tab', { name: 'General', selected: true })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'General' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Appearance' })).toBeInTheDocument();
+  });
+
+  it('opens on the tab it was opened on', async () => {
+    function OpenOnMonitoring() {
+      const { openDialog, activeDialog } = useDialog();
+      useEffect(() => openDialog('settings', 'Monitoring'), [openDialog]);
+      return activeDialog && <SettingsDialog open onOpenChange={vi.fn()} />;
+    }
+    render(
+      <ThemeProvider>
+        <DialogProvider>
+          <OpenOnMonitoring />
+        </DialogProvider>
+      </ThemeProvider>,
+    );
+    expect(await screen.findByRole('tab', { name: 'Monitoring', selected: true })).toBeInTheDocument();
   });
 
   it('draws the Sandbox tab', async () => {

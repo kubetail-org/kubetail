@@ -35,7 +35,7 @@ import {
 import { type ComponentType, useState } from 'react';
 
 import { DialogClose, DialogTitle, PanelDialog } from '@/components/primitives/dialog';
-import { type AppDialogProps } from '@/lib/dialog';
+import { type AppDialogProps, useDialogHost } from '@/lib/dialog';
 import { SelectSettingsTab } from '@/lib/settings-tab';
 
 import { ClustersSettings } from './clusters';
@@ -75,9 +75,11 @@ export function SettingsDialog({ open, onOpenChange }: AppDialogProps) {
   );
 }
 
-// Inside the dialog's content, so each opening starts on the first tab.
+// Inside the dialog's content, so each opening starts on the tab it was opened on,
+// else the first.
 function SettingsTabs() {
-  const [tab, setTab] = useState(TABS[0].label);
+  const host = useDialogHost();
+  const [tab, setTab] = useState(() => TABS.find(({ label }) => label === host?.settingsTab)?.label ?? TABS[0].label);
   return (
     <SelectSettingsTab value={setTab}>
       <Tabs.Root orientation="vertical" value={tab} onValueChange={setTab} className="flex min-w-0 flex-1">

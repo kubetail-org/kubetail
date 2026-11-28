@@ -48,7 +48,7 @@ func TestAuthProjectionCarriesNoTokens(t *testing.T) {
 }
 
 // A query with no caller is removed (docs/read-contracts/README.md): each field here has a
-// document in the webview, but monitorSignalList, whose screens are yet to be drawn.
+// document in the webview.
 func TestEveryQueryFieldHasACaller(t *testing.T) {
 	var got []string
 	for _, f := range parsedSchema.Query.Fields {
