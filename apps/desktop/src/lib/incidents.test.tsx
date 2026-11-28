@@ -17,7 +17,13 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Cluster } from '@/lib/clusters';
-import type { Incident, IncidentOccurrence, MonitorTarget, MonitorTargetEnabledSet } from '@/lib/incidents';
+import type {
+  Incident,
+  IncidentOccurrence,
+  MonitorTarget,
+  MonitorTargetEnabledSet,
+  IncidentTriageRequest,
+} from '@/lib/incidents';
 import { clusterRecord, incidentRecord, mockTauriCore, monitorTargetRecord, occurrenceRecord } from '@/test-utils';
 
 const { invokeMock, channels, factory } = mockTauriCore();
@@ -56,6 +62,7 @@ const {
   useIncidentOccurrenceEventFeed,
   useIncidents,
   useMonitorSignals,
+  useIncidentTriage,
   useMonitorTargetEnabledSet,
   useMonitorTargets,
   useNotificationPermission,
@@ -389,6 +396,78 @@ describe('incidentState', () => {
       at: '2026-11-02T00:00:00Z',
     });
     expect(incidentState(incidentRecord({ ...ended, lastEndReason: 'Stopped' })).label).toBe('Last seen');
+  });
+});
+
+describe('useIncidentTriage', () => {
+  const pick = { model: { providerID: 'anthropic', id: 'claude' }, effort: 'high' };
+
+  it('asks for the triage and holds the incident in flight until the mutation answers', async () => {
+    let answer!: (result: unknown) => void;
+    // The one mock answers every mutation of this module.
+    sendEnabled.mockReturnValueOnce(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useIncidentTriage(), { wrapper });
+
+    act(() => void result.current.triage('i1', pick));
+    act(() => void result.current.triage('i1', pick));
+    expect(sendEnabled).toHaveBeenCalledTimes(1);
+    expect(sendEnabled).toHaveBeenCalledWith({ id: 'i1', providerID: 'anthropic', modelID: 'claude', effort: 'high' });
+    expect(result.current.sending).toEqual(new Set(['i1']));
+
+    await act(async () => answer({}));
+    expect(result.current.sending).toEqual(new Set());
+    expect(result.current.errors).toEqual(new Map());
+  });
+
+  it('keeps a refusal until the incident’s next press, and sends no effort for a model with none', async () => {
+    sendEnabled.mockResolvedValueOnce({ error: { graphQLErrors: [{ message: 'Validation error' }], message: 'x' } });
+    const { result } = renderHook(() => useIncidentTriage(), { wrapper });
+
+    await act(async () => result.current.triage('i1', pick));
+    expect(result.current.errors).toEqual(new Map([['i1', 'Validation error']]));
+
+    sendEnabled.mockResolvedValueOnce({});
+    await act(async () => result.current.triage('i1', { ...pick, effort: '' }));
+    expect(sendEnabled).toHaveBeenLastCalledWith({
+      id: 'i1',
+      providerID: 'anthropic',
+      modelID: 'claude',
+      effort: null,
+    });
+    expect(result.current.errors).toEqual(new Map());
+  });
+
+  it('keeps a refusal while no dialog is drawn', async () => {
+    let answer!: (result: unknown) => void;
+    sendEnabled.mockReturnValueOnce(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    let request!: IncidentTriageRequest;
+    function Triage() {
+      request = useIncidentTriage();
+      return null;
+    }
+    const { rerender } = render(
+      <IncidentsProvider>
+        <Triage />
+      </IncidentsProvider>,
+    );
+
+    act(() => void request.triage('i1', pick));
+    rerender(<IncidentsProvider>{null}</IncidentsProvider>);
+    await act(async () => answer({ error: { graphQLErrors: [{ message: 'Validation error' }], message: 'x' } }));
+    rerender(
+      <IncidentsProvider>
+        <Triage />
+      </IncidentsProvider>,
+    );
+    expect(request.errors).toEqual(new Map([['i1', 'Validation error']]));
   });
 });
 

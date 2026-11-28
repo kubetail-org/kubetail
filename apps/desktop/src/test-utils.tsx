@@ -200,6 +200,7 @@ export function monitorTargetRecord(over: Partial<MonitorTarget> = {}): MonitorT
     enabled: true,
     readState: 'Ok',
     unknownSignals: [],
+    canTriage: true,
     ...over,
   };
 }
@@ -222,6 +223,7 @@ export function incidentRecord(over: Partial<Incident> = {}): Incident {
     lastSeenAt: null,
     lastEndReason: null,
     baseline: false,
+    triage: { state: 'None', verdict: null, error: null, report: null, providerID: null, modelID: null, effort: null },
     ...over,
   };
 }

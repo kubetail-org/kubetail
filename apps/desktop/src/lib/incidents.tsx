@@ -24,13 +24,14 @@
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation, useQuery } from 'urql';
+import { type CombinedError, useMutation, useQuery } from 'urql';
 
 import { graphql } from '@/gql';
 import type {
   IncidentCollectionWatchSubscription,
   IncidentOccurrenceEndReason,
   IncidentOccurrenceEventFeedSubscription,
+  IncidentTriageError,
   MonitorIntegration,
   MonitorReadError,
   MonitorSeverity,
@@ -46,6 +47,7 @@ import { eventFeedReducer } from '@/lib/graphql/event-feed';
 import type { EventFeedHistory } from '@/lib/graphql/event-feed';
 import { refusalOf } from '@/lib/graphql/refusal';
 import { useFoldedSubscription } from '@/lib/graphql/use-folded-subscription';
+import type { ModelPick } from '@/lib/models';
 
 const MonitorTargetCollectionWatchDocument = graphql(`
   subscription MonitorTargetCollectionWatch {
@@ -63,6 +65,7 @@ const MonitorTargetCollectionWatchDocument = graphql(`
           name
           reason
         }
+        canTriage
       }
     }
   }
@@ -91,6 +94,15 @@ const IncidentCollectionWatchDocument = graphql(`
         lastSeenAt
         lastEndReason
         baseline
+        triage {
+          state
+          verdict
+          error
+          report
+          providerID
+          modelID
+          effort
+        }
       }
     }
   }
@@ -128,6 +140,18 @@ const IncidentOccurrenceEventFeedDocument = graphql(`
   }
 `);
 
+// Answered through `incidentCollectionWatch`, which is what the triage draws.
+const IncidentTriageDocument = graphql(`
+  mutation IncidentTriage($id: IncidentID!, $providerID: String!, $modelID: String!, $effort: String) {
+    incidentTriage(id: $id, providerID: $providerID, modelID: $modelID, effort: $effort) {
+      id
+      triage {
+        state
+      }
+    }
+  }
+`);
+
 // Answered through `monitorTargetCollectionWatch`, which is what a switch draws.
 const MonitorTargetEnabledSetDocument = graphql(`
   mutation MonitorTargetEnabledSet($id: MonitorTargetID!, $enabled: Boolean!) {
@@ -148,6 +172,7 @@ export type Incident = NonNullable<IncidentCollectionWatchSubscription['incident
 export type MonitorSignal = MonitorSignalListQuery['monitorSignalList'][number];
 type OccurrenceFrame = IncidentOccurrenceEventFeedSubscription['incidentOccurrenceEventFeed'];
 export type IncidentOccurrence = NonNullable<OccurrenceFrame['occurrence']>;
+export type IncidentTriage = Incident['triage'];
 
 export const INTEGRATION_LABEL: Record<MonitorIntegration, string> = { Kubernetes: 'Kubernetes' };
 
@@ -163,6 +188,19 @@ export const READ_ERROR_TEXT: Record<MonitorReadError, string> = {
   Truncated: 'answer cut short',
   Timeout: 'timed out',
   Invalid: 'answer out of bounds',
+};
+
+// Why a triage failed, as the incident's triage section says it.
+export const TRIAGE_ERROR_TEXT: Record<IncidentTriageError, string> = {
+  MonitoringOff: 'Monitoring of this target was turned off before the triage ran.',
+  ServerChanged: 'The cluster now reaches another server than the one this incident opened on.',
+  TargetGone: 'The cluster is gone or being deleted.',
+  NoSandbox: 'No sandbox can confine a triage on this machine.',
+  ModelUnavailable: 'The model picked is not available now.',
+  RunFailed: 'The model run failed.',
+  Cancelled: 'The triage was cancelled as Kubetail stopped.',
+  Interrupted: 'Kubetail stopped before the triage ended.',
+  Unavailable: 'The triage could not start.',
 };
 
 export const END_REASON_TEXT: Record<IncidentOccurrenceEndReason, string> = {
@@ -213,8 +251,10 @@ type IncidentsContextValue = {
 };
 
 const IncidentsContext = createContext<IncidentsContextValue | null>(null);
-// Apart from the reads, so a press redraws only the switches.
-const EnabledSetContext = createContext<MonitorTargetEnabledSet | null>(null);
+// What the monitoring mutations hold: what is in flight and what was refused. Apart
+// from the reads, so a press redraws none of their consumers.
+type SendsContextValue = { enabledSet: MonitorTargetEnabledSet; triageRequest: IncidentTriageRequest };
+const SendsContext = createContext<SendsContextValue | null>(null);
 
 // The event that tells this window a notification's press waits for it. It carries
 // nothing: the press is taken with `notification_press_take`.
@@ -290,12 +330,14 @@ export function IncidentsProvider({ children }: { children: React.ReactNode }) {
     () => ({ targets: incidents ? targets : null, incidents, signals }),
     [targets, incidents, signals],
   );
-  // Held here, not in Settings' Monitoring tab, so a switch in flight and its refusal
-  // outlive the tab.
+  // Held here, not in the Settings tab or the dialog that sends them, so a request in
+  // flight and its refusal outlive what drew them.
   const enabledSet = useEnabledSetState();
+  const triageRequest = useTriageRequestState();
+  const sends = useMemo(() => ({ enabledSet, triageRequest }), [enabledSet, triageRequest]);
   return (
     <IncidentsContext.Provider value={value}>
-      <EnabledSetContext.Provider value={enabledSet}>{children}</EnabledSetContext.Provider>
+      <SendsContext.Provider value={sends}>{children}</SendsContext.Provider>
     </IncidentsContext.Provider>
   );
 }
@@ -367,6 +409,45 @@ export function useIncidentOccurrenceEventFeed(incidentID: string | undefined): 
   return { occurrences: history?.events ?? NO_OCCURRENCES, snapshotComplete: history?.snapshotComplete ?? false };
 }
 
+// A mutation sent per key, one in flight per key, and each key's last refusal
+// until its next send.
+type KeyedSend<A extends unknown[]> = {
+  pending: ReadonlySet<string>;
+  errors: ReadonlyMap<string, string>;
+  run: (key: string, ...args: A) => Promise<void>;
+};
+
+function useKeyedSend<A extends unknown[]>(
+  send: (key: string, ...args: A) => Promise<{ error?: CombinedError }>,
+): KeyedSend<A> {
+  const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
+  const [errors, setErrors] = useState<ReadonlyMap<string, string>>(new Map());
+  // Read synchronously: two presses inside one render both see the same `pending`.
+  const inFlight = useRef(new Set<string>());
+
+  const run = useCallback(
+    async (key: string, ...args: A) => {
+      if (inFlight.current.has(key)) return;
+      inFlight.current.add(key);
+      setPending(new Set(inFlight.current));
+      setErrors((prev) => {
+        if (!prev.has(key)) return prev;
+        const next = new Map(prev);
+        next.delete(key);
+        return next;
+      });
+      const { error } = await send(key, ...args);
+      inFlight.current.delete(key);
+      setPending(new Set(inFlight.current));
+      const refusal = refusalOf(error);
+      if (refusal) setErrors((prev) => new Map(prev).set(key, refusal));
+    },
+    [send],
+  );
+
+  return { pending, errors, run };
+}
+
 export type MonitorTargetEnabledSet = {
   /** The targets whose switch is in flight, by id. */
   changing: ReadonlySet<string>;
@@ -381,39 +462,48 @@ export type MonitorTargetEnabledSet = {
  * the target's `Modified` moves, so this holds only what is in flight and what failed.
  */
 export function useMonitorTargetEnabledSet(): MonitorTargetEnabledSet {
-  const ctx = useContext(EnabledSetContext);
+  return useSendsContext().enabledSet;
+}
+
+function useSendsContext(): SendsContextValue {
+  const ctx = useContext(SendsContext);
   if (!ctx) throw new Error('monitoring hooks must be used inside <IncidentsProvider>');
   return ctx;
 }
 
 function useEnabledSetState(): MonitorTargetEnabledSet {
   const [, send] = useMutation(MonitorTargetEnabledSetDocument);
-  const [changing, setChanging] = useState<ReadonlySet<string>>(new Set());
-  const [errors, setErrors] = useState<ReadonlyMap<string, string>>(new Map());
-  // Read synchronously: two presses inside one render both see the same `changing`.
-  const inFlight = useRef(new Set<string>());
+  const sendSwitch = useCallback((id: string, enabled: boolean) => send({ id, enabled }), [send]);
+  const { pending, errors, run } = useKeyedSend(sendSwitch);
+  return useMemo(() => ({ changing: pending, errors, set: run }), [pending, errors, run]);
+}
 
-  const set = useCallback(
-    async (id: string, enabled: boolean) => {
-      if (inFlight.current.has(id)) return;
-      inFlight.current.add(id);
-      setChanging(new Set(inFlight.current));
-      setErrors((prev) => {
-        if (!prev.has(id)) return prev;
-        const next = new Map(prev);
-        next.delete(id);
-        return next;
-      });
-      const { error } = await send({ id, enabled });
-      inFlight.current.delete(id);
-      setChanging(new Set(inFlight.current));
-      const refusal = refusalOf(error);
-      if (refusal) setErrors((prev) => new Map(prev).set(id, refusal));
-    },
+export type IncidentTriageRequest = {
+  /** The incidents whose request is in flight, by id. */
+  sending: ReadonlySet<string>;
+  /** Each incident's last refused request, by id, until its next press. */
+  errors: ReadonlyMap<string, string>;
+  /** Sends nothing for an incident already in flight. */
+  triage: (id: string, pick: ModelPick) => Promise<void>;
+};
+
+/**
+ * Asks for an incident's triage. Its progress is the watch's `triage`, which the
+ * incident's `Modified` moves, so this holds only what is in flight and what failed.
+ */
+export function useIncidentTriage(): IncidentTriageRequest {
+  return useSendsContext().triageRequest;
+}
+
+function useTriageRequestState(): IncidentTriageRequest {
+  const [, send] = useMutation(IncidentTriageDocument);
+  const sendTriage = useCallback(
+    (id: string, pick: ModelPick) =>
+      send({ id, providerID: pick.model.providerID, modelID: pick.model.id, effort: pick.effort || null }),
     [send],
   );
-
-  return useMemo(() => ({ changing, errors, set }), [changing, errors, set]);
+  const { pending, errors, run } = useKeyedSend(sendTriage);
+  return useMemo(() => ({ sending: pending, errors, triage: run }), [pending, errors, run]);
 }
 
 /** Whether the OS shows Kubetail's notifications, as the host last read it. */
