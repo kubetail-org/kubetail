@@ -162,9 +162,12 @@ func requireTables(t *testing.T, db *sql.DB) {
 		"env_vars wr=0 strict=1",
 		"executables wr=0 strict=1",
 		"folder_grants wr=0 strict=1",
+		"incident_occurrences wr=1 strict=1",
+		"incidents wr=0 strict=1",
 		"llm_calls wr=0 strict=1",
 		"memories wr=0 strict=1",
 		"messages wr=0 strict=1",
+		"monitor_targets wr=0 strict=1",
 		"oauth_connections wr=1 strict=1",
 		"permission_modes wr=0 strict=1",
 		"permission_rules wr=0 strict=1",
@@ -197,6 +200,9 @@ func requireTables(t *testing.T, db *sql.DB) {
 		"CREATE UNIQUE INDEX env_vars_name ON env_vars (ifnull(cluster_id, ''), name)",
 		"CREATE INDEX folder_grants_chat_idx ON folder_grants (chat_id, created_at, id)",
 		"CREATE UNIQUE INDEX folder_grants_folder ON folder_grants (ifnull(chat_id, ''), folder)",
+		"CREATE UNIQUE INDEX incident_occurrences_one_open ON incident_occurrences (incident_id) WHERE ended_at IS NULL",
+		"CREATE INDEX incidents_last_seen ON incidents (last_seen_at)",
+		"CREATE INDEX incidents_subject ON incidents (target_id, target_uid, signal, subject_key)",
 		"CREATE UNIQUE INDEX llm_calls_run_idx ON llm_calls (run_id, seq)",
 		"CREATE UNIQUE INDEX memories_name ON memories (ifnull(cluster_id, ''), name)",
 		"CREATE INDEX messages_run_idx ON messages (run_id)",
@@ -389,6 +395,50 @@ func TestClustersTableDefaultsAndClaim(t *testing.T) {
 	require.Nil(t, deleteRequestedAt)
 }
 
+// The monitor's tables: a target is enabled by default with an empty read state,
+// held as an object, one row per integration's key; an incident and its occurrences go with their
+// target; an incident holds one open occurrence at most, and an occurrence's end
+// and its reason come together, never before its start.
+func TestTheMonitorTablesHoldWhatTheirChecksAllow(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "app.db"), 0)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	exec := func(q string, args ...any) error { _, err := db.Write.Exec(q, args...); return err }
+
+	const target = `INSERT INTO monitor_targets (id, integration, key, label, created_at, updated_at) VALUES (?, 'kubernetes', ?, 'dev', 0, 0)`
+	require.NoError(t, exec(target, "t1", "c1"))
+	require.ErrorContains(t, exec(target, "t2", "c1"), "UNIQUE")
+	var enabled, generation int
+	var unknown string
+	var uid, readAt *string
+	require.NoError(t, db.Read.QueryRow(`SELECT enabled, generation, unknown_signals, current_uid, last_read_at FROM monitor_targets`).
+		Scan(&enabled, &generation, &unknown, &uid, &readAt))
+	assert.Equal(t, []any{1, 0, "{}"}, []any{enabled, generation, unknown})
+	assert.Nil(t, uid)
+	assert.Nil(t, readAt)
+	assert.ErrorContains(t, exec(`UPDATE monitor_targets SET unknown_signals = 'nope'`), "CHECK")
+	assert.ErrorContains(t, exec(`UPDATE monitor_targets SET unknown_signals = '[]'`), "CHECK")
+
+	const incident = `INSERT INTO incidents (id, target_id, target_uid, subject_key, subject_label, signal, signal_label, severity, first_seen_at, last_seen_at, occurrence_count)
+		VALUES (?, 't1', 'uid', 'apps/Deployment/default/web', 'Deployment default/web', 'kubernetes.crash_loop', 'Crash loop', ?, 0, 0, 1)`
+	require.NoError(t, exec(incident, "i1", "warning"))
+	assert.ErrorContains(t, exec(incident, "i2", "loud"), "CHECK")
+
+	const occurrence = `INSERT INTO incident_occurrences (id, incident_id, number, started_at, ended_at, end_reason) VALUES (?, 'i1', ?, 10, ?, ?)`
+	require.NoError(t, exec(occurrence, "o1", 1, 20, "resolved"))
+	require.NoError(t, exec(occurrence, "o2", 2, nil, nil))
+	assert.ErrorContains(t, exec(occurrence, "o3", 3, nil, nil), "UNIQUE", "one open occurrence")
+	assert.ErrorContains(t, exec(occurrence, "o4", 2, 30, "stale"), "UNIQUE", "a number is never reused")
+	assert.ErrorContains(t, exec(occurrence, "o5", 5, 30, nil), "CHECK", "an end has its reason")
+	assert.ErrorContains(t, exec(occurrence, "o6", 6, 5, "stopped"), "CHECK", "no end before the start")
+	assert.ErrorContains(t, exec(occurrence, "o7", 7, 30, "gone"), "CHECK")
+
+	require.NoError(t, exec(`DELETE FROM monitor_targets WHERE id = 't1'`))
+	var left int
+	require.NoError(t, db.Read.QueryRow(`SELECT (SELECT count(*) FROM incidents) + (SELECT count(*) FROM incident_occurrences)`).Scan(&left))
+	assert.Zero(t, left, "a target's delete takes its incidents and their occurrences")
+}
+
 // A data dir that cannot hold app.db fails the open — both when the parent path
 // cannot be created and when the file itself cannot be an SQLite database.
 func TestOpenFailsOnAnUnusablePath(t *testing.T) {
@@ -423,7 +473,7 @@ func TestOpenRefusesANewerFile(t *testing.T) {
 // line in the PR that writes it. Once a desktop release carries a migration, every
 // installed app.db has run it, so its line never changes again.
 var shippedMigrations = map[string]string{
-	"0001_init.sql": "ae3f3cb49dac3e5125ce724a58c8caef5f7067616c6b584a880267b452af0917",
+	"0001_init.sql": "172100b3e83483480015b23e9caba13404cdd9f8abd4a3943ef56d5ad559061e",
 }
 
 func TestAShippedMigrationIsNeverEdited(t *testing.T) {
