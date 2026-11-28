@@ -47,6 +47,13 @@ type Monitor struct {
 	clock  func() time.Time
 	// backstop is reconcileEvery, or less in a test.
 	backstop time.Duration
+
+	// ctx ends the loop and every subscription, which wg joins. mu orders a
+	// subscription's join against the stop that ends ctx.
+	ctx    context.Context
+	cancel context.CancelFunc
+	mu     sync.Mutex
+	wg     sync.WaitGroup
 }
 
 // registration is a Registration and the names of its signals.
@@ -95,31 +102,60 @@ func newMonitor(db *appdb.DB, clock func() time.Time, backstop time.Duration, re
 		return nil, err
 	}
 	m.store = st
+	// A subscription may open before Start: a request can arrive first.
+	m.ctx, m.cancel = context.WithCancel(context.Background())
 	return m, nil
 }
 
-// Start runs the loop until the stop func it returns.
+// Start runs the loop until the stop func it returns, which also ends every
+// subscription and joins them.
 func (m *Monitor) Start(context.Context) (func(context.Context) error, error) {
-	ctx, cancel := context.WithCancel(context.Background())
-	var wg sync.WaitGroup
+	if err := m.enter(); err != nil { // coverage:ignore the runtime starts each part once, before any stop
+		return nil, err
+	}
+	defer m.wg.Done()
 	// Listen before the first read of the targets, so a change between the two
 	// is not missed.
 	targets := m.store.db.ListenForChanges(appdb.KeyMonitorTargets)
-	wg.Go(func() {
+	m.wg.Go(func() {
 		defer targets.Close()
-		m.supervise(ctx, targets.Chan())
+		m.supervise(m.ctx, targets.Chan())
 	})
 	for _, reg := range m.regs {
-		wg.Go(func() { m.reconcileLoop(ctx, reg) })
+		m.wg.Go(func() { m.reconcileLoop(m.ctx, reg) })
 	}
 	return func(ctx context.Context) error {
-		cancel()
-		return drain.WithContext(ctx, wg.Wait)
+		m.halt()
+		return drain.WithContext(ctx, m.wg.Wait)
 	}, nil
 }
 
-// Close releases the monitor's statements.
-func (m *Monitor) Close() error { return m.store.close() }
+// Close releases the statements. The stop func has joined the loop and the
+// subscriptions; Close ends those a monitor never started holds, and does not
+// wait for them, so a read stuck past the stop's budget cannot hold the close.
+func (m *Monitor) Close() error {
+	m.halt()
+	return m.store.close()
+}
+
+// enter joins the group stop waits on, ErrStopping once the monitor is
+// stopping. The caller owes the matching wg.Done.
+func (m *Monitor) enter() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.ctx.Err() != nil {
+		return ErrStopping
+	}
+	m.wg.Add(1)
+	return nil
+}
+
+// halt ends the loop and every subscription, and refuses new ones.
+func (m *Monitor) halt() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.cancel()
+}
 
 // reconcileLoop keeps reg's target rows its listing: at start, on each notice,
 // on the backstop, and one cadence after a listing fails. It listens before its

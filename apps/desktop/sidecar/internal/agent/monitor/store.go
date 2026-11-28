@@ -67,6 +67,9 @@ const (
 	stmtSetTargetEnabled
 	stmtStopTargetOccurrences
 	stmtDeleteOldIncidents
+	stmtSelectServedTargets
+	stmtSelectServedIncidents
+	stmtSelectServedOccurrences
 	numStmts int = iota
 )
 
@@ -115,6 +118,25 @@ var statements = []sqlstmt.Statement{
 	WHERE ended_at IS NULL AND incident_id IN (SELECT id FROM incidents WHERE target_id = ?)`),
 	stmtDeleteOldIncidents: sqlstmt.OnWriter(`DELETE FROM incidents WHERE last_seen_at < ?
 	AND NOT EXISTS (SELECT 1 FROM incident_occurrences o WHERE o.incident_id = incidents.id AND o.ended_at IS NULL)`),
+
+	// The served reads hold the targets of the integrations the build registers,
+	// and what is under them: the ? is their names, as a JSON array.
+	stmtSelectServedTargets: sqlstmt.OnReader(`SELECT ` + servedTargetColumns + ` FROM monitor_targets
+	WHERE integration IN (SELECT value FROM json_each(?))`),
+	// Each incident with its newest occurrence, which says whether it is open: the
+	// one numbered its occurrence_count.
+	stmtSelectServedIncidents: sqlstmt.OnReader(`SELECT i.id, i.target_id, i.target_uid, i.subject_label, i.subject_attributes,
+	  i.signal, i.signal_label, i.severity, i.first_seen_at, i.last_seen_at, i.occurrence_count, o.started_at, o.end_reason
+	FROM incidents i
+	JOIN monitor_targets t ON t.id = i.target_id
+	JOIN incident_occurrences o ON o.incident_id = i.id AND o.number = i.occurrence_count
+	WHERE t.integration IN (SELECT value FROM json_each(?))`),
+	stmtSelectServedOccurrences: sqlstmt.OnReader(`SELECT o.id, o.number, o.started_at, o.ended_at, o.end_reason, o.detail
+	FROM incident_occurrences o
+	JOIN incidents i ON i.id = o.incident_id
+	JOIN monitor_targets t ON t.id = i.target_id
+	WHERE o.incident_id = ? AND t.integration IN (SELECT value FROM json_each(?))
+	ORDER BY o.number DESC`),
 }
 
 // servedTargetColumns is what storedTarget scans, in its order.
@@ -507,4 +529,83 @@ func scanStoredTarget(r scanner) (storedTarget, error) {
 	var t storedTarget
 	err := r.Scan(&t.id, &t.integration, &t.key, &t.label, &t.enabled, &t.uid, &t.unknown, &t.read)
 	return t, err
+}
+
+// servedTargets is every target of an integration the build registers.
+func (s *store) servedTargets(ctx context.Context) ([]storedTarget, error) {
+	rows, err := s.set.Stmts().Query(ctx, stmtSelectServedTargets, s.integrations)
+	if err != nil {
+		return nil, fmt.Errorf("read targets: %w", err)
+	}
+	defer rows.Close()
+	var out []storedTarget
+	for rows.Next() {
+		t, err := scanStoredTarget(rows)
+		if err != nil { // coverage:ignore the statement's columns are these types, CHECKed by the schema
+			return nil, fmt.Errorf("read targets: %w", err)
+		}
+		out = append(out, t)
+	}
+	if err := rows.Err(); err != nil { // coverage:ignore a read that began fails only on a closed pool, which outlives the monitor
+		return nil, fmt.Errorf("read targets: %w", err)
+	}
+	return out, nil
+}
+
+// servedIncidents is every incident of a target servedTargets holds.
+func (s *store) servedIncidents(ctx context.Context) ([]Incident, error) {
+	rows, err := s.set.Stmts().Query(ctx, stmtSelectServedIncidents, s.integrations)
+	if err != nil {
+		return nil, fmt.Errorf("read incidents: %w", err)
+	}
+	defer rows.Close()
+	var out []Incident
+	for rows.Next() {
+		var i Incident
+		var firstSeen, lastSeen, lastStarted int64
+		var reason sql.NullString
+		if err := rows.Scan(&i.ID, &i.TargetID, &i.TargetUID, &i.SubjectLabel, &i.AttributesJSON, &i.Signal, &i.SignalLabel,
+			&i.Severity, &firstSeen, &lastSeen, &i.OccurrenceCount, &lastStarted, &reason); err != nil { // coverage:ignore the statement's columns are these types, CHECKed by the schema
+			return nil, fmt.Errorf("read incidents: %w", err)
+		}
+		i.FirstSeenAt, i.LastStartedAt = fromMillis(firstSeen), fromMillis(lastStarted)
+		// An open incident's last sighting moves with every reading, so it is not served.
+		if i.Open = !reason.Valid; !i.Open {
+			i.LastSeenAt, i.LastEndReason = fromMillis(lastSeen), EndReason(reason.String)
+		}
+		out = append(out, i)
+	}
+	if err := rows.Err(); err != nil { // coverage:ignore a read that began fails only on a closed pool, which outlives the monitor
+		return nil, fmt.Errorf("read incidents: %w", err)
+	}
+	return out, nil
+}
+
+// servedOccurrences is an incident's retained occurrences, highest number first:
+// none for an incident servedIncidents does not hold.
+func (s *store) servedOccurrences(ctx context.Context, incidentID IncidentID) ([]IncidentOccurrence, error) {
+	rows, err := s.set.Stmts().Query(ctx, stmtSelectServedOccurrences, string(incidentID), s.integrations)
+	if err != nil {
+		return nil, fmt.Errorf("read occurrences: %w", err)
+	}
+	defer rows.Close()
+	var out []IncidentOccurrence
+	for rows.Next() {
+		o := IncidentOccurrence{IncidentID: incidentID}
+		var startedAt int64
+		var endedAt sql.NullInt64
+		var reason sql.NullString
+		if err := rows.Scan(&o.ID, &o.Number, &startedAt, &endedAt, &reason, &o.DetailJSON); err != nil { // coverage:ignore the statement's columns are these types, CHECKed by the schema
+			return nil, fmt.Errorf("read occurrences: %w", err)
+		}
+		o.StartedAt = fromMillis(startedAt)
+		if endedAt.Valid {
+			o.EndedAt, o.EndReason = fromMillis(endedAt.Int64), EndReason(reason.String)
+		}
+		out = append(out, o)
+	}
+	if err := rows.Err(); err != nil { // coverage:ignore a read that began fails only on a closed pool, which outlives the monitor
+		return nil, fmt.Errorf("read occurrences: %w", err)
+	}
+	return out, nil
 }
