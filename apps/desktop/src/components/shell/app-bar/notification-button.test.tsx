@@ -84,6 +84,13 @@ describe('NotificationButton', () => {
     expect(within(button()).getByText('2')).toBeInTheDocument();
   });
 
+  it('leaves out a baseline incident, in the list and the count', async () => {
+    state.incidents = [...state.incidents!, incidentRecord({ id: 'found', targetID: 't-dev', baseline: true })];
+    const bell = await openBell();
+    expect(button()).toHaveAccessibleName('Notifications, 2 open incidents');
+    expect(within(within(bell).getByRole('list')).getAllByRole('button')).toHaveLength(2);
+  });
+
   it('counts one open incident in the singular', () => {
     state.incidents = [incidentRecord({ id: 'one', targetID: 't-prod' })];
     render(<NotificationButton />);

@@ -12,18 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { act, render, renderHook } from '@testing-library/react';
+import { act, render, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Cluster } from '@/lib/clusters';
 import type { Incident, IncidentOccurrence, MonitorTarget, MonitorTargetEnabledSet } from '@/lib/incidents';
-import { clusterRecord, incidentRecord, monitorTargetRecord, occurrenceRecord } from '@/test-utils';
+import { clusterRecord, incidentRecord, mockTauriCore, monitorTargetRecord, occurrenceRecord } from '@/test-utils';
+
+const { invokeMock, channels, factory } = mockTauriCore();
+vi.mock('@tauri-apps/api/core', () => factory());
 
 // Stand in for useFoldedSubscription: keep each operation's reducer and accumulator, and
 // fold frames through the reducer directly.
 type Fold = { reduce: (prev: unknown, frames: unknown[]) => unknown; acc: unknown; args: Record<string, unknown> };
-const { folds, useFoldedSubscriptionMock, useQueryMock, sendEnabled, state } = vi.hoisted(() => ({
+const { folds, useFoldedSubscriptionMock, useQueryMock, sendEnabled, state, listenMock } = vi.hoisted(() => ({
+  listenMock: vi.fn(),
   folds: new Map<string, Fold>(),
   useFoldedSubscriptionMock: vi.fn(),
   useQueryMock: vi.fn(),
@@ -39,6 +43,7 @@ vi.mock('urql', async (importOriginal) => ({
   useQuery: useQueryMock,
   useMutation: () => [{}, sendEnabled],
 }));
+vi.mock('@tauri-apps/api/webviewWindow', () => ({ getCurrentWebviewWindow: () => ({ listen: listenMock }) }));
 vi.mock('@/lib/clusters', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/clusters')>()),
   useClusters: () => ({ clusters: state.clusters, connected: true }),
@@ -53,7 +58,9 @@ const {
   useMonitorSignals,
   useMonitorTargetEnabledSet,
   useMonitorTargets,
+  useNotificationPermission,
 } = await import('./incidents');
+const { DialogProvider, useDialog } = await import('@/lib/dialog');
 
 const operationName = (args: { query: { definitions: { name?: { value: string } }[] } }) =>
   args.query.definitions[0].name!.value;
@@ -76,6 +83,8 @@ beforeEach(() => {
     return { data: fold.acc, connected: true, generation: 1 };
   });
   useQueryMock.mockImplementation(() => [{ data: state.signals }]);
+  invokeMock.mockResolvedValue(undefined);
+  listenMock.mockResolvedValue(() => {});
 });
 
 // Folds frames into an operation's accumulator, under the field that operation reads.
@@ -485,5 +494,80 @@ describe('useMonitorTargetEnabledSet', () => {
     const { set } = result.current;
     rerender();
     expect(result.current.set).toBe(set);
+  });
+});
+
+describe('useNotificationPermission', () => {
+  it('is undefined until the host’s first frame, then each frame it sends while mounted', () => {
+    const { result, unmount } = renderHook(() => useNotificationPermission());
+    expect(result.current).toBeUndefined();
+    const channel = channels.at(-1)!;
+    expect(invokeMock).toHaveBeenCalledWith('notification_permission_state_watch', { channel });
+
+    act(() => channel.onmessage!('Denied'));
+    expect(result.current).toBe('Denied');
+    unmount();
+    channel.onmessage!('Granted');
+  });
+});
+
+describe('a notification press', () => {
+  const inProviders = ({ children }: { children: ReactNode }) => (
+    <DialogProvider>
+      <IncidentsProvider>{children}</IncidentsProvider>
+    </DialogProvider>
+  );
+  // The host's answers to notification_press_take, in turn; null once none waits.
+  const pressesWaiting = (...presses: ({ incidentID: string | null } | null)[]) =>
+    invokeMock.mockImplementation((cmd: string) =>
+      Promise.resolve(cmd === 'notification_press_take' ? (presses.shift() ?? null) : undefined),
+    );
+
+  it('opens the dialog on a press that waited for the page, taken once it listens', async () => {
+    pressesWaiting({ incidentID: 'i1' });
+    const { result } = renderHook(() => useDialog(), { wrapper: inProviders });
+    await waitFor(() => expect(result.current.activeDialog).toBe('incidents'));
+    expect(result.current.incidentID).toBe('i1');
+    expect(listenMock).toHaveBeenCalledWith('notification-press-waiting', expect.any(Function));
+  });
+
+  it('opens the dialog with nothing selected on a summary’s press, the one that waited for a window it built', async () => {
+    pressesWaiting({ incidentID: null });
+    const { result } = renderHook(() => useDialog(), { wrapper: inProviders });
+    await waitFor(() => expect(result.current.activeDialog).toBe('incidents'));
+    expect(result.current.incidentID).toBeNull();
+  });
+
+  it('opens nothing at mount with no press waiting, then takes each press it is told of, and stops listening on unmount', async () => {
+    const unlisten = vi.fn();
+    listenMock.mockResolvedValue(unlisten);
+    pressesWaiting(null, { incidentID: 'i2' });
+    const { result, unmount } = renderHook(() => useDialog(), { wrapper: inProviders });
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('notification_press_take'));
+    expect(result.current.activeDialog).toBeNull();
+
+    const waiting = listenMock.mock.calls[0][1] as () => void;
+    act(() => waiting());
+    await waitFor(() => expect(result.current.incidentID).toBe('i2'));
+    expect(result.current.activeDialog).toBe('incidents');
+
+    unmount();
+    expect(unlisten).toHaveBeenCalled();
+  });
+
+  it('drops a listen that lands after the provider unmounts, and takes nothing', async () => {
+    const unlisten = vi.fn();
+    let land!: (fn: () => void) => void;
+    listenMock.mockReturnValue(
+      new Promise((resolve) => {
+        land = resolve;
+      }),
+    );
+    const { unmount } = renderHook(() => useDialog(), { wrapper: inProviders });
+    await waitFor(() => expect(listenMock).toHaveBeenCalled());
+    unmount();
+    land(unlisten);
+    await waitFor(() => expect(unlisten).toHaveBeenCalled());
+    expect(invokeMock).not.toHaveBeenCalledWith('notification_press_take');
   });
 });

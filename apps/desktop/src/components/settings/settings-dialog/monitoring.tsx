@@ -12,16 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The Settings dialog's Monitoring tab: what monitoring watches, and a switch per
-// target. A switch draws the watch's `enabled`, so a press moves it only once the
-// target's `Modified` arrives, and a change in another window moves it too. Rows
-// that share a label each add their cluster's kube context.
+// The Settings dialog's Monitoring tab: what monitoring watches, whether the OS
+// shows its notifications, and a switch per target. A switch draws the watch's
+// `enabled`, so a press moves it only once the target's `Modified` arrives, and a
+// change in another window moves it too. Rows that share a label each add their
+// cluster's kube context.
 import { Switch } from '@kubetail/ui/elements/switch';
 
 import { MonitorTargetStatus } from '@/components/monitoring/target-status';
 import { VisibleText } from '@/components/primitives/visible-text';
 import { useClusters } from '@/lib/clusters';
-import { type MonitorTarget, useMonitorSignals, useMonitorTargetEnabledSet, useMonitorTargets } from '@/lib/incidents';
+import {
+  type MonitorTarget,
+  useMonitorSignals,
+  useMonitorTargetEnabledSet,
+  useMonitorTargets,
+  useNotificationPermission,
+} from '@/lib/incidents';
 import { visibleTitle } from '@/lib/visible-text';
 
 import { Intro } from './group';
@@ -33,6 +40,8 @@ export function MonitoringSettings() {
   const signals = useMonitorSignals();
   const { changing, errors, set } = useMonitorTargetEnabledSet();
   const { clusters } = useClusters();
+  // Undefined until the host answers, and then the line is not drawn.
+  const permission = useNotificationPermission();
   // Nothing before the Bookmarks: a half-listed set must not read as the whole.
   if (targets === null) return null;
 
@@ -46,6 +55,12 @@ export function MonitoringSettings() {
     <Intro
       lede={`While Kubetail is running, the tray included, it watches each enabled target for${watched}. A quit app watches nothing.`}
     >
+      {permission === 'Denied' && (
+        <p role="status" className="text-xs text-destructive">
+          Notifications are off for Kubetail, so a new incident raises none. Turn them on in System Settings ›
+          Notifications › Kubetail.
+        </p>
+      )}
       {targets.length > 0 ? (
         <ul className="divide-y rounded-lg border">
           {targets.map((target) => (

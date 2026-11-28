@@ -74,14 +74,18 @@ pub fn build<S: AsRef<str>>(parts: &[S]) -> String {
     let mut title = String::from("Logs");
     for part in parts {
         title.push_str(SEPARATOR);
-        title.extend(
-            part.as_ref()
-                .chars()
-                .filter(|&c| !invisible(c))
-                .take(MAX_PART_CHARS),
-        );
+        title.push_str(&visible(part.as_ref(), MAX_PART_CHARS));
     }
     title
+}
+
+/// `part` with every character that draws as nothing dropped, cut to its first
+/// `max_chars`: one line the OS shows as it is.
+pub fn visible(part: &str, max_chars: usize) -> String {
+    part.chars()
+        .filter(|&c| !invisible(c))
+        .take(max_chars)
+        .collect()
 }
 
 #[cfg(test)]

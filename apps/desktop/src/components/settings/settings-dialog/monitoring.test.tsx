@@ -17,7 +17,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Cluster } from '@/lib/clusters';
-import type { MonitorSignal, MonitorTarget, MonitorTargetEnabledSet } from '@/lib/incidents';
+import type { MonitorSignal, MonitorTarget, MonitorTargetEnabledSet, NotificationPermission } from '@/lib/incidents';
 import { clusterRecord, monitorTargetRecord } from '@/test-utils';
 
 const { state, set } = vi.hoisted(() => ({
@@ -26,6 +26,7 @@ const { state, set } = vi.hoisted(() => ({
     signals: Map<string, MonitorSignal>;
     switch: Omit<MonitorTargetEnabledSet, 'set'>;
     clusters: Cluster[] | null;
+    permission: NotificationPermission | undefined;
   },
   set: vi.fn(),
 }));
@@ -34,6 +35,7 @@ vi.mock('@/lib/incidents', async (importOriginal) => ({
   useMonitorTargets: () => state.targets,
   useMonitorSignals: () => state.signals,
   useMonitorTargetEnabledSet: () => ({ ...state.switch, set }),
+  useNotificationPermission: () => state.permission,
 }));
 vi.mock('@/lib/clusters', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/clusters')>()),
@@ -60,6 +62,7 @@ beforeEach(() => {
   ]);
   state.switch = { changing: new Set(), errors: new Map() };
   state.clusters = [];
+  state.permission = 'Granted';
 });
 
 const row = (label: string) => screen.getByRole('switch', { name: label }).closest('li')!;
@@ -69,6 +72,19 @@ describe('MonitoringSettings', () => {
     state.targets = null;
     const { container } = render(<MonitoringSettings />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('says while notifications are denied how to turn them on, and nothing otherwise', () => {
+    state.permission = 'Denied';
+    const { rerender } = render(<MonitoringSettings />);
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Notifications are off for Kubetail, so a new incident raises none. Turn them on in System Settings › Notifications › Kubetail.',
+    );
+    for (const permission of ['Granted', 'NotDetermined', undefined] as const) {
+      state.permission = permission;
+      rerender(<MonitoringSettings />);
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    }
   });
 
   it('says what is watched, by each signal label in order, and when', () => {

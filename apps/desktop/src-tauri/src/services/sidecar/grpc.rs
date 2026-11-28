@@ -13,10 +13,11 @@
 // limitations under the License.
 
 //! gRPC client for the sidecar's host-internal control channel (auth-state
-//! watch + login/logout, resync poke). Shares the one socket with GraphQL via
-//! h2c — tonic dials [`ipc::Stream`] with HTTP/2 prior knowledge (no TLS/ALPN;
-//! the socket is user-restricted) through a `tower::service_fn` connector that
-//! reuses [`ipc::connect`]'s retry. One cached [`Channel`], re-dialed on loss.
+//! watch + login/logout, resync poke, the alert feed). Shares the one socket
+//! with GraphQL via h2c — tonic dials [`ipc::Stream`] with HTTP/2 prior
+//! knowledge (no TLS/ALPN; the socket is user-restricted) through a
+//! `tower::service_fn` connector that reuses [`ipc::connect`]'s retry. One
+//! cached [`Channel`], re-dialed on loss.
 //! See docs/adr/2026-10-26-single-socket-h2c-from-the-standard-library.md.
 
 use hyper_util::rt::TokioIo;
@@ -38,6 +39,11 @@ pub mod poke {
     tonic::include_proto!("poke");
 }
 
+// Generated bindings for proto/monitor.proto.
+pub mod monitor {
+    tonic::include_proto!("monitor");
+}
+
 use auth::auth_service_client::AuthServiceClient;
 pub use auth::AuthState;
 #[cfg(test)]
@@ -47,9 +53,17 @@ use auth::{AuthStateWatchRequest, LogoutRequest, StartLoginRequest};
 use poke::poke_service_client::PokeServiceClient;
 use poke::PokeRequest;
 
+use monitor::monitor_service_client::MonitorServiceClient;
+use monitor::SubscribeAlertEventFeedRequest;
+pub use monitor::{alert_event_feed_frame, Alert, AlertEventFeedFrame};
+
 /// Server-streamed `AuthStateWatch`: each item a full snapshot, or a transport
 /// error ending the stream.
 pub type AuthStateStream = tonic::Streaming<AuthState>;
+
+/// Server-streamed `SubscribeAlertEventFeed`: the retained alerts, a Bookmark,
+/// then each alert as it is raised, or a transport error ending the stream.
+pub type AlertEventFeed = tonic::Streaming<AlertEventFeedFrame>;
 
 /// Lazily-dialed, cached gRPC channel; re-dials if lost (sidecar restart).
 /// Reach the RPCs through [`SidecarService`](super::SidecarService).
@@ -127,6 +141,22 @@ impl GrpcClient {
     pub async fn watch_auth_state(&self) -> Result<AuthStateStream> {
         let mut client = AuthServiceClient::new(self.channel().await?);
         match client.auth_state_watch(AuthStateWatchRequest {}).await {
+            Ok(resp) => Ok(resp.into_inner()),
+            Err(status) => {
+                self.reset().await;
+                Err(status_to_err(status))
+            }
+        }
+    }
+
+    /// Opens the alert feed (the retained alerts, a Bookmark, then each new
+    /// one); an error resets the cached channel.
+    pub async fn subscribe_alert_event_feed(&self) -> Result<AlertEventFeed> {
+        let mut client = MonitorServiceClient::new(self.channel().await?);
+        match client
+            .subscribe_alert_event_feed(SubscribeAlertEventFeedRequest {})
+            .await
+        {
             Ok(resp) => Ok(resp.into_inner()),
             Err(status) => {
                 self.reset().await;
@@ -212,6 +242,7 @@ mod tests {
             sidecar.logout().await.unwrap_err(),
             sidecar.poke().await.unwrap_err(),
             sidecar.watch_auth_state().await.err().unwrap(),
+            sidecar.subscribe_alert_event_feed().await.err().unwrap(),
         ];
 
         for err in errors {

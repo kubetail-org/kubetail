@@ -82,6 +82,7 @@ type Incident struct {
 	LastStartedAt   time.Time // its newest occurrence's start
 	LastSeenAt      time.Time // zero while open
 	LastEndReason   EndReason // "" while open
+	Baseline        bool      // no occurrence of it has been ordinary yet
 }
 
 // IncidentOccurrence is an occurrence as the occurrence feed serves it.
@@ -93,6 +94,22 @@ type IncidentOccurrence struct {
 	EndedAt    time.Time // zero while open
 	EndReason  EndReason // "" while open
 	DetailJSON string    // incident_occurrences.detail
+}
+
+// Alert is an incident that raised its alert, as the alert feed serves it, with
+// what a notification names. The target's integration and key are its own: the
+// core reads neither.
+type Alert struct {
+	IncidentID   IncidentID
+	TargetID     MonitorTargetID
+	Integration  string
+	TargetKey    string
+	TargetLabel  string
+	SubjectLabel string
+	SignalLabel  string
+	Severity     Severity
+	AlertedAt    time.Time // by the wall clock
+	Seq          int64     // its place in the order the alerts committed, from 1
 }
 
 // MonitorTargetCollectionWatchFrame is one frame on the targets watch. Target is
@@ -125,6 +142,22 @@ type IncidentOccurrenceEventFeedFrame struct {
 	Type       IncidentOccurrenceEventFeedFrameType
 	IncidentID IncidentID
 	Occurrence *IncidentOccurrence
+}
+
+// AlertEventFeedFrameType classifies a frame on the alert feed.
+type AlertEventFeedFrameType string
+
+const (
+	// AlertEventFeedFrameAlert carries an alert, sent once.
+	AlertEventFeedFrameAlert AlertEventFeedFrameType = "Alert"
+	// AlertEventFeedFrameBookmark closes the snapshot, once, carrying none.
+	AlertEventFeedFrameBookmark AlertEventFeedFrameType = "Bookmark"
+)
+
+// AlertEventFeedFrame is one frame on the alert feed. Alert is nil on the Bookmark.
+type AlertEventFeedFrame struct {
+	Type  AlertEventFeedFrameType
+	Alert *Alert
 }
 
 // ListSignals is every registered signal, in registration order.

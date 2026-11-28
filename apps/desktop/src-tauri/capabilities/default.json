@@ -26,6 +26,8 @@
     "allow-log-window-subscribe",
     "allow-log-window-open",
     "allow-log-window-focus",
-    "allow-log-window-close-all"
+    "allow-log-window-close-all",
+    "allow-notification-permission-state-watch",
+    "allow-notification-press-take"
   ]
 }

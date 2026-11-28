@@ -54,6 +54,9 @@ type pair struct {
 	// each a sum of earned intervals.
 	held, absent time.Duration
 	open         *occurrence // nil while no occurrence is open
+	// baseline is whether the pair was first seen in its signal's baseline
+	// window, so its occurrence starts baseline. It goes with the pair.
+	baseline bool
 }
 
 // occurrence is an open occurrence and the incident it belongs to.
@@ -78,7 +81,10 @@ type targetState struct {
 	pairs     map[pairKey]pair
 	incidents map[incidentKey]incidentRef
 	unknown   map[string]ReadErrorCode // as monitor_targets.unknown_signals holds it
-	read      bool                     // last_read_at is set
+	// baselines is when each signal's baseline window opened, by name, as
+	// monitor_targets.baselines holds it.
+	baselines map[string]time.Time
+	read      bool // last_read_at is set
 	// at is the last fold's time, zero before the first since the state was
 	// seeded, and judged the signals that fold judged.
 	at     time.Time
@@ -89,6 +95,7 @@ type targetState struct {
 type changes struct {
 	uid       string                   // a UID to write, "" for none
 	unknown   map[string]ReadErrorCode // the unknown signals to write, nil when unchanged
+	baselines map[string]time.Time     // the baselines to write, nil when unchanged
 	firstRead bool                     // the fold sets last_read_at for the first time
 	starts    []start
 	ends      []end
@@ -105,6 +112,7 @@ type start struct {
 	startedAt    time.Time
 	seenAt       time.Time
 	detail       map[string]string
+	baseline     bool // its pair was first seen in its signal's baseline window
 	open         *newIncident
 }
 
@@ -142,6 +150,9 @@ func fold(prev targetState, reg *registration, r Reading, now time.Time, newID f
 			for _, k := range next.sortedKeys() {
 				next.drop(&ch, k, EndStopped)
 			}
+			// What the new server already has wrong is its baseline.
+			next.baselines = map[string]time.Time{}
+			ch.baselines = next.baselines
 		}
 		next.uid, ch.uid = r.UID, r.UID
 	}
@@ -173,6 +184,12 @@ func fold(prev targetState, reg *registration, r Reading, now time.Time, newID f
 			continue
 		}
 		judged[s.Name] = true
+		opened, ok := next.baselines[s.Name]
+		if !ok {
+			opened = now
+			next.baselines[s.Name] = now
+			ch.baselines = next.baselines
+		}
 		var earned time.Duration
 		if earnable && prev.judged[s.Name] {
 			earned = interval
@@ -206,7 +223,7 @@ func fold(prev targetState, reg *registration, r Reading, now time.Time, newID f
 			if _, tracked := next.pairs[k]; tracked {
 				continue
 			}
-			p := pair{firstSeen: now, lastSeen: now}
+			p := pair{firstSeen: now, lastSeen: now, baseline: inBaseline(opened, now, s.ResolveAfter)}
 			if s.OpenAfter <= 0 {
 				ch.starts = append(ch.starts, next.startOf(&p, s, o, now, newID))
 			}
@@ -233,12 +250,20 @@ func fold(prev targetState, reg *registration, r Reading, now time.Time, newID f
 	return next, ch
 }
 
+// inBaseline is whether a pair first seen at now falls in the baseline window
+// opened at opened: the opening reading, and what follows it within window. A
+// time before the opening, as after a clock set back, is outside.
+func inBaseline(opened, now time.Time, window time.Duration) bool {
+	since := now.Sub(opened)
+	return since == 0 || (since > 0 && since < window)
+}
+
 // startOf starts an occurrence of the pair p, stamped with its first sighting and
 // carrying o's detail: joining the incident whose last occurrence ended within
 // reopenWithin of that sighting, or opening a new one.
 func (s *targetState) startOf(p *pair, sig Signal, o Observation, now time.Time, newID func() string) start {
 	key := incidentKey{s.uid, sig.Name, o.Subject.Key}
-	st := start{occurrenceID: newID(), startedAt: p.firstSeen, seenAt: now, detail: o.Detail}
+	st := start{occurrenceID: newID(), startedAt: p.firstSeen, seenAt: now, detail: o.Detail, baseline: p.baseline}
 	if ref, ok := s.incidents[key]; ok && !ref.endedAt.IsZero() && p.firstSeen.Sub(ref.endedAt) <= reopenWithin {
 		st.incidentID, st.number = ref.id, ref.count+1
 	} else {
@@ -293,6 +318,10 @@ func (s targetState) clone() targetState {
 	s.incidents = maps.Clone(s.incidents)
 	if s.incidents == nil {
 		s.incidents = map[incidentKey]incidentRef{}
+	}
+	s.baselines = maps.Clone(s.baselines)
+	if s.baselines == nil {
+		s.baselines = map[string]time.Time{}
 	}
 	return s
 }

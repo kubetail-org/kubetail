@@ -559,7 +559,9 @@ CREATE TABLE shell_path (
 -- and spends no model call. generation counts the switch's flips, the fold's guard
 -- against a reading from before one. unknown_signals holds each signal the last
 -- reading could not judge, with its code; last_read_at is NULL until the first
--- reading. label is the integration's, rewritten when it changes.
+-- reading. label is the integration's, rewritten when it changes. baselines holds,
+-- by signal name, the time in ms its baseline window opened: its first judged
+-- reading since the target was switched on or reached a new UID.
 CREATE TABLE monitor_targets (
   id              TEXT    PRIMARY KEY,
   integration     TEXT    NOT NULL,
@@ -569,6 +571,7 @@ CREATE TABLE monitor_targets (
   generation      INTEGER NOT NULL DEFAULT 0,
   current_uid     TEXT,
   unknown_signals TEXT    NOT NULL DEFAULT '{}' CHECK (json_valid(unknown_signals) AND json_type(unknown_signals) = 'object'),
+  baselines       TEXT    NOT NULL DEFAULT '{}' CHECK (json_valid(baselines)),
   last_read_at    INTEGER,
   created_at      INTEGER NOT NULL,
   updated_at      INTEGER NOT NULL,
@@ -580,7 +583,11 @@ CREATE TABLE monitor_targets (
 -- and never parsed; subject_attributes is a JSON object of strings only the
 -- integration reads. signal_label and severity are copied when the incident
 -- opens. last_seen_at is the last time a reading saw its signal; occurrence_count
--- counts every occurrence the incident has had, trimmed ones included.
+-- counts every occurrence the incident has had, trimmed ones included. baseline
+-- is 1 until the incident's first occurrence that is not baseline, and never
+-- set again; alerted_at is when that occurrence raised its alert, by the wall
+-- clock, and alert_seq its place in the order the alerts committed, which the
+-- alert feed reads.
 CREATE TABLE incidents (
   id                 TEXT    PRIMARY KEY,
   target_id          TEXT    NOT NULL REFERENCES monitor_targets(id) ON DELETE CASCADE,
@@ -593,16 +600,29 @@ CREATE TABLE incidents (
   severity           TEXT    NOT NULL CHECK (severity IN ('critical', 'warning', 'info')),
   first_seen_at      INTEGER NOT NULL,
   last_seen_at       INTEGER NOT NULL,
-  occurrence_count   INTEGER NOT NULL CHECK (occurrence_count >= 1)
+  occurrence_count   INTEGER NOT NULL CHECK (occurrence_count >= 1),
+  baseline           INTEGER NOT NULL DEFAULT 0 CHECK (baseline IN (0, 1)),
+  alerted_at         INTEGER,
+  alert_seq          INTEGER,
+  CHECK ((alerted_at IS NULL) = (alert_seq IS NULL))
 ) STRICT;
 
 CREATE INDEX incidents_subject ON incidents (target_id, target_uid, signal, subject_key);
 CREATE INDEX incidents_last_seen ON incidents (last_seen_at);
+CREATE UNIQUE INDEX incidents_alerted ON incidents (alert_seq) WHERE alert_seq IS NOT NULL;
+
+-- monitor_alert_seq: the last alert_seq given, so an alerted incident's delete
+-- never frees its number. No row before the first alert.
+CREATE TABLE monitor_alert_seq (
+  id   INTEGER PRIMARY KEY CHECK (id = 1),
+  last INTEGER NOT NULL
+) STRICT;
 
 -- incident_occurrences: one stretch an incident's signal held. number is its
 -- order, never reused; started_at is the wall clock's and orders nothing. An
 -- occurrence is open while ended_at is NULL; detail is what the reading that
--- started it saw, a JSON object of strings.
+-- started it saw, a JSON object of strings. baseline marks one whose pair was
+-- first seen in its signal's baseline window: it raises no alert.
 CREATE TABLE incident_occurrences (
   id          TEXT    PRIMARY KEY,
   incident_id TEXT    NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
@@ -611,6 +631,7 @@ CREATE TABLE incident_occurrences (
   ended_at    INTEGER CHECK (ended_at >= started_at),
   end_reason  TEXT    CHECK (end_reason IN ('resolved', 'stopped', 'stale')),
   detail      TEXT    NOT NULL DEFAULT '{}' CHECK (json_valid(detail)),
+  baseline    INTEGER NOT NULL DEFAULT 0 CHECK (baseline IN (0, 1)),
   UNIQUE (incident_id, number),
   CHECK ((ended_at IS NULL) = (end_reason IS NULL))
 ) STRICT, WITHOUT ROWID;

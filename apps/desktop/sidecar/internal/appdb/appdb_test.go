@@ -167,6 +167,7 @@ func requireTables(t *testing.T, db *sql.DB) {
 		"llm_calls wr=0 strict=1",
 		"memories wr=0 strict=1",
 		"messages wr=0 strict=1",
+		"monitor_alert_seq wr=0 strict=1",
 		"monitor_targets wr=0 strict=1",
 		"oauth_connections wr=1 strict=1",
 		"permission_modes wr=0 strict=1",
@@ -201,6 +202,7 @@ func requireTables(t *testing.T, db *sql.DB) {
 		"CREATE INDEX folder_grants_chat_idx ON folder_grants (chat_id, created_at, id)",
 		"CREATE UNIQUE INDEX folder_grants_folder ON folder_grants (ifnull(chat_id, ''), folder)",
 		"CREATE UNIQUE INDEX incident_occurrences_one_open ON incident_occurrences (incident_id) WHERE ended_at IS NULL",
+		"CREATE UNIQUE INDEX incidents_alerted ON incidents (alert_seq) WHERE alert_seq IS NOT NULL",
 		"CREATE INDEX incidents_last_seen ON incidents (last_seen_at)",
 		"CREATE INDEX incidents_subject ON incidents (target_id, target_uid, signal, subject_key)",
 		"CREATE UNIQUE INDEX llm_calls_run_idx ON llm_calls (run_id, seq)",
@@ -409,20 +411,27 @@ func TestTheMonitorTablesHoldWhatTheirChecksAllow(t *testing.T) {
 	require.NoError(t, exec(target, "t1", "c1"))
 	require.ErrorContains(t, exec(target, "t2", "c1"), "UNIQUE")
 	var enabled, generation int
-	var unknown string
+	var unknown, baselines string
 	var uid, readAt *string
-	require.NoError(t, db.Read.QueryRow(`SELECT enabled, generation, unknown_signals, current_uid, last_read_at FROM monitor_targets`).
-		Scan(&enabled, &generation, &unknown, &uid, &readAt))
-	assert.Equal(t, []any{1, 0, "{}"}, []any{enabled, generation, unknown})
+	require.NoError(t, db.Read.QueryRow(`SELECT enabled, generation, unknown_signals, baselines, current_uid, last_read_at FROM monitor_targets`).
+		Scan(&enabled, &generation, &unknown, &baselines, &uid, &readAt))
+	assert.Equal(t, []any{1, 0, "{}", "{}"}, []any{enabled, generation, unknown, baselines})
 	assert.Nil(t, uid)
 	assert.Nil(t, readAt)
 	assert.ErrorContains(t, exec(`UPDATE monitor_targets SET unknown_signals = 'nope'`), "CHECK")
 	assert.ErrorContains(t, exec(`UPDATE monitor_targets SET unknown_signals = '[]'`), "CHECK")
+	assert.ErrorContains(t, exec(`UPDATE monitor_targets SET baselines = 'nope'`), "CHECK")
 
 	const incident = `INSERT INTO incidents (id, target_id, target_uid, subject_key, subject_label, signal, signal_label, severity, first_seen_at, last_seen_at, occurrence_count)
 		VALUES (?, 't1', 'uid', 'apps/Deployment/default/web', 'Deployment default/web', 'kubernetes.crash_loop', 'Crash loop', ?, 0, 0, 1)`
 	require.NoError(t, exec(incident, "i1", "warning"))
 	assert.ErrorContains(t, exec(incident, "i2", "loud"), "CHECK")
+	var incidentBaseline int
+	var alertedAt *int64
+	require.NoError(t, db.Read.QueryRow(`SELECT baseline, alerted_at FROM incidents`).Scan(&incidentBaseline, &alertedAt))
+	assert.Zero(t, incidentBaseline)
+	assert.Nil(t, alertedAt)
+	assert.ErrorContains(t, exec(`UPDATE incidents SET baseline = 2`), "CHECK")
 
 	const occurrence = `INSERT INTO incident_occurrences (id, incident_id, number, started_at, ended_at, end_reason) VALUES (?, 'i1', ?, 10, ?, ?)`
 	require.NoError(t, exec(occurrence, "o1", 1, 20, "resolved"))
@@ -432,6 +441,7 @@ func TestTheMonitorTablesHoldWhatTheirChecksAllow(t *testing.T) {
 	assert.ErrorContains(t, exec(occurrence, "o5", 5, 30, nil), "CHECK", "an end has its reason")
 	assert.ErrorContains(t, exec(occurrence, "o6", 6, 5, "stopped"), "CHECK", "no end before the start")
 	assert.ErrorContains(t, exec(occurrence, "o7", 7, 30, "gone"), "CHECK")
+	assert.ErrorContains(t, exec(`UPDATE incident_occurrences SET baseline = 2`), "CHECK")
 
 	require.NoError(t, exec(`DELETE FROM monitor_targets WHERE id = 't1'`))
 	var left int
@@ -473,7 +483,7 @@ func TestOpenRefusesANewerFile(t *testing.T) {
 // line in the PR that writes it. Once a desktop release carries a migration, every
 // installed app.db has run it, so its line never changes again.
 var shippedMigrations = map[string]string{
-	"0001_init.sql": "e498860fbc544bc39756de67c246324b2e2612782ac72bfb9218ecc73172d65a",
+	"0001_init.sql": "f060a8fc986ea6199242a4c9d59d1d3f7826adaf5357ea7021e5ee22a2071622",
 }
 
 func TestAShippedMigrationIsNeverEdited(t *testing.T) {

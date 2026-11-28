@@ -15,11 +15,15 @@
 // What monitoring found: every target, every target's incidents and the signals they
 // name, held once for the window so the bell and the Incidents dialog read the same
 // maps, the occurrence feed of one incident, and the switch on a target. See
-// docs/read-contracts/README.md, *Collection watch*, *List* and *Event feed*.
+// docs/read-contracts/README.md, *Collection watch*, *List* and *Event feed*. The host
+// shows each alert as an OS notification: this module reads whether the OS allows
+// one, and opens the dialog on the incident a notification's press names.
 //
 // The webview knows an integration in one place, `INTEGRATION_LABEL`: a new value of
 // `MonitorIntegration` fails the build here and nowhere else.
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { Channel, invoke } from '@tauri-apps/api/core';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from 'urql';
 
 import { graphql } from '@/gql';
@@ -35,6 +39,8 @@ import type {
 } from '@/gql/graphql';
 import type { Tone } from '@/lib/cluster-health';
 import { useClusters } from '@/lib/clusters';
+import { useDialogHost } from '@/lib/dialog';
+import { reportHostError } from '@/lib/error-bus';
 import { collectionWatchReducer } from '@/lib/graphql/collection-watch';
 import { eventFeedReducer } from '@/lib/graphql/event-feed';
 import type { EventFeedHistory } from '@/lib/graphql/event-feed';
@@ -84,6 +90,7 @@ const IncidentCollectionWatchDocument = graphql(`
         lastStartedAt
         lastSeenAt
         lastEndReason
+        baseline
       }
     }
   }
@@ -209,7 +216,46 @@ const IncidentsContext = createContext<IncidentsContextValue | null>(null);
 // Apart from the reads, so a press redraws only the switches.
 const EnabledSetContext = createContext<MonitorTargetEnabledSet | null>(null);
 
+// The event that tells this window a notification's press waits for it. It carries
+// nothing: the press is taken with `notification_press_take`.
+const PRESS_WAITING_EVENT = 'notification-press-waiting';
+
+// A notification's press, as the host holds it for this window: the incident to open
+// the Incidents dialog on, or none for a summary.
+type Press = { incidentID: string | null };
+
+// Opens the Incidents dialog on each press the host holds for this window: one made
+// before this page could listen, taken as it mounts, and each it is told of after.
+function useNotificationPresses() {
+  const openDialog = useDialogHost()?.openDialog;
+  useEffect(() => {
+    if (!openDialog) return undefined;
+    let active = true;
+    let unlisten: (() => void) | undefined;
+    const take = () =>
+      invoke<Press | null>('notification_press_take')
+        .then((press) => {
+          if (active && press) openDialog('incidents', press.incidentID ?? undefined);
+        })
+        .catch(reportHostError);
+    // The first take waits for the listener, so a press made between the two is
+    // told. Async, so a webview with no host rejects rather than throws.
+    (async () => getCurrentWebviewWindow().listen(PRESS_WAITING_EVENT, () => void take()))()
+      .then((fn) => {
+        if (!active) return fn();
+        unlisten = fn;
+        return take();
+      })
+      .catch(reportHostError);
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, [openDialog]);
+}
+
 export function IncidentsProvider({ children }: { children: React.ReactNode }) {
+  useNotificationPresses();
   const { data: targetWatch } = useFoldedSubscription({ query: MonitorTargetCollectionWatchDocument }, reduceTargets);
   const { data: incidentWatch } = useFoldedSubscription({ query: IncidentCollectionWatchDocument }, reduceIncidents);
   // Fixed for the life of the sidecar, so it is asked once.
@@ -368,6 +414,25 @@ function useEnabledSetState(): MonitorTargetEnabledSet {
   );
 
   return useMemo(() => ({ changing, errors, set }), [changing, errors, set]);
+}
+
+/** Whether the OS shows Kubetail's notifications, as the host last read it. */
+export type NotificationPermission = 'Granted' | 'Denied' | 'NotDetermined';
+
+/** The host's answer, kept current; undefined until its first frame. */
+export function useNotificationPermission(): NotificationPermission | undefined {
+  const [permission, setPermission] = useState<NotificationPermission>();
+  useEffect(() => {
+    let active = true;
+    const channel = new Channel<NotificationPermission>((value) => {
+      if (active) setPermission(value);
+    });
+    invoke('notification_permission_state_watch', { channel }).catch(reportHostError);
+    return () => {
+      active = false;
+    };
+  }, []);
+  return permission;
 }
 
 // What a target's line above its incidents says, the first that holds.
