@@ -77,7 +77,6 @@ func TestInsertClusterIfAbsentTakesTheDefaults(t *testing.T) {
 	require.Nil(t, row.Name)
 	require.True(t, row.Enabled)
 	require.True(t, row.SyncEnabled)
-	require.True(t, row.MonitoringEnabled, "a cluster with no target yet reads as monitored")
 	require.False(t, row.IsDefault)
 	require.Equal(t, t0, row.CreatedAt)
 	require.Equal(t, t0, row.UpdatedAt)

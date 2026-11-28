@@ -32,7 +32,8 @@ const config: CodegenConfig = {
         // Time is an ISO-8601 UTC string; ObjectID is an opaque decimal-string
         // object id (an int64 server-side, a string on the wire) and ClusterID an
         // opaque row id — the webview treats both as opaque strings, and
-        // ChatID/MessageID/ToolCallID/ApprovalID/MemoryID are opaque UUID strings
+        // ChatID/MessageID/ToolCallID/ApprovalID/MemoryID and the monitoring ids
+        // (MonitorTargetID/IncidentID/IncidentOccurrenceID) are opaque UUID strings
         // the same way. JSON is an arbitrary decoded value (a cached object's native body,
         // or a message's content blocks) — typed `unknown`, cast at the point of
         // use (ObjectsTable's per-kind column registry).
@@ -45,6 +46,9 @@ const config: CodegenConfig = {
           ToolCallID: 'string',
           ApprovalID: 'string',
           MemoryID: 'string',
+          MonitorTargetID: 'string',
+          IncidentID: 'string',
+          IncidentOccurrenceID: 'string',
           JSON: 'unknown',
         },
       },

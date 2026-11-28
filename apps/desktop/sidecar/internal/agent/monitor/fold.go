@@ -32,13 +32,13 @@ const (
 	recentFor = 2 * reopenWithin
 )
 
-// endReason is how an occurrence ended, as incident_occurrences.end_reason holds it.
-type endReason string
+// EndReason is how an occurrence ended, as incident_occurrences.end_reason holds it.
+type EndReason string
 
 const (
-	endResolved endReason = "resolved" // judged absent for its signal's resolve-after
-	endStopped  endReason = "stopped"  // the read was switched off or the UID changed
-	endStale    endReason = "stale"    // last seen more than staleAfter ago
+	EndResolved EndReason = "resolved" // judged absent for its signal's resolve-after
+	EndStopped  EndReason = "stopped"  // the read was switched off or the UID changed
+	EndStale    EndReason = "stale"    // last seen more than staleAfter ago
 )
 
 // pairKey is a signal and a subject: the unit the fold tracks.
@@ -120,7 +120,7 @@ type end struct {
 	occurrenceID string
 	incidentID   string
 	at           time.Time
-	reason       endReason
+	reason       EndReason
 }
 
 // notifiesIncidents is whether the changes move what an incidents reader sees:
@@ -140,7 +140,7 @@ func fold(prev targetState, reg *registration, r Reading, now time.Time, newID f
 	if r.UID != "" && r.UID != next.uid {
 		if next.uid != "" {
 			for _, k := range next.sortedKeys() {
-				next.drop(&ch, k, endStopped)
+				next.drop(&ch, k, EndStopped)
 			}
 		}
 		next.uid, ch.uid = r.UID, r.UID
@@ -148,7 +148,7 @@ func fold(prev targetState, reg *registration, r Reading, now time.Time, newID f
 
 	for _, k := range next.sortedKeys() {
 		if now.Sub(next.pairs[k].lastSeen) > staleAfter {
-			next.drop(&ch, k, endStale)
+			next.drop(&ch, k, EndStale)
 		}
 	}
 
@@ -167,7 +167,7 @@ func fold(prev targetState, reg *registration, r Reading, now time.Time, newID f
 		if code, unknown := r.Unknown[s.Name]; unknown {
 			if code == CodeDisabled {
 				for _, k := range next.keysOf(s.Name) {
-					next.drop(&ch, k, endStopped)
+					next.drop(&ch, k, EndStopped)
 				}
 			}
 			continue
@@ -184,7 +184,7 @@ func fold(prev targetState, reg *registration, r Reading, now time.Time, newID f
 			if !ok {
 				p.absent += earned
 				if p.absent >= s.ResolveAfter {
-					next.drop(&ch, k, endResolved)
+					next.drop(&ch, k, EndResolved)
 					continue
 				}
 				next.pairs[k] = p
@@ -253,7 +253,7 @@ func (s *targetState) startOf(p *pair, sig Signal, o Observation, now time.Time,
 // drop forgets the pair k, ending its open occurrence for reason: stamped with
 // its last sighting and never earlier than its start, so a clock set back still
 // commits.
-func (s *targetState) drop(ch *changes, k pairKey, reason endReason) {
+func (s *targetState) drop(ch *changes, k pairKey, reason EndReason) {
 	p := s.pairs[k]
 	delete(s.pairs, k)
 	if p.open == nil {

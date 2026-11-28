@@ -330,3 +330,6 @@ one package that reads a key as a cluster's id (`ClusterID`).
   under the generation its reading began under, and the loop drops memory on a new one.
 - **The notice follows the commit** and names each key whose served rows moved; a fold that only
   advances `last_seen_at` sends none. A `KeyMonitorTargets` notice never starts a reading.
+- **The reads serve the registered integrations' targets alone**, and what is under them. Each
+  record is comparable (a zero value for null, JSON as stored, which the resolver decodes), so a
+  watch diffs with `==`. A subscription joins `wg` through `enter`; `Close` ends it too.

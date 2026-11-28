@@ -176,7 +176,7 @@ func TestAnOccurrenceResolvesAfterResolveAfterAtItsLastSighting(t *testing.T) {
 	ch := f.at(8*time.Minute, nothing())
 
 	require.Len(t, ch.ends, 1)
-	assert.Equal(t, end{f.all.starts[0].occurrenceID, f.all.starts[0].incidentID, t0.Add(3 * time.Minute), endResolved}, ch.ends[0])
+	assert.Equal(t, end{f.all.starts[0].occurrenceID, f.all.starts[0].incidentID, t0.Add(3 * time.Minute), EndResolved}, ch.ends[0])
 	assert.Empty(t, f.state.pairs)
 	assert.True(t, ch.notifiesIncidents())
 }
@@ -193,7 +193,7 @@ func TestAZeroWindowActsAtTheNextJudgedFold(t *testing.T) {
 	ch = f.at(time.Minute, nothing())
 
 	require.Len(t, ch.ends, 1)
-	assert.Equal(t, endResolved, ch.ends[0].reason)
+	assert.Equal(t, EndResolved, ch.ends[0].reason)
 	assert.Equal(t, t0, ch.ends[0].at)
 }
 
@@ -276,7 +276,7 @@ func TestStaleIsAppliedBeforeTheReading(t *testing.T) {
 	ch := f.at(24*time.Hour+3*time.Minute, seeing(crash.Name, "web"))
 
 	require.Len(t, ch.ends, 1)
-	assert.Equal(t, endStale, ch.ends[0].reason)
+	assert.Equal(t, EndStale, ch.ends[0].reason)
 	assert.Equal(t, t0.Add(2*time.Minute), ch.ends[0].at)
 	assert.Empty(t, ch.starts, "the sighting waits its window again")
 	f.every(24*time.Hour+210*time.Second, 24*time.Hour+5*time.Minute, seeing(crash.Name, "web"))
@@ -295,7 +295,7 @@ func TestADisabledSignalStopsItsOccurrences(t *testing.T) {
 	ch := f.at(3*time.Minute, unknown(CodeDisabled))
 
 	require.Len(t, ch.ends, 1)
-	assert.Equal(t, endStopped, ch.ends[0].reason)
+	assert.Equal(t, EndStopped, ch.ends[0].reason)
 	assert.Equal(t, t0.Add(2*time.Minute), ch.ends[0].at)
 	assert.Empty(t, f.state.pairs)
 }
@@ -314,7 +314,7 @@ func TestANewUIDStopsTheOpenOccurrencesFirst(t *testing.T) {
 
 	assert.Equal(t, "u2", ch.uid)
 	require.Len(t, ch.ends, 1)
-	assert.Equal(t, endStopped, ch.ends[0].reason)
+	assert.Equal(t, EndStopped, ch.ends[0].reason)
 	assert.Equal(t, t0.Add(2*time.Minute), ch.ends[0].at)
 	assert.True(t, ch.notifiesTargets())
 	f.every(30*time.Hour+30*time.Second, 30*time.Hour+2*time.Minute, moved)

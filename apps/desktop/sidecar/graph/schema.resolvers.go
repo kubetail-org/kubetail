@@ -15,6 +15,7 @@ import (
 	gqlerrors "github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph/errors"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/graph/model"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/chat"
+	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/monitor/kubesignals"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/apimeta"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/oauth"
@@ -254,6 +255,66 @@ func (r *googleConnectionResolver) Failure(ctx context.Context, obj *connectors.
 	return &obj.Failure, nil
 }
 
+// SubjectAttributes is the resolver for the subjectAttributes field.
+func (r *incidentResolver) SubjectAttributes(ctx context.Context, obj *monitor.Incident) ([]*model.MonitorAttribute, error) {
+	return monitorAttributes(obj.AttributesJSON)
+}
+
+// LastSeenAt is the resolver for the lastSeenAt field.
+func (r *incidentResolver) LastSeenAt(ctx context.Context, obj *monitor.Incident) (*time.Time, error) {
+	return nonZero(obj.LastSeenAt), nil
+}
+
+// LastEndReason is the resolver for the lastEndReason field.
+func (r *incidentResolver) LastEndReason(ctx context.Context, obj *monitor.Incident) (*monitor.EndReason, error) {
+	return nonZero(obj.LastEndReason), nil
+}
+
+// EndedAt is the resolver for the endedAt field.
+func (r *incidentOccurrenceResolver) EndedAt(ctx context.Context, obj *monitor.IncidentOccurrence) (*time.Time, error) {
+	return nonZero(obj.EndedAt), nil
+}
+
+// EndReason is the resolver for the endReason field.
+func (r *incidentOccurrenceResolver) EndReason(ctx context.Context, obj *monitor.IncidentOccurrence) (*monitor.EndReason, error) {
+	return nonZero(obj.EndReason), nil
+}
+
+// Detail is the resolver for the detail field.
+func (r *incidentOccurrenceResolver) Detail(ctx context.Context, obj *monitor.IncidentOccurrence) ([]*model.MonitorAttribute, error) {
+	return monitorAttributes(obj.DetailJSON)
+}
+
+// Integration is the resolver for the integration field.
+func (r *monitorSignalResolver) Integration(ctx context.Context, obj *monitor.MonitorSignal) (model.MonitorIntegration, error) {
+	return monitorIntegrationOf(obj.Integration)
+}
+
+// Integration is the resolver for the integration field.
+func (r *monitorTargetResolver) Integration(ctx context.Context, obj *monitor.MonitorTarget) (model.MonitorIntegration, error) {
+	return monitorIntegrationOf(obj.Integration)
+}
+
+// ClusterID is the resolver for the clusterID field.
+func (r *monitorTargetResolver) ClusterID(ctx context.Context, obj *monitor.MonitorTarget) (*apimeta.ClusterID, error) {
+	id, ok := kubesignals.ClusterID(obj.Integration, obj.Key)
+	if !ok {
+		return nil, nil
+	}
+	clusterID := apimeta.ClusterID(id)
+	return &clusterID, nil
+}
+
+// CurrentUID is the resolver for the currentUID field.
+func (r *monitorTargetResolver) CurrentUID(ctx context.Context, obj *monitor.MonitorTarget) (*string, error) {
+	return nonZero(obj.CurrentUID), nil
+}
+
+// UnknownSignals is the resolver for the unknownSignals field.
+func (r *monitorTargetResolver) UnknownSignals(ctx context.Context, obj *monitor.MonitorTarget) ([]*model.MonitorUnknownSignal, error) {
+	return monitorUnknownSignals(obj.UnknownJSON)
+}
+
 // ProviderKeySave is the resolver for the providerKeySave field.
 func (r *mutationResolver) ProviderKeySave(ctx context.Context, providerID string, key string) (bool, error) {
 	if err := r.ProviderCredentials.Save(providerID, key); err != nil {
@@ -281,27 +342,6 @@ func (r *mutationResolver) ClusterEnabledSet(ctx context.Context, id apimeta.Clu
 func (r *mutationResolver) ClusterSyncEnabledSet(ctx context.Context, id apimeta.ClusterID, syncEnabled bool) (*cluster.Cluster, error) {
 	c, err := r.ClusterSvc.Clusters().SetSyncEnabled(ctx, id, syncEnabled)
 	return c, clusterErr(err)
-}
-
-// ClusterMonitoringEnabledSet is the resolver for the clusterMonitoringEnabledSet field.
-func (r *mutationResolver) ClusterMonitoringEnabledSet(ctx context.Context, id apimeta.ClusterID, monitoringEnabled bool) (*cluster.Cluster, error) {
-	// A marked cluster is refused before its switch moves, as every toggle is.
-	c, err := r.ClusterSvc.Clusters().Get(ctx, id)
-	if err == nil && (c == nil || c.DeletionRequestedAt != nil) {
-		err = cluster.ErrNotFound
-	}
-	if err != nil {
-		return nil, clusterErr(err)
-	}
-	targetID, err := r.Monitor.TargetID(ctx, kubesignals.Name, kubesignals.TargetKey(id))
-	if err == nil {
-		err = r.Monitor.SetEnabled(ctx, targetID, monitoringEnabled)
-	}
-	if err != nil {
-		return nil, clusterErr(err)
-	}
-	c.Spec.MonitoringEnabled = monitoringEnabled
-	return c, nil
 }
 
 // ClusterDefaultSet is the resolver for the clusterDefaultSet field. The previous
@@ -543,6 +583,15 @@ func (r *mutationResolver) EnvVarRemove(ctx context.Context, clusterID *apimeta.
 		return nil, envVarErr(err)
 	}
 	return r.envVars(ctx, scopeOf(clusterID))
+}
+
+// MonitorTargetEnabledSet is the resolver for the monitorTargetEnabledSet field.
+func (r *mutationResolver) MonitorTargetEnabledSet(ctx context.Context, id monitor.MonitorTargetID, enabled bool) (*monitor.MonitorTarget, error) {
+	t, err := r.Monitor.SetEnabled(ctx, id, enabled)
+	if err != nil {
+		return nil, monitorErr(err)
+	}
+	return &t, nil
 }
 
 // MemorySave is the resolver for the memorySave field: an update with an id, a
@@ -898,6 +947,11 @@ func (r *queryResolver) EnvVarsGet(ctx context.Context, clusterID *apimeta.Clust
 	return r.envVars(ctx, scopeOf(clusterID))
 }
 
+// MonitorSignalList is the resolver for the monitorSignalList field.
+func (r *queryResolver) MonitorSignalList(ctx context.Context) ([]*monitor.MonitorSignal, error) {
+	return ptrSlice(r.Monitor.ListSignals()), nil
+}
+
 // PermissionSettingsGet is the resolver for the permissionSettingsGet field.
 func (r *queryResolver) PermissionSettingsGet(ctx context.Context) (*model.PermissionSettings, error) {
 	return r.permissionSettings(ctx)
@@ -1075,6 +1129,33 @@ func (r *subscriptionResolver) ChatMessageCollectionWatch(ctx context.Context, c
 	st, err := r.ChatSvc.WatchMessageCollection(ctx, chatID)
 	if err != nil {
 		return nil, chatErr(err)
+	}
+	return subscriptionStream(ctx, st.Frames, st.Err), nil
+}
+
+// MonitorTargetCollectionWatch is the resolver for the monitorTargetCollectionWatch field.
+func (r *subscriptionResolver) MonitorTargetCollectionWatch(ctx context.Context) (<-chan *monitor.MonitorTargetCollectionWatchFrame, error) {
+	st, err := r.Monitor.WatchTargetCollection(ctx)
+	if err != nil {
+		return nil, monitorErr(err)
+	}
+	return subscriptionStream(ctx, st.Frames, st.Err), nil
+}
+
+// IncidentCollectionWatch is the resolver for the incidentCollectionWatch field.
+func (r *subscriptionResolver) IncidentCollectionWatch(ctx context.Context) (<-chan *monitor.IncidentCollectionWatchFrame, error) {
+	st, err := r.Monitor.WatchIncidentCollection(ctx)
+	if err != nil {
+		return nil, monitorErr(err)
+	}
+	return subscriptionStream(ctx, st.Frames, st.Err), nil
+}
+
+// IncidentOccurrenceEventFeed is the resolver for the incidentOccurrenceEventFeed field.
+func (r *subscriptionResolver) IncidentOccurrenceEventFeed(ctx context.Context, incidentID monitor.IncidentID) (<-chan *monitor.IncidentOccurrenceEventFeedFrame, error) {
+	st, err := r.Monitor.SubscribeIncidentOccurrenceEventFeed(ctx, incidentID)
+	if err != nil {
+		return nil, monitorErr(err)
 	}
 	return subscriptionStream(ctx, st.Frames, st.Err), nil
 }
@@ -1385,6 +1466,20 @@ func (r *Resolver) GitHubConnection() GitHubConnectionResolver { return &gitHubC
 // GoogleConnection returns GoogleConnectionResolver implementation.
 func (r *Resolver) GoogleConnection() GoogleConnectionResolver { return &googleConnectionResolver{r} }
 
+// Incident returns IncidentResolver implementation.
+func (r *Resolver) Incident() IncidentResolver { return &incidentResolver{r} }
+
+// IncidentOccurrence returns IncidentOccurrenceResolver implementation.
+func (r *Resolver) IncidentOccurrence() IncidentOccurrenceResolver {
+	return &incidentOccurrenceResolver{r}
+}
+
+// MonitorSignal returns MonitorSignalResolver implementation.
+func (r *Resolver) MonitorSignal() MonitorSignalResolver { return &monitorSignalResolver{r} }
+
+// MonitorTarget returns MonitorTargetResolver implementation.
+func (r *Resolver) MonitorTarget() MonitorTargetResolver { return &monitorTargetResolver{r} }
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
@@ -1426,6 +1521,10 @@ type (
 	envVarResolver                  struct{ *Resolver }
 	gitHubConnectionResolver        struct{ *Resolver }
 	googleConnectionResolver        struct{ *Resolver }
+	incidentResolver                struct{ *Resolver }
+	incidentOccurrenceResolver      struct{ *Resolver }
+	monitorSignalResolver           struct{ *Resolver }
+	monitorTargetResolver           struct{ *Resolver }
 	mutationResolver                struct{ *Resolver }
 	openRouterConnectionResolver    struct{ *Resolver }
 	permissionActionResolver        struct{ *Resolver }

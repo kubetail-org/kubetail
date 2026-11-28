@@ -34,7 +34,8 @@ const (
 	keepIncidents = 30 * 24 * time.Hour
 )
 
-// ErrNoTarget is a target id, or an integration's key, that names no target.
+// ErrNoTarget is a target id that names no target, or one whose integration the
+// build lacks.
 var ErrNoTarget = errors.New("monitor: no such target")
 
 // errDiscarded is a fold whose target moved under its reading: switched,
@@ -49,7 +50,6 @@ const (
 	stmtRelabelTarget
 	stmtDeleteTarget
 	stmtSelectMonitoredTargets
-	stmtSelectTargetID
 	stmtSelectTargetState
 	stmtSelectOpenOccurrences
 	stmtSelectRecentIncidents
@@ -63,10 +63,13 @@ const (
 	stmtEndOccurrence
 	stmtSetIncidentSeen
 	stmtSetIncidentsSeen
-	stmtSelectTargetEnabled
+	stmtSelectServedTarget
 	stmtSetTargetEnabled
 	stmtStopTargetOccurrences
 	stmtDeleteOldIncidents
+	stmtSelectServedTargets
+	stmtSelectServedIncidents
+	stmtSelectServedOccurrences
 	numStmts int = iota
 )
 
@@ -78,7 +81,6 @@ var statements = []sqlstmt.Statement{
 	// The cascade takes the target's incidents and their occurrences.
 	stmtDeleteTarget:           sqlstmt.OnWriter(`DELETE FROM monitor_targets WHERE id = ?`),
 	stmtSelectMonitoredTargets: sqlstmt.OnReader(`SELECT id, integration, key, label, generation FROM monitor_targets WHERE enabled = 1`),
-	stmtSelectTargetID:         sqlstmt.OnReader(`SELECT id FROM monitor_targets WHERE integration = ? AND key = ?`),
 
 	stmtSelectTargetState: sqlstmt.OnReader(`SELECT current_uid, unknown_signals, last_read_at IS NOT NULL FROM monitor_targets WHERE id = ?`),
 	stmtSelectOpenOccurrences: sqlstmt.OnReader(`SELECT o.id, o.incident_id, o.started_at, i.target_uid, i.signal, i.subject_key, i.last_seen_at, i.occurrence_count
@@ -106,7 +108,8 @@ var statements = []sqlstmt.Statement{
 	stmtSetIncidentSeen:  sqlstmt.OnWriter(`UPDATE incidents SET last_seen_at = ? WHERE id = ?`),
 	stmtSetIncidentsSeen: sqlstmt.OnWriter(`UPDATE incidents SET last_seen_at = ? WHERE id IN (SELECT value FROM json_each(?))`),
 
-	stmtSelectTargetEnabled: sqlstmt.OnWriter(`SELECT enabled FROM monitor_targets WHERE id = ?`),
+	stmtSelectServedTarget: sqlstmt.OnWriter(`SELECT ` + servedTargetColumns + ` FROM monitor_targets
+	WHERE id = ? AND integration IN (SELECT value FROM json_each(?))`),
 	stmtSetTargetEnabled: sqlstmt.OnWriter(`UPDATE monitor_targets SET enabled = ?, generation = generation + 1, updated_at = ?
 	WHERE id = ?`),
 	// Each at its last sighting, never before its start.
@@ -115,7 +118,29 @@ var statements = []sqlstmt.Statement{
 	WHERE ended_at IS NULL AND incident_id IN (SELECT id FROM incidents WHERE target_id = ?)`),
 	stmtDeleteOldIncidents: sqlstmt.OnWriter(`DELETE FROM incidents WHERE last_seen_at < ?
 	AND NOT EXISTS (SELECT 1 FROM incident_occurrences o WHERE o.incident_id = incidents.id AND o.ended_at IS NULL)`),
+
+	// The served reads hold the targets of the integrations the build registers,
+	// and what is under them: the ? is their names, as a JSON array.
+	stmtSelectServedTargets: sqlstmt.OnReader(`SELECT ` + servedTargetColumns + ` FROM monitor_targets
+	WHERE integration IN (SELECT value FROM json_each(?))`),
+	// Each incident with its newest occurrence, which says whether it is open: the
+	// one numbered its occurrence_count.
+	stmtSelectServedIncidents: sqlstmt.OnReader(`SELECT i.id, i.target_id, i.target_uid, i.subject_label, i.subject_attributes,
+	  i.signal, i.signal_label, i.severity, i.first_seen_at, i.last_seen_at, i.occurrence_count, o.started_at, o.end_reason
+	FROM incidents i
+	JOIN monitor_targets t ON t.id = i.target_id
+	JOIN incident_occurrences o ON o.incident_id = i.id AND o.number = i.occurrence_count
+	WHERE t.integration IN (SELECT value FROM json_each(?))`),
+	stmtSelectServedOccurrences: sqlstmt.OnReader(`SELECT o.id, o.number, o.started_at, o.ended_at, o.end_reason, o.detail
+	FROM incident_occurrences o
+	JOIN incidents i ON i.id = o.incident_id
+	JOIN monitor_targets t ON t.id = i.target_id
+	WHERE o.incident_id = ? AND t.integration IN (SELECT value FROM json_each(?))
+	ORDER BY o.number DESC`),
 }
+
+// servedTargetColumns is what storedTarget scans, in its order.
+const servedTargetColumns = `id, integration, key, label, enabled, coalesce(current_uid, ''), unknown_signals, last_read_at IS NOT NULL`
 
 type stmts = sqlstmt.Stmts[stmtID]
 
@@ -124,6 +149,9 @@ type store struct {
 	db    *appdb.DB
 	set   *sqlstmt.Set[stmtID]
 	clock func() time.Time
+	// integrations is the names of the integrations the build registers, as a
+	// JSON array: the served reads hold their targets alone.
+	integrations string
 }
 
 // targetRow is a monitored target as the loop reads it. The id, the switch and
@@ -133,12 +161,13 @@ type targetRow struct {
 	generation                  int64
 }
 
-func openStore(db *appdb.DB, clock func() time.Time) (*store, error) {
+func openStore(db *appdb.DB, clock func() time.Time, integrations []string) (*store, error) {
 	set, err := sqlstmt.Prepare[stmtID](context.Background(), db.Write.DB, db.Read.DB, statements)
 	if err != nil {
 		return nil, fmt.Errorf("prepare monitor statements: %w", err)
 	}
-	return &store{db: db, set: set, clock: clock}, nil
+	names, _ := json.Marshal(integrations) // a slice of strings always marshals
+	return &store{db: db, set: set, clock: clock, integrations: string(names)}, nil
 }
 
 func (s *store) close() error { return s.set.Close() }
@@ -239,19 +268,6 @@ func (s *store) monitored(ctx context.Context) ([]targetRow, error) {
 		return nil, fmt.Errorf("read monitored targets: %w", err)
 	}
 	return out, nil
-}
-
-// targetID is the id of integration's target key, ErrNoTarget for none.
-func (s *store) targetID(ctx context.Context, integration, key string) (string, error) {
-	var id string
-	err := s.set.Stmts().QueryRow(ctx, stmtSelectTargetID, integration, key).Scan(&id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", ErrNoTarget
-	}
-	if err != nil {
-		return "", fmt.Errorf("read target id: %w", err)
-	}
-	return id, nil
 }
 
 // seed is a target's state as app.db holds it, for its first fold since the
@@ -429,25 +445,27 @@ func writeStart(ctx context.Context, st stmts, targetID string, s start) error {
 // setEnabled is the switch, in its own transaction: off ends the target's open
 // occurrences as stopped, each at its last sighting; either way the generation
 // moves, so a reading begun before it commits nothing. A switch to the state the
-// target holds writes nothing. ErrNoTarget for no such target.
-func (s *store) setEnabled(ctx context.Context, targetID string, enabled bool) error {
+// target holds writes nothing. It answers the target as the switch left it;
+// ErrNoTarget for no such target, or one whose integration the build lacks.
+func (s *store) setEnabled(ctx context.Context, targetID string, enabled bool) (storedTarget, error) {
+	var row storedTarget
 	switched, stopped := false, false
 	err := s.set.InTx(ctx, func(st stmts) error {
 		switched, stopped = false, false
-		var held bool
-		err := st.QueryRow(ctx, stmtSelectTargetEnabled, targetID).Scan(&held)
+		var err error
+		row, err = scanStoredTarget(st.QueryRow(ctx, stmtSelectServedTarget, targetID, s.integrations))
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			return ErrNoTarget
 		case err != nil:
 			return fmt.Errorf("read target: %w", err)
-		case held == enabled:
+		case row.enabled == enabled:
 			return nil
 		}
 		if _, err := st.Exec(ctx, stmtSetTargetEnabled, enabled, s.clock().UnixMilli(), targetID); err != nil {
 			return fmt.Errorf("switch target: %w", err)
 		}
-		switched = true
+		row.enabled, switched = enabled, true
 		if enabled {
 			return nil
 		}
@@ -460,7 +478,7 @@ func (s *store) setEnabled(ctx context.Context, targetID string, enabled bool) e
 		return nil
 	})
 	if err != nil {
-		return err
+		return storedTarget{}, err
 	}
 	if switched {
 		s.db.Notify(appdb.KeyMonitorTargets)
@@ -468,7 +486,7 @@ func (s *store) setEnabled(ctx context.Context, targetID string, enabled bool) e
 	if stopped {
 		s.db.Notify(appdb.KeyIncidents)
 	}
-	return nil
+	return row, nil
 }
 
 // sweep deletes every incident that is not open and was last seen more than
@@ -494,3 +512,100 @@ func nonNil(m map[string]string) map[string]string {
 
 // fromMillis is a stored time, on the wall clock alone.
 func fromMillis(ms int64) time.Time { return time.UnixMilli(ms).UTC() }
+
+// storedTarget is a served target's row, as the served reads scan it.
+type storedTarget struct {
+	id, integration, key, label string
+	enabled                     bool
+	uid                         string // "" before a reading named one
+	unknown                     string // monitor_targets.unknown_signals
+	read                        bool   // last_read_at is set
+}
+
+// scanner is what *sql.Row and *sql.Rows share.
+type scanner interface{ Scan(dest ...any) error }
+
+func scanStoredTarget(r scanner) (storedTarget, error) {
+	var t storedTarget
+	err := r.Scan(&t.id, &t.integration, &t.key, &t.label, &t.enabled, &t.uid, &t.unknown, &t.read)
+	return t, err
+}
+
+// servedTargets is every target of an integration the build registers.
+func (s *store) servedTargets(ctx context.Context) ([]storedTarget, error) {
+	rows, err := s.set.Stmts().Query(ctx, stmtSelectServedTargets, s.integrations)
+	if err != nil {
+		return nil, fmt.Errorf("read targets: %w", err)
+	}
+	defer rows.Close()
+	var out []storedTarget
+	for rows.Next() {
+		t, err := scanStoredTarget(rows)
+		if err != nil { // coverage:ignore the statement's columns are these types, CHECKed by the schema
+			return nil, fmt.Errorf("read targets: %w", err)
+		}
+		out = append(out, t)
+	}
+	if err := rows.Err(); err != nil { // coverage:ignore a read that began fails only on a closed pool, which outlives the monitor
+		return nil, fmt.Errorf("read targets: %w", err)
+	}
+	return out, nil
+}
+
+// servedIncidents is every incident of a target servedTargets holds.
+func (s *store) servedIncidents(ctx context.Context) ([]Incident, error) {
+	rows, err := s.set.Stmts().Query(ctx, stmtSelectServedIncidents, s.integrations)
+	if err != nil {
+		return nil, fmt.Errorf("read incidents: %w", err)
+	}
+	defer rows.Close()
+	var out []Incident
+	for rows.Next() {
+		var i Incident
+		var firstSeen, lastSeen, lastStarted int64
+		var reason sql.NullString
+		if err := rows.Scan(&i.ID, &i.TargetID, &i.TargetUID, &i.SubjectLabel, &i.AttributesJSON, &i.Signal, &i.SignalLabel,
+			&i.Severity, &firstSeen, &lastSeen, &i.OccurrenceCount, &lastStarted, &reason); err != nil { // coverage:ignore the statement's columns are these types, CHECKed by the schema
+			return nil, fmt.Errorf("read incidents: %w", err)
+		}
+		i.FirstSeenAt, i.LastStartedAt = fromMillis(firstSeen), fromMillis(lastStarted)
+		// An open incident's last sighting moves with every reading, so it is not served.
+		if i.Open = !reason.Valid; !i.Open {
+			i.LastSeenAt, i.LastEndReason = fromMillis(lastSeen), EndReason(reason.String)
+		}
+		out = append(out, i)
+	}
+	if err := rows.Err(); err != nil { // coverage:ignore a read that began fails only on a closed pool, which outlives the monitor
+		return nil, fmt.Errorf("read incidents: %w", err)
+	}
+	return out, nil
+}
+
+// servedOccurrences is an incident's retained occurrences, highest number first:
+// none for an incident servedIncidents does not hold.
+func (s *store) servedOccurrences(ctx context.Context, incidentID IncidentID) ([]IncidentOccurrence, error) {
+	rows, err := s.set.Stmts().Query(ctx, stmtSelectServedOccurrences, string(incidentID), s.integrations)
+	if err != nil {
+		return nil, fmt.Errorf("read occurrences: %w", err)
+	}
+	defer rows.Close()
+	var out []IncidentOccurrence
+	for rows.Next() {
+		o := IncidentOccurrence{IncidentID: incidentID}
+		var startedAt int64
+		var endedAt sql.NullInt64
+		var reason sql.NullString
+		if err := rows.Scan(&o.ID, &o.Number, &startedAt, &endedAt, &reason, &o.DetailJSON); err != nil { // coverage:ignore the statement's columns are these types, CHECKed by the schema
+			return nil, fmt.Errorf("read occurrences: %w", err)
+		}
+		o.StartedAt = fromMillis(startedAt)
+		if endedAt.Valid {
+			o.EndedAt, o.EndReason = fromMillis(endedAt.Int64), EndReason(reason.String)
+		}
+		out = append(out, o)
+	}
+	if err := rows.Err(); err != nil { // coverage:ignore a read that began fails only on a closed pool, which outlives the monitor
+		return nil, fmt.Errorf("read occurrences: %w", err)
+	}
+	return out, nil
+}
