@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { storageKey } from '@/lib/storage-key';
 
@@ -31,6 +31,7 @@ const renderSwitchable = (key: string) =>
 beforeEach(() => {
   localStorage.clear();
 });
+afterEach(() => vi.restoreAllMocks());
 
 // Tests ---------------------------------------------------------------
 
@@ -90,6 +91,28 @@ describe('usePersistedWidth', () => {
     // mode's width across.
     rerender({ name: 'pane_b' });
     expect(result.current[0]).toBe(350);
+  });
+
+  it.each(['Infinity', '-5', 'wide'])('opens at the initial width for a stored %s', (stored) => {
+    localStorage.setItem(storageKey('pane_width'), stored);
+    const { result } = renderHook(() => usePersistedWidth('pane_width', { ...BOUNDS, max: Infinity }));
+    expect(result.current[0]).toBe(200);
+  });
+
+  it('opens at the initial width when storage cannot be read', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('denied');
+    });
+    expect(renderWidth().result.current[0]).toBe(200);
+  });
+
+  it('keeps a width for the session when storage refuses it', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('full');
+    });
+    const { result } = renderWidth();
+    act(() => result.current[1](300));
+    expect(result.current[0]).toBe(300);
   });
 
   it('falls back to the initial width for a key nothing is stored under', () => {
