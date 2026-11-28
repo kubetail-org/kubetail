@@ -93,7 +93,7 @@ Keep commits minimal and focused. Multiple commits in a PR are fine if they repr
 We follow the [Conventional Commits](https://www.conventionalcommits.org) format:
 
 ```
-<type>[optional scope]: commit title goes here (all lowercase)
+<type>(<scope>): commit title goes here (all lowercase)
 
 [optional body]
 
@@ -102,7 +102,7 @@ Signed-off-by: Your Name <you@example.com>
 
 **Types:**
 
-- `build` - Changes that affect the build system or external dependencies (example scopes: gulp, broccoli, npm)
+- `build` - Changes that affect the build system or external dependencies
 - `chore` - Routine maintenance or housekeeping changes (e.g., updating configs, dependencies, or scripts)
 - `ci` - Changes to our CI configuration files and scripts
 - `docs` - Documentation only changes
@@ -113,6 +113,16 @@ Signed-off-by: Your Name <you@example.com>
 - `revert` - Changes that restore old code or behavior
 - `style` - Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
 - `test` - Adding missing tests or correcting existing tests
+
+**Scopes:**
+
+The scope is `<component>[/<part>]`, from this list:
+
+- A component, as its release tag names it: `cli`, `dashboard`, `cluster-api`, `cluster-agent`, `desktop`. Or `web`, `libs`, `e2e`, or `repo` for what belongs to no component.
+- A part, only where it has a guide of its own: `desktop/webview`, `desktop/host`, `desktop/sidecar`, `libs/proto`, `libs/graphql`, `libs/go-common`. A change that spans a component's parts uses the component alone.
+- `deps`, for dependency updates.
+
+A scope is never a package, crate or file name; put those in the title. The title doesn't repeat the scope: write `feat(desktop/sidecar): add X`, not `feat(desktop/sidecar): add X to the sidecar`.
 
 ## Pull Request Guidelines
 
