@@ -35,6 +35,7 @@ import {
 } from '@/lib/dashboard-resources';
 import type { ServerKind } from '@/lib/dashboard-resources';
 import type { SubscriptionPhase } from '@/lib/graphql/use-folded-subscription';
+import { useLastSettled } from '@/lib/graphql/use-last-settled';
 import { useNamespaceScope } from '@/lib/namespace-scope';
 import type { ObjectAction } from '@/lib/object-actions';
 import { useObjectView } from '@/lib/object-view';
@@ -85,7 +86,8 @@ function Dashboard() {
   } else if (resolved === DEFAULT_DASHBOARD_RESOURCE) {
     page = <OverviewPage />;
   } else if (resolved === 'events') {
-    page = <EventsPage />;
+    // Keyed by cache, so a cluster switch closes the open event.
+    page = <EventsPage key={cacheID} />;
   } else if (kind) {
     page = <KindPage kind={kind} label={label} />;
   } else {
@@ -160,33 +162,33 @@ function KindPage({ kind, label }: { kind: ServerKind; label: string }) {
 // in the namespace of the object it is about.
 function EventsPage() {
   const { namespace } = useNamespaceScope();
-  const { events, active, phase } = useClusterCachedDataEvents();
+  const watch = useClusterCachedDataEvents();
+  // A reconnect replays the watch onto a clean slate. The rows and phase as they last stood
+  // whole hold through it, so the table, and an open event's detail, stay mounted.
+  const settled = watch.phase !== 'connecting';
+  const events = useLastSettled(watch.events, settled);
+  const phase = useLastSettled(watch.phase, settled);
   const shown = useMemo(() => inScope(events, namespace, (e) => e.involvedNamespace), [events, namespace]);
 
-  return (
-    <>
-      <EventsNote count={active && phase !== 'connecting' ? shown.length : undefined} namespace={namespace} />
-      <EventsTable events={shown} active={active} phase={phase} namespace={namespace} />
-    </>
-  );
-}
+  // The open event is a selection inside the page, as the focused object is, so it stays out
+  // of the URL and Back leaves the page rather than stepping through the events viewed. A new
+  // namespace scope closes it.
+  const [openUid, setOpenUid] = useState<string>();
+  const [openScope, setOpenScope] = useState(namespace);
+  if (openScope !== namespace) {
+    setOpenScope(namespace);
+    setOpenUid(undefined);
+  }
 
-// How many events the scope holds, once the snapshot has landed. The table's Count column
-// is each event's repetitions, so this is the page's one total.
-function EventsNote({ count, namespace }: { count?: number; namespace?: string }) {
-  if (count === undefined && namespace === undefined) return null;
-  const noun = count === undefined ? 'Events' : `${count} ${count === 1 ? 'event' : 'events'}`;
   return (
-    <PageHeader>
-      {noun}
-      {namespace !== undefined && (
-        <>
-          {' in '}
-          <VisibleText text={namespace} />
-        </>
-      )}
-      .
-    </PageHeader>
+    <EventsTable
+      events={shown}
+      active={watch.active}
+      phase={phase}
+      namespace={namespace}
+      openUid={openUid}
+      onOpen={setOpenUid}
+    />
   );
 }
 

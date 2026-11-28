@@ -64,6 +64,12 @@ describe('ObjectEventsView', () => {
     expect(items[1]).toHaveTextContent('5 minutes ago');
   });
 
+  it('badges an event with no type as Unknown', () => {
+    watch([event({ type: '' })]);
+    render(<ObjectEventsView object={POD} />);
+    expect(screen.getByRole('listitem')).toHaveTextContent('Unknown');
+  });
+
   it('counts a repeated event, and dashes a missing reason and time', () => {
     watch([event({ count: 4, reason: '', lastSeen: null, message: '' })]);
     render(<ObjectEventsView object={POD} />);

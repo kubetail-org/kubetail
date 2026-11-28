@@ -41,6 +41,10 @@ All three cached-data hooks resolve the cluster/cache through `useActiveCluster(
 - **A column with a `sortValue` sorts.** `sortRows` (`src/lib/sort-rows.ts`) is stable and puts a missing value last. The sort is the table's own state, reset by keying the table on its kind.
 - **The actions column** (`objects-table/actions.tsx`) is outside the column picker and its order, and `pinned` to the right edge so a narrow page's sideways scroll never hides it. *View logs* is offered for the kinds of `LogsViewSourceKind`: `logsSourceKind` (`src/lib/object-actions.ts`) maps a `gvrKey` onto one, so a CRD reusing a built-in's kind name is not one; the object panel's Logs tab reads it too.
 
+## The Events page
+
+**The open event is `EventsPage` state, never a search param**, so Back leaves the page; a namespace or cache switch closes it. `EventsPage` holds its rows through a reconnect's replay (`useLastSettled`), so the detail stays mounted.
+
 ## The object panel
 
 **The focused object is `useObjectView`** (`src/lib/object-view.tsx`): chrome, not persisted. `set` opens the right sidebar. The object is bound to the cluster it was focused in: `ObjectViewProvider` drops it once the active cluster is another, however the window got there. `ObjectPanel` is keyed on the uid and mounts the open tab alone.
