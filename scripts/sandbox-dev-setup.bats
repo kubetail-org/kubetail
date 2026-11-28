@@ -115,7 +115,7 @@ require_linux() {
   [ "$status" -eq 0 ]
   run_script
   [ "$status" -eq 0 ]
-  for var in CARGO_TARGET_DIR CARGO_PROFILE_DEV_DEBUG PNPM_CONFIG_STORE_DIR PNPM_CONFIG_ENABLE_GLOBAL_VIRTUAL_STORE GOTOOLCHAIN; do
+  for var in CARGO_TARGET_DIR CARGO_PROFILE_DEV_DEBUG PNPM_CONFIG_STORE_DIR PNPM_CONFIG_ENABLE_GLOBAL_VIRTUAL_STORE GOTOOLCHAIN GOFLAGS; do
     [ "$(grep -c "^export $var=" "$KUBETAIL_SANDBOX_PERSIST")" -eq 1 ]
   done
   [ "$(grep -c KUBETAIL_SANDBOX_ENV "$KUBETAIL_SANDBOX_PERSIST")" -eq 1 ]
@@ -127,6 +127,13 @@ require_linux() {
   run_script
   [ "$status" -eq 0 ]
   grep -Eqx 'export GOTOOLCHAIN=go[0-9]+\.[0-9]+(\.[0-9]+)?\+auto' "$KUBETAIL_SANDBOX_PERSIST"
+}
+
+@test "builds Go with -trimpath" {
+  require_linux
+  run_script
+  [ "$status" -eq 0 ]
+  grep -qx 'export GOFLAGS=-trimpath' "$KUBETAIL_SANDBOX_PERSIST"
 }
 
 @test "leaves a working uv alone" {

@@ -112,6 +112,11 @@ bind "$BUILD_ROOT/desktop-dist" "$REPO/apps/desktop/dist"
 # default. A go.mod's go line is only a minimum, and GOTOOLCHAIN=auto switches
 # only upward, so a newer system go would otherwise run every check. +auto
 # still upgrades if a go.mod ever requires a newer Go.
+#
+# -trimpath keeps each package's absolute source directory out of its compiled
+# output, and so out of its build cache key: every worktree then shares Go's
+# one build cache rather than filling it with a copy per worktree. Stack traces
+# and coverage show module paths instead of absolute ones.
 GO_VERSION="$(awk '
   /^  go-version:/ { in_go = 1; next }
   /^  [^ ]/        { in_go = 0 }
@@ -130,14 +135,16 @@ sudo sed -i \
   -e '/^export PNPM_CONFIG_STORE_DIR=/d' \
   -e '/^export PNPM_CONFIG_ENABLE_GLOBAL_VIRTUAL_STORE=/d' \
   -e '/^export GOTOOLCHAIN=/d' \
+  -e '/^export GOFLAGS=/d' \
   "$PERSIST"
 sudo tee -a "$PERSIST" >/dev/null <<EOF
-# KUBETAIL_SANDBOX_ENV — Linux build outputs kept out of the macOS host's paths, and Go pinned to CI's.
+# KUBETAIL_SANDBOX_ENV — Linux build outputs kept out of the macOS host's paths, Go pinned to CI's, and Go's build cache shared across worktrees.
 export CARGO_TARGET_DIR="$OVERLAY_ROOT/target"
 export CARGO_PROFILE_DEV_DEBUG=line-tables-only
 export PNPM_CONFIG_STORE_DIR="$PNPM_STORE"
 export PNPM_CONFIG_ENABLE_GLOBAL_VIRTUAL_STORE=true
 export GOTOOLCHAIN=go$GO_VERSION+auto
+export GOFLAGS=-trimpath
 EOF
 echo "✓ env vars written to $PERSIST (Go pinned to $GO_VERSION)"
 
