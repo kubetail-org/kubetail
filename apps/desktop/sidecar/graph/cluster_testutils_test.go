@@ -1098,6 +1098,12 @@ func (e errMonitor) Triage(context.Context, monitor.IncidentID, monitor.TriageMo
 	return monitor.Incident{}, e.err
 }
 
+func (e errMonitor) SetTriageModel(context.Context, *monitor.TriageModel) error { return e.err }
+
+func (e errMonitor) WatchTriageModelState(context.Context) (*monitor.Stream[*monitor.TriageModel], error) {
+	return nil, e.err
+}
+
 func (e errMonitor) WatchTargetCollection(context.Context) (*monitor.Stream[monitor.MonitorTargetCollectionWatchFrame], error) {
 	return nil, e.err
 }

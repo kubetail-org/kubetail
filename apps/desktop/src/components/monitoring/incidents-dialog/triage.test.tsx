@@ -66,7 +66,11 @@ describe('IncidentTriageSection', () => {
   it('asks for a triage of the incident on the model picked', async () => {
     render(<IncidentTriageSection incident={incidentRecord()} target={target} />);
     await userEvent.click(screen.getByRole('button', { name: 'Triage with AI' }));
-    expect(triage).toHaveBeenCalledWith('i1', { model: { providerID: 'anthropic', id: 'claude' }, effort: 'low' });
+    expect(triage).toHaveBeenCalledWith(
+      'i1',
+      { model: { providerID: 'anthropic', id: 'claude' }, effort: 'low' },
+      false,
+    );
   });
 
   it('keeps a triage that ended once its target moves, offering it no more', () => {

@@ -2557,6 +2557,10 @@ enum IncidentTriageError {
   Interrupted
   "The run could not start for another reason."
   Unavailable
+  "An automatic triage found the target's automatic triages of the hour spent."
+  CapReached
+  "The triage setting was changed before an automatic triage's run started."
+  SettingChanged
 }
 
 """
@@ -2575,6 +2579,19 @@ type IncidentTriage {
   "The model the run asked, null until its run is inserted. The incidents watch may deliver it only once the triage ends."
   providerID: String
   modelID: String
+  effort: String
+}
+
+"The model each new incident is triaged with, for every target, by the ids the catalog names it with."
+type MonitoringTriageModel {
+  providerID: String!
+  modelID: String!
+  effort: String
+}
+
+input MonitoringTriageModelInput {
+  providerID: String!
+  modelID: String!
   effort: String
 }
 
@@ -2749,8 +2766,10 @@ type Mutation {
   # --- Monitoring ---
   "Turn the monitor's reading of a target on or off. Off ends the target's open occurrences as `Stopped` before it returns; a switch to the state the target holds changes nothing. Refused (KUBETAIL_RECORD_NOT_FOUND) for an unknown id. Returns the target as `monitorTargetCollectionWatch` then delivers it."
   monitorTargetEnabledSet(id: MonitorTargetID!, enabled: Boolean!): MonitorTarget!
-  "Queue a triage of an incident on the model given: one monitor run of the incident's target, after the target's earlier triages. Refused (KUBETAIL_RECORD_NOT_FOUND) for an unknown id, and (KUBETAIL_VALIDATION_ERROR) for an incident whose triage is `Queued`, whose target cannot triage (`canTriage`), or whose `targetUID` is not its target's `currentUID`. Returns the incident as `incidentCollectionWatch` then delivers it, `Queued`."
-  incidentTriage(id: IncidentID!, providerID: String!, modelID: String!, effort: String): Incident!
+  "Queue a triage of an incident on the model given: one monitor run of the incident's target, after the target's earlier triages. Refused (KUBETAIL_RECORD_NOT_FOUND) for an unknown id, and (KUBETAIL_VALIDATION_ERROR) for an incident whose triage is `Queued`, whose target cannot triage (`canTriage`), or whose `targetUID` is not its target's `currentUID`. With `always`, it also sets the model as `monitoringTriageModelSet` does, in the same transaction, and a refusal leaves the setting as it was. Returns the incident as `incidentCollectionWatch` then delivers it, `Queued`."
+  incidentTriage(id: IncidentID!, providerID: String!, modelID: String!, effort: String, always: Boolean): Incident!
+  "Set the model each new incident is triaged with, or turn automatic triage off with null. A write that changes it fails each automatic triage queued but not yet started, as `SettingChanged`, and alerts its incident. Refused (KUBETAIL_VALIDATION_ERROR) for a model with an empty `providerID` or `modelID`. Returns the setting as `monitoringTriageModelStateWatch` then delivers it."
+  monitoringTriageModelSet(model: MonitoringTriageModelInput): MonitoringTriageModel
 
   # --- Memory ---
   "Create a memory, or rewrite one by `id`; a rewrite can rename it and move it between one cluster and every cluster. Written by the user. Refused `KUBETAIL_MEMORY_NAME_TAKEN` for a name the target scope holds, `KUBETAIL_MEMORY_FULL` for a scope with no room for the memory, `KUBETAIL_MEMORY_SECRET` for a credential, `KUBETAIL_VALIDATION_ERROR` for a note out of shape, and `KUBETAIL_RECORD_NOT_FOUND` for an unknown id or a missing cluster."
@@ -2927,6 +2946,9 @@ type Subscription {
 
   "An event feed of one incident's occurrences: the newest 100, highest `number` first, then one `Bookmark`, then each occurrence that starts or ends, upserted by `id`. Bookmark-only for an id naming no incident. Its incident's delete sends nothing here: `incidentCollectionWatch` delivers the `Deleted`."
   incidentOccurrenceEventFeed(incidentID: IncidentID!): IncidentOccurrenceEventFeedFrame!
+
+  "A state watch of the automatic triage setting: the model each new incident is triaged with, null while it is off. Sent at once, then after each write."
+  monitoringTriageModelStateWatch: MonitoringTriageModel
 
   # --- Memory ---
   "A collection watch of what one cluster's chats see, keyed by `memory.id`: its own memories and every cluster's. A move between scopes arrives as `Added` or `Deleted` on each cluster it enters or leaves."

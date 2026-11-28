@@ -201,6 +201,12 @@ type MonitorUnknownSignal struct {
 	Reason monitor.ReadErrorCode `json:"reason"`
 }
 
+type MonitoringTriageModelInput struct {
+	ProviderID string  `json:"providerID"`
+	ModelID    string  `json:"modelID"`
+	Effort     *string `json:"effort,omitempty"`
+}
+
 type Mutation struct {
 }
 

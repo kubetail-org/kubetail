@@ -1292,16 +1292,21 @@ func TestResolverErrorsReachTheCaller(t *testing.T) {
 	// Each case calls one resolver and reports only its error; the values are
 	// asserted by the tests above, on a service that works.
 	calls := map[string]func() error{
-		"Cluster.caches":                           func() error { _, err := r.Cluster().Caches(ctx, cl); return err },
-		"Cluster.events":                           func() error { _, err := r.Cluster().Events(ctx, cl, nil, nil); return err },
-		"ClusterCache.kinds":                       func() error { _, err := r.ClusterCache().Kinds(ctx, cache, ""); return err },
-		"ClusterCache.cachedKinds":                 func() error { _, err := r.ClusterCache().CachedKinds(ctx, cache); return err },
-		"ClusterCache.events":                      func() error { _, err := r.ClusterCache().Events(ctx, cache, nil, nil); return err },
-		"ClusterCachedKind.events":                 func() error { _, err := r.ClusterCachedKind().Events(ctx, kind, nil, nil); return err },
-		"Mutation.clusterEnabledSet":               func() error { _, err := r.Mutation().ClusterEnabledSet(ctx, id, true); return err },
-		"Mutation.clusterSyncEnabledSet":           func() error { _, err := r.Mutation().ClusterSyncEnabledSet(ctx, id, true); return err },
-		"Mutation.monitorTargetEnabledSet":         func() error { _, err := r.Mutation().MonitorTargetEnabledSet(ctx, "t1", true); return err },
-		"Mutation.incidentTriage":                  func() error { _, err := r.Mutation().IncidentTriage(ctx, "i1", "fake", "fake", nil); return err },
+		"Cluster.caches":                    func() error { _, err := r.Cluster().Caches(ctx, cl); return err },
+		"Cluster.events":                    func() error { _, err := r.Cluster().Events(ctx, cl, nil, nil); return err },
+		"ClusterCache.kinds":                func() error { _, err := r.ClusterCache().Kinds(ctx, cache, ""); return err },
+		"ClusterCache.cachedKinds":          func() error { _, err := r.ClusterCache().CachedKinds(ctx, cache); return err },
+		"ClusterCache.events":               func() error { _, err := r.ClusterCache().Events(ctx, cache, nil, nil); return err },
+		"ClusterCachedKind.events":          func() error { _, err := r.ClusterCachedKind().Events(ctx, kind, nil, nil); return err },
+		"Mutation.clusterEnabledSet":        func() error { _, err := r.Mutation().ClusterEnabledSet(ctx, id, true); return err },
+		"Mutation.clusterSyncEnabledSet":    func() error { _, err := r.Mutation().ClusterSyncEnabledSet(ctx, id, true); return err },
+		"Mutation.monitorTargetEnabledSet":  func() error { _, err := r.Mutation().MonitorTargetEnabledSet(ctx, "t1", true); return err },
+		"Mutation.incidentTriage":           func() error { _, err := r.Mutation().IncidentTriage(ctx, "i1", "fake", "fake", nil, nil); return err },
+		"Mutation.monitoringTriageModelSet": func() error { _, err := r.Mutation().MonitoringTriageModelSet(ctx, nil); return err },
+		"Subscription.monitoringTriageModelStateWatch": func() error {
+			_, err := r.Subscription().MonitoringTriageModelStateWatch(ctx)
+			return err
+		},
 		"Subscription.incidentCollectionWatch":     func() error { _, err := r.Subscription().IncidentCollectionWatch(ctx); return err },
 		"Subscription.incidentOccurrenceEventFeed": func() error { _, err := r.Subscription().IncidentOccurrenceEventFeed(ctx, "i1"); return err },
 		"Mutation.clusterDefaultSet":               func() error { _, err := r.Mutation().ClusterDefaultSet(ctx, id, true); return err },
@@ -4895,7 +4900,7 @@ func TestIncidentTriageQueuesATriage(t *testing.T) {
 	assert.Equal(t, map[string]any{"id": "i1", "triage": map[string]any{"state": "Queued", "report": nil}}, data["incidentTriage"])
 	assert.Contains(t, string(postGQL(t, srv.URL, `{"query":`+strconv.Quote(triage)+`}`)), "KUBETAIL_VALIDATION_ERROR", "already queued")
 
-	_, err := db.Write.Exec(`UPDATE incidents SET triage_state = 'none', triage_request_id = NULL`)
+	_, err := db.Write.Exec(`UPDATE incidents SET triage_state = 'none', triage_request_id = NULL, triage_trigger = NULL`)
 	require.NoError(t, err)
 	_, err = db.Write.Exec(`UPDATE monitor_targets SET current_uid = 'srv-2'`)
 	require.NoError(t, err)
@@ -4906,6 +4911,56 @@ func TestIncidentTriageQueuesATriage(t *testing.T) {
 
 	srv, _, _ = newMonitorServer(t)
 	assert.Contains(t, string(postGQL(t, srv.URL, `{"query":`+strconv.Quote(triage)+`}`)), "KUBETAIL_VALIDATION_ERROR", "no Triager")
+}
+
+// monitoringTriageModelSet writes the setting and answers it, null to turn it
+// off; the watch sends it at once and after each write. A model with no id is
+// refused.
+func TestMonitoringTriageModelSetWritesWhatTheWatchSends(t *testing.T) {
+	srv, _, _ := newMonitorServer(t)
+	resp, events := chatFrames(t, srv, `subscription { monitoringTriageModelStateWatch { providerID modelID effort } }`)
+	defer resp.Body.Close()
+	assert.Nil(t, nextWatchValue(t, events), "off is null, sent at once")
+
+	data := mutate(t, srv, `mutation { monitoringTriageModelSet(model: {providerID: "fake", modelID: "fake-1"}) { providerID modelID effort } }`)
+	want := map[string]any{"providerID": "fake", "modelID": "fake-1", "effort": nil}
+	assert.Equal(t, want, data["monitoringTriageModelSet"])
+	assert.Equal(t, want, nextWatchValue(t, events))
+
+	data = mutate(t, srv, `mutation { monitoringTriageModelSet(model: null) { providerID } }`)
+	assert.Nil(t, data["monitoringTriageModelSet"])
+	assert.Nil(t, nextWatchValue(t, events))
+
+	refused := `mutation { monitoringTriageModelSet(model: {providerID: "", modelID: "m"}) { providerID } }`
+	assert.Contains(t, string(postGQL(t, srv.URL, `{"query":`+strconv.Quote(refused)+`}`)), "KUBETAIL_VALIDATION_ERROR")
+}
+
+// nextWatchValue is the next frame's monitoringTriageModelStateWatch value,
+// past keep-alives.
+func nextWatchValue(t *testing.T, events <-chan sseEvent) any {
+	t.Helper()
+	for {
+		ev := testutil.Recv(t, events, "a frame of the watch")
+		var frame struct {
+			Data map[string]any `json:"data"`
+		}
+		if json.Unmarshal([]byte(ev.data), &frame) != nil {
+			continue
+		}
+		if v, ok := frame.Data["monitoringTriageModelStateWatch"]; ok {
+			return v
+		}
+	}
+}
+
+// A ticked incidentTriage writes the setting with the triage.
+func TestATickedIncidentTriageSetsTheTriageModel(t *testing.T) {
+	srv, _, mon := newMonitorServerOver(t, idleTriager{})
+	mutate(t, srv, `mutation { incidentTriage(id: "i1", providerID: "fake", modelID: "fake-1", effort: "low", always: true) { id } }`)
+
+	st, err := mon.WatchTriageModelState(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, &monitor.TriageModel{ProviderID: "fake", ModelID: "fake-1", Effort: "low"}, testutil.Recv(t, st.Frames, "the setting"))
 }
 
 // An incident's feed sends its occurrences, highest number first, each frame

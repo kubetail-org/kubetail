@@ -345,6 +345,11 @@ func (r *monitorTargetResolver) UnknownSignals(ctx context.Context, obj *monitor
 	return monitorUnknownSignals(obj.UnknownJSON)
 }
 
+// Effort is the resolver for the effort field.
+func (r *monitoringTriageModelResolver) Effort(ctx context.Context, obj *monitor.TriageModel) (*string, error) {
+	return nonZero(obj.Effort), nil
+}
+
 // ProviderKeySave is the resolver for the providerKeySave field.
 func (r *mutationResolver) ProviderKeySave(ctx context.Context, providerID string, key string) (bool, error) {
 	if err := r.ProviderCredentials.Save(providerID, key); err != nil {
@@ -605,12 +610,25 @@ func (r *mutationResolver) MonitorTargetEnabledSet(ctx context.Context, id monit
 
 // IncidentTriage is the resolver for the incidentTriage field. The triage's
 // progress reaches the webview through the incidents watch.
-func (r *mutationResolver) IncidentTriage(ctx context.Context, id monitor.IncidentID, providerID string, modelID string, effort *string) (*monitor.Incident, error) {
-	i, err := r.Monitor.Triage(ctx, id, monitor.TriageModel{ProviderID: providerID, ModelID: modelID, Effort: valueOf(effort)}, false)
+func (r *mutationResolver) IncidentTriage(ctx context.Context, id monitor.IncidentID, providerID string, modelID string, effort *string, always *bool) (*monitor.Incident, error) {
+	i, err := r.Monitor.Triage(ctx, id, monitor.TriageModel{ProviderID: providerID, ModelID: modelID, Effort: valueOf(effort)}, valueOf(always))
 	if err != nil {
 		return nil, monitorErr(err)
 	}
 	return &i, nil
+}
+
+// MonitoringTriageModelSet is the resolver for the monitoringTriageModelSet
+// field: null turns automatic triage off.
+func (r *mutationResolver) MonitoringTriageModelSet(ctx context.Context, model *model.MonitoringTriageModelInput) (*monitor.TriageModel, error) {
+	var triageModel *monitor.TriageModel
+	if model != nil {
+		triageModel = &monitor.TriageModel{ProviderID: model.ProviderID, ModelID: model.ModelID, Effort: valueOf(model.Effort)}
+	}
+	if err := r.Monitor.SetTriageModel(ctx, triageModel); err != nil {
+		return nil, monitorErr(err)
+	}
+	return triageModel, nil
 }
 
 // MemorySave is the resolver for the memorySave field: an update with an id, a
@@ -1179,6 +1197,17 @@ func (r *subscriptionResolver) IncidentOccurrenceEventFeed(ctx context.Context, 
 	return subscriptionStream(ctx, st.Frames, st.Err), nil
 }
 
+// MonitoringTriageModelStateWatch is the resolver for the
+// monitoringTriageModelStateWatch field. A frame is the setting itself, nil
+// while it is off.
+func (r *subscriptionResolver) MonitoringTriageModelStateWatch(ctx context.Context) (<-chan *monitor.TriageModel, error) {
+	st, err := r.Monitor.WatchTriageModelState(ctx)
+	if err != nil {
+		return nil, monitorErr(err)
+	}
+	return mapSubscription(ctx, st.Frames, func() { recordSubscriptionFailure(ctx, st.Err()) }, func(m *monitor.TriageModel) *monitor.TriageModel { return m }), nil
+}
+
 // MemoryCollectionWatch is the resolver for the memoryCollectionWatch field.
 func (r *subscriptionResolver) MemoryCollectionWatch(ctx context.Context, clusterID apimeta.ClusterID) (<-chan *memory.MemoryCollectionWatchFrame, error) {
 	st, err := r.MemorySvc.WatchCollectionByCluster(ctx, clusterID)
@@ -1458,6 +1487,11 @@ func (r *Resolver) MonitorSignal() MonitorSignalResolver { return &monitorSignal
 // MonitorTarget returns MonitorTargetResolver implementation.
 func (r *Resolver) MonitorTarget() MonitorTargetResolver { return &monitorTargetResolver{r} }
 
+// MonitoringTriageModel returns MonitoringTriageModelResolver implementation.
+func (r *Resolver) MonitoringTriageModel() MonitoringTriageModelResolver {
+	return &monitoringTriageModelResolver{r}
+}
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
@@ -1504,6 +1538,7 @@ type (
 	incidentTriageResolver          struct{ *Resolver }
 	monitorSignalResolver           struct{ *Resolver }
 	monitorTargetResolver           struct{ *Resolver }
+	monitoringTriageModelResolver   struct{ *Resolver }
 	mutationResolver                struct{ *Resolver }
 	openRouterConnectionResolver    struct{ *Resolver }
 	permissionActionResolver        struct{ *Resolver }

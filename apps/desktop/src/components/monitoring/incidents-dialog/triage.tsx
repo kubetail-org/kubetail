@@ -69,7 +69,7 @@ function TriageAction({ incident, target }: { incident: Incident; target: Monito
           type="button"
           size="sm"
           disabled={underWay || blocked !== null || sandbox.available === undefined}
-          onClick={() => pick && void triage(incident.id, pick)}
+          onClick={() => pick && void triage(incident.id, pick, false)}
         >
           {underWay ? 'Triage under way…' : 'Triage with AI'}
         </Button>
