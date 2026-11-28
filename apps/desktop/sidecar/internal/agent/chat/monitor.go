@@ -20,9 +20,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"strings"
+	"sync/atomic"
 
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/agent/loop"
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/lib/apimeta"
@@ -35,17 +37,23 @@ import (
 const (
 	// MaxMonitorToolCalls is what one monitor run may ask for, as a subagent may.
 	MaxMonitorToolCalls = MaxSubagentToolCalls
-	// maxMonitorBriefLen caps a monitor's brief, in bytes.
-	maxMonitorBriefLen = 4000
+	// MaxMonitorBriefLen caps a monitor's brief, in bytes.
+	MaxMonitorBriefLen = 16 << 10
 )
+
+// serverChangedText is the error text of a monitor run that a read of another
+// server ended, and ErrServerChanged's.
+const serverChangedText = "the cluster's context reaches another server"
 
 // MonitorResult is how a monitor run ended: its row, its status, the report
 // (the text of its last reply, empty unless it succeeded) and its error text.
+// ServerChanged marks a run that failed because a read found another server.
 type MonitorResult struct {
-	RunID  RunID
-	Status RunStatus // RunSucceeded, RunFailed or RunCancelled
-	Report string
-	Error  string
+	RunID         RunID
+	Status        RunStatus // RunSucceeded, RunFailed or RunCancelled
+	Report        string
+	Error         string
+	ServerChanged bool
 }
 
 // Admit decides, inside the transaction that inserts run runID and after the
@@ -54,14 +62,17 @@ type MonitorResult struct {
 // run is written and chat reads no table of the caller's.
 type Admit func(ctx context.Context, tx *sql.Tx, runID RunID) (bool, error)
 
-// RunMonitor takes one monitor run on clusterID: a run of target over brief, on
-// the calling goroutine, settled when it returns. ErrNoSandbox where no sandbox
-// confines a run; ErrClusterGone for a cluster marked or gone; ErrMonitoringOff
-// when admit refuses it; ErrMonitorInFlight while the cluster has a run;
-// ErrBadRequest for an empty brief, one over maxMonitorBriefLen, or a target that
-// takes no tools; ErrStopping once the service is stopping. Once the run is
-// inserted its rows are written whatever it answers.
-func (s *service) RunMonitor(ctx context.Context, clusterID apimeta.ClusterID, target llm.Target, brief string, admit Admit) (MonitorResult, error) {
+// RunMonitor takes one monitor run on clusterID's server serverUID: a run of
+// target over brief, on the calling goroutine, settled when it returns.
+// ErrNoSandbox where no sandbox confines a run; ErrServerChanged when the
+// cluster's card names another server; ErrClusterGone for a cluster marked or
+// gone; ErrMonitoringOff when admit refuses it; ErrMonitorInFlight while the
+// cluster has a run; ErrBadRequest for an empty brief, one over
+// MaxMonitorBriefLen, or a target that takes no tools; ErrStopping once the
+// service is stopping. Once the run is inserted its rows are written whatever it
+// answers, and a read of another server ends it failed; a write of its end the
+// store refuses is an error, so no outcome outlives an unsaved report.
+func (s *service) RunMonitor(ctx context.Context, clusterID apimeta.ClusterID, serverUID string, target llm.Target, brief string, admit Admit) (MonitorResult, error) {
 	// A monitor never runs unconfined, and a machine with no sandbox has
 	// nothing to confine it.
 	if !s.sandboxState.Available {
@@ -73,7 +84,7 @@ func (s *service) RunMonitor(ctx context.Context, clusterID apimeta.ClusterID, t
 		return MonitorResult{}, err
 	}
 	box := s.boxFor(target, off)
-	if brief == "" || len(brief) > maxMonitorBriefLen || box.Empty() {
+	if brief == "" || len(brief) > MaxMonitorBriefLen || box.Empty() {
 		return MonitorResult{}, ErrBadRequest
 	}
 	if err := s.enter(); err != nil {
@@ -94,6 +105,17 @@ func (s *service) RunMonitor(ctx context.Context, clusterID apimeta.ClusterID, t
 	// The run ends with the service too.
 	defer context.AfterFunc(s.ctx, m.cancel)()
 
+	// The card alone: a send's card carries the cluster's memory notes, and a
+	// note the user wrote reads to the model as a request nobody is here to
+	// stand behind. Read before the insert, so a cluster that reaches another
+	// server takes no run.
+	cardCtx, cancelCard := context.WithTimeout(m.ctx, s.clusterCardTimeout)
+	card, ok := s.clusterCards.ClusterCardAt(cardCtx, clusterID, serverUID)
+	cancelCard()
+	if !ok {
+		return MonitorResult{}, ErrServerChanged
+	}
+
 	err = s.store.InTx(m.ctx, func(st stmts) error {
 		// Inside the transaction, so a run and a cluster's mark are serialized
 		// as a send and a mark are.
@@ -107,6 +129,7 @@ func (s *service) RunMonitor(ctx context.Context, clusterID apimeta.ClusterID, t
 		if err := insertMonitorRun(m.ctx, st, run); err != nil { // coverage:ignore the cluster's row was found live in this transaction, and the run's values are its own
 			return err
 		}
+		// After the insert, so what the admit writes can reference the run.
 		admitted, err := admit(m.ctx, st.Tx(), run.ID)
 		switch {
 		case err != nil:
@@ -120,13 +143,6 @@ func (s *service) RunMonitor(ctx context.Context, clusterID apimeta.ClusterID, t
 		return MonitorResult{}, err
 	}
 
-	// The card alone: a send's card carries the cluster's memory notes, and a
-	// note the user wrote reads to the model as a request nobody is here to
-	// stand behind.
-	cardCtx, cancelCard := context.WithTimeout(m.ctx, s.clusterCardTimeout)
-	card := s.clusterCards.ClusterCard(cardCtx, clusterID)
-	cancelCard()
-
 	spec := loop.Turn{
 		Target: target, SystemPrompt: MonitorSystemPrompt(),
 		Messages:    []llm.Message{{Role: string(RoleUser), Blocks: subagentMessage(card, brief)}},
@@ -136,12 +152,21 @@ func (s *service) RunMonitor(ctx context.Context, clusterID apimeta.ClusterID, t
 			ClusterID: clusterID, Session: monitorSession(),
 			Dir: s.monitorDir(clusterID), Tasks: monitorTasks{}, Files: runStamps{},
 			ActionAsker: monitorAsker{j: m.runJournal},
+			ServerUID:   serverUID, OnServerMoved: m.serverMoved,
 		},
 		MaxToolCalls: MaxMonitorToolCalls, DefaultToolTimeout: defaultToolTimeout,
 	}
 	m.loop(m.ctx, spec, m)
-	m.settle()
-	return MonitorResult{RunID: run.ID, Status: m.status, Report: m.report, Error: m.errText}, nil
+	// Whatever the loop made of the cancel: no report mixes two servers.
+	moved := m.moved.Load()
+	if moved {
+		m.status, m.report, m.errText = RunFailed, "", serverChangedText
+	}
+	// A run whose end is unsaved has no report to stand behind its outcome.
+	if err := m.settle(); err != nil {
+		return MonitorResult{}, err
+	}
+	return MonitorResult{RunID: run.ID, Status: m.status, Report: m.report, Error: m.errText, ServerChanged: moved}, nil
 }
 
 // MonitorBox is what a monitor run is offered of the chat's box: the tools that
@@ -163,6 +188,15 @@ type monitor struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	done   chan struct{}
+	// moved is set once a read found another server than the run's.
+	moved atomic.Bool
+}
+
+// serverMoved ends the run on a read of another server: a tool calls it, on
+// the run's goroutine or a proxy's.
+func (m *monitor) serverMoved() {
+	m.moved.Store(true)
+	m.cancel()
 }
 
 // reserveMonitor places a new monitor in the cluster's slot, refusing a cluster
@@ -201,8 +235,9 @@ func (m *monitor) Approve(context.Context, llm.Block, tools.Approval) (bool, err
 
 // settle writes the run's end and every one of its rows whole again, in one
 // transaction that outlives the run's cancel. A settle the store refuses is
-// logged and left: the next Start fails the run as stranded.
-func (m *monitor) settle() {
+// logged and returned, the run left running for the next Start to fail as
+// stranded.
+func (m *monitor) settle() error {
 	at := normalizeTime(m.s.now())
 	ctx := context.WithoutCancel(m.s.ctx)
 	err := m.s.store.InTx(ctx, func(st stmts) error {
@@ -213,7 +248,9 @@ func (m *monitor) settle() {
 	})
 	if err != nil {
 		slog.Warn("a monitor run did not settle; the next start fails it", "run", m.runID, "err", err)
+		return fmt.Errorf("settle monitor run: %w", err)
 	}
+	return nil
 }
 
 // errMonitorAsked is an ask that reached a monitor run, which has nobody to ask.

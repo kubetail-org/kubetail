@@ -109,6 +109,8 @@ func (t *Tool) Action(raw json.RawMessage, _ string, _ bool) (tools.Action, erro
 const (
 	noCache    = `{"error":"no-cache"}`
 	readFailed = `{"error":"read-failed"}`
+	// serverChanged is a cache of another server than the run reads.
+	serverChanged = `{"error":"server-changed"}`
 )
 
 // columnsTooLong is the refusal of a result whose column names alone pass what an answer
@@ -125,9 +127,12 @@ func (t *Tool) Run(ctx context.Context, rt tools.Runtime, raw json.RawMessage) (
 	if err != nil {
 		return refusal(err), true
 	}
-	res, err := t.query(ctx, rt.ClusterID, in.sql, in.limit)
+	res, err := t.query(ctx, rt.ClusterID, rt.ServerUID, in.sql, in.limit)
 	var qe *cluster.QueryError
 	switch {
+	case errors.Is(err, cluster.ErrIdentityMismatch):
+		rt.ServerMoved()
+		return serverChanged, true
 	case errors.Is(err, errNoCache):
 		return noCache, true
 	case errors.As(err, &qe):

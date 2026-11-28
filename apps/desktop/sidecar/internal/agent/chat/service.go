@@ -82,6 +82,9 @@ var (
 	ErrMonitoringOff = errors.New("chat: the cluster is not watched")
 	// ErrMonitorInFlight is a monitor run on a cluster whose run is still going.
 	ErrMonitorInFlight = errors.New("chat: a monitor run is already in flight")
+	// ErrServerChanged is a monitor run on a cluster whose context reaches another
+	// server than the one the run is for.
+	ErrServerChanged = errors.New("chat: " + serverChangedText)
 )
 
 const (
@@ -135,6 +138,9 @@ type GrantChangeNotifications = *conflate.Receiver[string, struct{}]
 // goes on the wire: equal text on consecutive questions is one card.
 type ClusterCards interface {
 	ClusterCard(ctx context.Context, clusterID apimeta.ClusterID) string
+	// ClusterCardAt is the card read at serverUID's server, and false when the
+	// cluster's record names another.
+	ClusterCardAt(ctx context.Context, clusterID apimeta.ClusterID, serverUID string) (string, bool)
 }
 
 // ToolLists is the tools a turn on each target is offered, by name, and which
@@ -219,10 +225,10 @@ type Service interface {
 	// grants. Listen before the first read.
 	ListenForGrantChanges(chatID ChatID) GrantChangeNotifications
 
-	// RunMonitor takes one monitor run on the cluster: a run of target over
-	// brief in the monitor's session, settled when it returns, if admit admits
-	// it inside the run's insert.
-	RunMonitor(ctx context.Context, clusterID apimeta.ClusterID, target llm.Target, brief string, admit Admit) (MonitorResult, error)
+	// RunMonitor takes one monitor run on the cluster, reading the server
+	// serverUID names and no other: a run of target over brief in the monitor's
+	// session, settled when it returns, if admit admits it inside the run's insert.
+	RunMonitor(ctx context.Context, clusterID apimeta.ClusterID, serverUID string, target llm.Target, brief string, admit Admit) (MonitorResult, error)
 }
 
 var _ Service = (*service)(nil)

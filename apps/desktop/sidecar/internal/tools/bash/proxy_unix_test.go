@@ -442,6 +442,23 @@ func TestAClaimThatFailsCouldNotStart(t *testing.T) {
 	}
 }
 
+// A monitor run whose cluster now names another server could not start, and the
+// run is told so: nothing runs and no claim is taken.
+func TestARunOnAnotherServerCouldNotStart(t *testing.T) {
+	tl := proxyTool(t, nil)
+	tl.clusterSvc = fakeService{clusters: map[apimeta.ClusterID]*cluster.Cluster{"7": kubeCluster("prod", "uid-2")}}
+	rt := clusterRuntime(t)
+	moved := 0
+	rt.ServerUID, rt.OnServerMoved = "uid-1", func() { moved++ }
+
+	text, isError := tl.Run(t.Context(), rt, command("echo ran"))
+
+	assert.True(t, isError)
+	assert.True(t, strings.HasPrefix(text, "could not start: "), text)
+	assert.NotContains(t, text, "ran")
+	assert.Equal(t, 1, moved)
+}
+
 // A client reading the run's KUBECONFIG lists pods through the forwarder and
 // the proxy, and the API server sees the connection's credential.
 func TestARunReachesTheClusterThroughTheProxy(t *testing.T) {

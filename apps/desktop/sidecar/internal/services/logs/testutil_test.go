@@ -225,7 +225,7 @@ func (fc fakeCachedData) ReadOwn(ctx context.Context, _ cluster.ClusterID, _ clu
 	})
 }
 
-func (fc fakeCachedData) ReadActive(ctx context.Context, id cluster.ClusterID, maxRows, maxBytes int, read func(cluster.CacheReading, cluster.ActiveCluster) error) error {
+func (fc fakeCachedData) ReadActive(ctx context.Context, id cluster.ClusterID, serverUID string, maxRows, maxBytes int, read func(cluster.CacheReading, cluster.ActiveCluster) error) error {
 	fc.f.readings.Add(1)
 	fc.f.reading.Add(1)
 	defer fc.f.reading.Add(-1)
@@ -236,7 +236,7 @@ func (fc fakeCachedData) ReadActive(ctx context.Context, id cluster.ClusterID, m
 			fc.f.mirrorRead.Fire(struct{}{})
 		}
 	}()
-	return cluster.ReadActiveCache(ctx, fc.f, id, maxRows, maxBytes, read)
+	return cluster.ReadActiveCache(ctx, fc.f, id, serverUID, maxRows, maxBytes, read)
 }
 
 func (fc fakeCachedData) WatchObjectCollectionByNamespaces(ctx context.Context, id cluster.ClusterID, cacheID cluster.ClusterCacheID, apiVersion, resource string, namespaces []string) (*cluster.Stream[cluster.ClusterCachedDataObjectCollectionWatchFrame], error) {
@@ -356,12 +356,19 @@ func serving(t testing.TB, h http.Handler) *fakeService {
 	return &fakeService{lease: &fakeLease{serverUID: "uid-1", conn: &cluster.Connection{BaseURL: base, HTTPClient: srv.Client()}}}
 }
 
+// recordAt is a cluster record whose last probe reached serverUID's server.
+func recordAt(serverUID string) *cluster.Cluster {
+	c := &cluster.Cluster{}
+	c.Status.Server.UID = &serverUID
+	return c
+}
+
 // newMirror is a cluster whose cache is watching, its server uid-1, holding objects,
 // with nothing yet on its pods and nodes watches.
 func newMirror(t testing.TB, objects ...map[string]any) *fakeService {
 	t.Helper()
 	f := &fakeService{
-		active: cluster.ActiveCluster{Cluster: &cluster.Cluster{}, Cache: &cluster.ClusterCache{RecordMeta: cluster.RecordMeta{ID: 11}, Spec: cluster.ClusterCacheSpec{ServerUID: "uid-1"}}},
+		active: cluster.ActiveCluster{Cluster: recordAt("uid-1"), Cache: &cluster.ClusterCache{RecordMeta: cluster.RecordMeta{ID: 11}, Spec: cluster.ClusterCacheSpec{ServerUID: "uid-1"}}},
 		health: cluster.ClusterCacheHealth{Reason: "Watching"},
 		store:  clustertest.NewStore(t),
 		pods:   make(chan cluster.ClusterCachedDataObjectCollectionWatchFrame),

@@ -102,9 +102,9 @@ func (t *Tool) RunShown(ctx context.Context, rt tools.Runtime, raw json.RawMessa
 	if err != nil {
 		return logsinput.Refusal(err), true, nil
 	}
-	view, notes, err := logsinput.Resolve(ctx, t.svc, now, rt.ClusterID, in)
+	view, notes, err := logsinput.Resolve(ctx, t.svc, now, rt.ClusterID, rt.ServerUID, in)
 	if err != nil {
-		return logsinput.Refusal(err), true, nil
+		return logsinput.RefusalIn(rt, err), true, nil
 	}
 	view.Anchor, view.PinToEnd = anchor, pinToEnd
 	return receipt(in.Sources, view, notes), false, &tools.Action{Description: in.Description, LogsView: &view}

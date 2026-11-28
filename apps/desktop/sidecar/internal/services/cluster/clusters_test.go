@@ -62,6 +62,24 @@ func TestCacheIsActive(t *testing.T) {
 	assert.False(t, CacheIsActive(clusterObj(""), "uid-1"))
 }
 
+// A reading reads a server when its record's last probe named that server; one
+// for "" reads whichever the record names, as a chat's does. A record never
+// identified reads no named server.
+func TestActiveClusterReadsServer(t *testing.T) {
+	at := func(uid string) ActiveCluster {
+		c := &Cluster{}
+		if uid != "" {
+			c.Status.Server.UID = &uid
+		}
+		return ActiveCluster{Cluster: c}
+	}
+	assert.True(t, at("uid-1").ReadsServer("uid-1"))
+	assert.False(t, at("uid-2").ReadsServer("uid-1"), "the context moved to another server")
+	assert.False(t, at("").ReadsServer("uid-1"), "never identified")
+	assert.True(t, at("uid-2").ReadsServer(""))
+	assert.True(t, at("").ReadsServer(""))
+}
+
 // --- kubeconfigObservation / Reconcile ---
 
 // kubeconfigObj builds a kubeconfig-sourced record for contextName, carrying status

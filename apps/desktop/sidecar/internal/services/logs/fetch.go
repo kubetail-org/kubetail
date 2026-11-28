@@ -104,7 +104,9 @@ type Notice struct {
 // cuts each message, 0 for the service's own cap. MaxPageBytes caps the sum of a
 // page's messages, 0 for MaxPageBytesCap. The three are read on every page.
 // ForModel, read on every page too, passes each message through logline.ForModel
-// before the cut, so the cut falls on the redacted text.
+// before the cut, so the cut falls on the redacted text. ServerUID, read on every
+// page, is the one server the page may read, "" for whichever the cluster reaches:
+// a page resolved against another's cache is cluster.ErrIdentityMismatch.
 type FetchRequest struct {
 	Scope
 	Window
@@ -116,6 +118,7 @@ type FetchRequest struct {
 	MaxMessageBytes int
 	MaxPageBytes    int
 	ForModel        bool
+	ServerUID       string
 }
 
 // Page is the page's place in the window, each a page cursor, nil where there is
@@ -306,13 +309,13 @@ func (s *Service) read(ctx context.Context, id cluster.ClusterID, c *pageCursor,
 		lookup, lines = c.lookup()
 	}
 	if lookup == nil {
-		ms, err := s.page(ctx, id, rng)
+		ms, err := s.page(ctx, id, q.ServerUID, rng)
 		if err != nil {
 			return merge{}, logline.Cursor{}, nil, err
 		}
 		return ms[0], logline.Cursor{}, nil, nil
 	}
-	ms, err := s.page(ctx, id, rng, pageQuery{scope: c.Scope, grep: grep, mode: lookup.dir(), cur: lookup, limit: lines})
+	ms, err := s.page(ctx, id, q.ServerUID, rng, pageQuery{scope: c.Scope, grep: grep, mode: lookup.dir(), cur: lookup, limit: lines})
 	if err != nil {
 		return merge{}, logline.Cursor{}, nil, err
 	}
@@ -443,12 +446,15 @@ type page struct {
 	// them, and walkShare each stream's share of the walks' budget.
 	backends  []string
 	walkShare int64
+	// serverUID is the one server the page may read, "" for any.
+	serverUID string
 }
 
 // page is one merge per query of a scope on cluster id, every query over one resolve
-// of it and one claim. The queries share their scope.
-func (s *Service) page(ctx context.Context, id cluster.ClusterID, qs ...pageQuery) ([]merge, error) {
-	t, err := resolve(ctx, s.clusters, id, qs[0].scope, false)
+// of it and one claim. The queries share their scope. A page pinned to serverUID
+// ("" for any) resolves against no other server's cache.
+func (s *Service) page(ctx context.Context, id cluster.ClusterID, serverUID string, qs ...pageQuery) ([]merge, error) {
+	t, err := resolve(ctx, s.clusters, id, serverUID, qs[0].scope, false)
 	if err != nil {
 		return nil, err
 	}
@@ -462,12 +468,20 @@ func (s *Service) page(ctx context.Context, id cluster.ClusterID, qs ...pageQuer
 	if err != nil {
 		return nil, err
 	}
-	return s.pageOver(ctx, id, t, file, streams, qs...)
+	return s.pageOver(ctx, id, t, file, streams, serverUID, qs...)
+}
+
+// reachedAnotherServer is whether a fill's connection reached another server
+// than its claim's.
+func reachedAnotherServer(fills []streamFill) bool {
+	return slices.ContainsFunc(fills, func(f streamFill) bool { return errors.Is(f.err, cluster.ErrIdentityMismatch) })
 }
 
 // pageOver is one merge per query over streams, which t resolved or file alone
 // holds: their gaps filled from the backends, then each query walked and merged.
-func (s *Service) pageOver(ctx context.Context, id cluster.ClusterID, t target, file *logstore.Store, streams []pageStream, qs ...pageQuery) ([]merge, error) {
+// A page for one server (serverUID, "" for any) is refused when a stream's
+// connection reaches another, where a page for any skips that stream.
+func (s *Service) pageOver(ctx context.Context, id cluster.ClusterID, t target, file *logstore.Store, streams []pageStream, serverUID string, qs ...pageQuery) ([]merge, error) {
 	for i := range streams {
 		streams[i].tail, streams[i].committed = s.tailOf(t.cacheID, streams[i].row.ID)
 	}
@@ -481,7 +495,7 @@ func (s *Service) pageOver(ctx context.Context, id cluster.ClusterID, t target, 
 		}
 		return out, nil
 	}
-	p := &page{s: s, id: id, t: t, file: file, streams: streams, walkShare: s.walkBudget / int64(len(streams))}
+	p := &page{s: s, id: id, t: t, file: file, streams: streams, walkShare: s.walkBudget / int64(len(streams)), serverUID: serverUID}
 	for _, b := range s.backends {
 		p.backends = append(p.backends, b.name)
 	}
@@ -568,7 +582,8 @@ func (p *page) fill(ctx context.Context, qs []pageQuery) ([][]streamFill, error)
 
 // fillQuery fills each stream for q, all at once, each under the query's limits: an
 // allowance of its own, and the pool they share. seams is each stream's line just past q's bound, nil for none. The
-// first fill to fail ends the others, since its error refuses the page.
+// first fill to fail ends the others, since its error refuses the page; for a
+// pinned page, a stream that reached another server refuses it ahead of any cancel.
 func (p *page) fillQuery(ctx context.Context, q pageQuery, backends []kubelet.Backend, seams []*logstore.Pos) ([]streamFill, error) {
 	fills := make([]streamFill, len(p.streams))
 	var filled []int
@@ -584,7 +599,7 @@ func (p *page) fillQuery(ctx context.Context, q pageQuery, backends []kubelet.Ba
 	for n, i := range filled {
 		ps := p.streams[i]
 		f := &filler{
-			file: p.file, clusters: p.s.clusters, id: p.id, save: p.save, ret: p.s.files.Retention(), ps: ps, backends: backends, names: p.backends,
+			file: p.file, clusters: p.s.clusters, id: p.id, serverUID: p.serverUID, save: p.save, ret: p.s.files.Retention(), ps: ps, backends: backends, names: p.backends,
 			q: q, limits: limits[n], walk: newBudget(p.walkShare),
 		}
 		if seams != nil {
@@ -602,10 +617,20 @@ func (p *page) fillQuery(ctx context.Context, q pageQuery, backends []kubelet.Ba
 		})
 	}
 	wg.Wait()
-	if err := context.Cause(ctx); err != nil {
+	if err := fillsErr(p.serverUID, fills, context.Cause(ctx)); err != nil {
 		return nil, err
 	}
 	return fills, nil
+}
+
+// fillsErr is what refuses a query's page, given its fills and cause, whatever
+// cancelled them: for a page pinned to serverUID, a stream that reached another
+// server, ahead of cause, which a sibling's failure or the page's deadline may be.
+func fillsErr(serverUID string, fills []streamFill, cause error) error {
+	if serverUID != "" && reachedAnotherServer(fills) {
+		return cluster.ErrIdentityMismatch
+	}
+	return cause
 }
 
 // save writes one batch's fills, stamped: a sweep between the write and the page's
@@ -1845,7 +1870,10 @@ type filler struct {
 	// and save writes one batch's fills: a page's stamped, a tail's held.
 	clusters cluster.Service
 	id       cluster.ClusterID
-	save     func(context.Context, []logstore.Fill) (logstore.Written, error)
+	// serverUID pins the mirror's checks to the page's one server, "" for any: a
+	// move to another is a mismatch, never a pod restart.
+	serverUID string
+	save      func(context.Context, []logstore.Fill) (logstore.Written, error)
 	// ret sizes the batches a write files.
 	ret      logstore.Retention
 	ps       pageStream
@@ -2380,7 +2408,7 @@ func (f *filler) write(ctx context.Context, fill logstore.Fill) (bool, error) {
 // resolved as.
 func (f *filler) serves(ctx context.Context) (bool, error) {
 	var serves bool
-	err := f.clusters.CachedData().ReadActive(ctx, f.id, maxRows, maxBytes, func(q cluster.CacheReading, _ cluster.ActiveCluster) error {
+	err := f.clusters.CachedData().ReadActive(ctx, f.id, f.serverUID, maxRows, maxBytes, func(q cluster.CacheReading, _ cluster.ActiveCluster) error {
 		var err error
 		serves, err = reading{q}.serves(*f.ps.st)
 		return err

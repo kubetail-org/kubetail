@@ -829,26 +829,29 @@ func (t *Tool) sandboxedRunFor(ctx context.Context, boxer sandboxer, rt tools.Ru
 		return nil, fmt.Errorf("read the user's environment variables: %w", err)
 	}
 	r := &sandboxedRun{boxer: boxer}
-	var cluster *target
+	var kube *target
 	var port int
 	platforms := t.cloud.platformsFor(ctx, rt)
 	if rt.ClusterID != "" {
-		tg, err := t.target(ctx, rt.ClusterID)
+		tg, err := t.target(ctx, rt.ClusterID, rt.ServerUID)
+		if errors.Is(err, cluster.ErrIdentityMismatch) {
+			rt.ServerMoved()
+		}
 		if err != nil {
 			return nil, err
 		}
-		cluster = &tg
+		kube = &tg
 	}
 	// Only a run with a cluster or a cloud platform has a door, and dials its
 	// port.
-	serves := cluster != nil || len(platforms) > 0
+	serves := kube != nil || len(platforms) > 0
 	if serves {
 		if port, err = boxer.Port(); err != nil {
 			return nil, err
 		}
 	}
-	if cluster != nil {
-		if r.claim, err = t.claim(ctx, rt.ClusterID, cluster.serverUID); err != nil {
+	if kube != nil {
+		if r.claim, err = t.claim(ctx, rt.ClusterID, kube.serverUID, rt.ServerMoved); err != nil {
 			return nil, err
 		}
 	}
@@ -877,13 +880,13 @@ func (t *Tool) sandboxedRunFor(ctx context.Context, boxer sandboxer, rt tools.Ru
 	var cloudVars []string
 	if serves {
 		r.proxy = &runProxy{}
-		if cluster != nil {
+		if kube != nil {
 			asker, refusal := writesFor(rt, background)
-			r.proxy.grant = newClusterGrant(r.claim, rt.Session, cluster.id, cluster.scopeContext, asker, refusal)
+			r.proxy.grant = newClusterGrant(r.claim, rt.Session, kube.id, kube.scopeContext, asker, refusal)
 		}
 		run := CloudRun{Port: port, Dir: r.dir.path, ToolHome: toolHome, TmpDir: r.dir.tmp, CAFile: r.dir.caFile(), Session: rt.Session}
-		if cluster != nil {
-			run.KubeContext = cluster.scopeContext
+		if kube != nil {
+			run.KubeContext = kube.scopeContext
 		}
 		if cloudVars, err = r.proxy.mount(ctx, t.cloud, platforms, rt, background, run); err != nil {
 			r.end()
@@ -899,12 +902,12 @@ func (t *Tool) sandboxedRunFor(ctx context.Context, boxer sandboxer, rt tools.Ru
 			r.end()
 			return nil, err
 		}
-		if cluster != nil {
-			if err := writeKubeconfig(r.dir.kubeconfig(), cluster.context, port, r.proxy.grant.Token()); err != nil {
+		if kube != nil {
+			if err := writeKubeconfig(r.dir.kubeconfig(), kube.context, port, r.proxy.grant.Token()); err != nil {
 				r.end()
 				return nil, err
 			}
-			writes = append(writes, cluster.cacheDir)
+			writes = append(writes, kube.cacheDir)
 		}
 		net.Relays = []sandbox.Relay{{Port: port, Socket: socket}}
 	}
@@ -939,7 +942,7 @@ func (t *Tool) sandboxedRunFor(ctx context.Context, boxer sandboxer, rt tools.Ru
 		if sys.Asdf {
 			toolchain = slices.Concat(sys.Env, toolVersions(t.home))
 		}
-		env := sandboxedRunEnv(os.Environ(), t.env, joinPath(folders), ws, cwd, r.dir, cluster, toolHome, user, toolchain, cloudVars)
+		env := sandboxedRunEnv(os.Environ(), t.env, joinPath(folders), ws, cwd, r.dir, kube, toolHome, user, toolchain, cloudVars)
 		files := sys.Files.WithSearch(pathReads)
 		grants := t.grantRules(granted, sys.Files, never, list.NoWrite)
 		built <- build{run: sandbox.Run{Env: env, Policy: t.workspacePolicy(files, grants, never, reads, writes, net, limits)}}
