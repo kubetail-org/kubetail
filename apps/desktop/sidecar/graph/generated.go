@@ -63,6 +63,7 @@ type ResolverRoot interface {
 	GoogleConnection() GoogleConnectionResolver
 	Incident() IncidentResolver
 	IncidentOccurrence() IncidentOccurrenceResolver
+	IncidentTriage() IncidentTriageResolver
 	MonitorSignal() MonitorSignalResolver
 	MonitorTarget() MonitorTargetResolver
 	Mutation() MutationResolver
@@ -530,6 +531,7 @@ type ComplexityRoot struct {
 		SubjectLabel      func(childComplexity int) int
 		TargetID          func(childComplexity int) int
 		TargetUID         func(childComplexity int) int
+		Triage            func(childComplexity int) int
 	}
 
 	IncidentCollectionWatchFrame struct {
@@ -551,6 +553,16 @@ type ComplexityRoot struct {
 		IncidentID func(childComplexity int) int
 		Occurrence func(childComplexity int) int
 		Type       func(childComplexity int) int
+	}
+
+	IncidentTriage struct {
+		Effort     func(childComplexity int) int
+		Error      func(childComplexity int) int
+		ModelID    func(childComplexity int) int
+		ProviderID func(childComplexity int) int
+		Report     func(childComplexity int) int
+		State      func(childComplexity int) int
+		Verdict    func(childComplexity int) int
 	}
 
 	KubeQueryAction struct {
@@ -743,6 +755,7 @@ type ComplexityRoot struct {
 	}
 
 	MonitorTarget struct {
+		CanTriage      func(childComplexity int) int
 		ClusterID      func(childComplexity int) int
 		CurrentUID     func(childComplexity int) int
 		Enabled        func(childComplexity int) int
@@ -800,6 +813,7 @@ type ComplexityRoot struct {
 		GoogleConnect                   func(childComplexity int, fresh bool) int
 		GoogleConnectCancel             func(childComplexity int) int
 		GoogleDisconnect                func(childComplexity int) int
+		IncidentTriage                  func(childComplexity int, id monitor.IncidentID, providerID string, modelID string, effort *string) int
 		MemoryDelete                    func(childComplexity int, id memory.MemoryID) int
 		MemorySave                      func(childComplexity int, input model.MemorySaveInput) int
 		MonitorTargetEnabledSet         func(childComplexity int, id monitor.MonitorTargetID, enabled bool) int
@@ -1202,6 +1216,14 @@ type IncidentOccurrenceResolver interface {
 	EndReason(ctx context.Context, obj *monitor.IncidentOccurrence) (*monitor.EndReason, error)
 	Detail(ctx context.Context, obj *monitor.IncidentOccurrence) ([]*model.MonitorAttribute, error)
 }
+type IncidentTriageResolver interface {
+	Verdict(ctx context.Context, obj *monitor.IncidentTriage) (*monitor.TriageVerdict, error)
+	Error(ctx context.Context, obj *monitor.IncidentTriage) (*monitor.TriageErrorCode, error)
+	Report(ctx context.Context, obj *monitor.IncidentTriage) (*string, error)
+	ProviderID(ctx context.Context, obj *monitor.IncidentTriage) (*string, error)
+	ModelID(ctx context.Context, obj *monitor.IncidentTriage) (*string, error)
+	Effort(ctx context.Context, obj *monitor.IncidentTriage) (*string, error)
+}
 type MonitorSignalResolver interface {
 	Integration(ctx context.Context, obj *monitor.MonitorSignal) (model.MonitorIntegration, error)
 }
@@ -1242,6 +1264,7 @@ type MutationResolver interface {
 	EnvVarSet(ctx context.Context, clusterID *apimeta.ClusterID, name string, value string, target envvars.Target) ([]*envvars.Var, error)
 	EnvVarRemove(ctx context.Context, clusterID *apimeta.ClusterID, name string) ([]*envvars.Var, error)
 	MonitorTargetEnabledSet(ctx context.Context, id monitor.MonitorTargetID, enabled bool) (*monitor.MonitorTarget, error)
+	IncidentTriage(ctx context.Context, id monitor.IncidentID, providerID string, modelID string, effort *string) (*monitor.Incident, error)
 	MemorySave(ctx context.Context, input model.MemorySaveInput) (*memory.Memory, error)
 	MemoryDelete(ctx context.Context, id memory.MemoryID) (bool, error)
 	ToolSettingSet(ctx context.Context, name string, enabled bool) ([]*toolsettings.Setting, error)
@@ -3132,6 +3155,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Incident.TargetUID(childComplexity), true
+	case "Incident.triage":
+		if e.ComplexityRoot.Incident.Triage == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Incident.Triage(childComplexity), true
 
 	case "IncidentCollectionWatchFrame.incident":
 		if e.ComplexityRoot.IncidentCollectionWatchFrame.Incident == nil {
@@ -3207,6 +3236,49 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.IncidentOccurrenceEventFeedFrame.Type(childComplexity), true
+
+	case "IncidentTriage.effort":
+		if e.ComplexityRoot.IncidentTriage.Effort == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentTriage.Effort(childComplexity), true
+	case "IncidentTriage.error":
+		if e.ComplexityRoot.IncidentTriage.Error == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentTriage.Error(childComplexity), true
+	case "IncidentTriage.modelID":
+		if e.ComplexityRoot.IncidentTriage.ModelID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentTriage.ModelID(childComplexity), true
+	case "IncidentTriage.providerID":
+		if e.ComplexityRoot.IncidentTriage.ProviderID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentTriage.ProviderID(childComplexity), true
+	case "IncidentTriage.report":
+		if e.ComplexityRoot.IncidentTriage.Report == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentTriage.Report(childComplexity), true
+	case "IncidentTriage.state":
+		if e.ComplexityRoot.IncidentTriage.State == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentTriage.State(childComplexity), true
+	case "IncidentTriage.verdict":
+		if e.ComplexityRoot.IncidentTriage.Verdict == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IncidentTriage.Verdict(childComplexity), true
 
 	case "KubeQueryAction.limit":
 		if e.ComplexityRoot.KubeQueryAction.Limit == nil {
@@ -3934,6 +4006,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MonitorSignal.Severity(childComplexity), true
 
+	case "MonitorTarget.canTriage":
+		if e.ComplexityRoot.MonitorTarget.CanTriage == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MonitorTarget.CanTriage(childComplexity), true
 	case "MonitorTarget.clusterID":
 		if e.ComplexityRoot.MonitorTarget.ClusterID == nil {
 			break
@@ -4335,6 +4413,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.GoogleDisconnect(childComplexity), true
+	case "Mutation.incidentTriage":
+		if e.ComplexityRoot.Mutation.IncidentTriage == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_incidentTriage_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.IncidentTriage(childComplexity, args["id"].(monitor.IncidentID), args["providerID"].(string), args["modelID"].(string), args["effort"].(*string)), true
 	case "Mutation.memoryDelete":
 		if e.ComplexityRoot.Mutation.MemoryDelete == nil {
 			break
@@ -6902,6 +6991,8 @@ func (ec *executionContext) childFields_Incident(ctx context.Context, field grap
 		return ec.fieldContext_Incident_lastEndReason(ctx, field)
 	case "baseline":
 		return ec.fieldContext_Incident_baseline(ctx, field)
+	case "triage":
+		return ec.fieldContext_Incident_triage(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 }
@@ -6946,6 +7037,26 @@ func (ec *executionContext) childFields_IncidentOccurrenceEventFeedFrame(ctx con
 		return ec.fieldContext_IncidentOccurrenceEventFeedFrame_occurrence(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type IncidentOccurrenceEventFeedFrame", field.Name)
+}
+
+func (ec *executionContext) childFields_IncidentTriage(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "state":
+		return ec.fieldContext_IncidentTriage_state(ctx, field)
+	case "verdict":
+		return ec.fieldContext_IncidentTriage_verdict(ctx, field)
+	case "error":
+		return ec.fieldContext_IncidentTriage_error(ctx, field)
+	case "report":
+		return ec.fieldContext_IncidentTriage_report(ctx, field)
+	case "providerID":
+		return ec.fieldContext_IncidentTriage_providerID(ctx, field)
+	case "modelID":
+		return ec.fieldContext_IncidentTriage_modelID(ctx, field)
+	case "effort":
+		return ec.fieldContext_IncidentTriage_effort(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type IncidentTriage", field.Name)
 }
 
 func (ec *executionContext) childFields_KubeQueryAction(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -7344,6 +7455,8 @@ func (ec *executionContext) childFields_MonitorTarget(ctx context.Context, field
 		return ec.fieldContext_MonitorTarget_readState(ctx, field)
 	case "unknownSignals":
 		return ec.fieldContext_MonitorTarget_unknownSignals(ctx, field)
+	case "canTriage":
+		return ec.fieldContext_MonitorTarget_canTriage(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type MonitorTarget", field.Name)
 }
@@ -8631,6 +8744,44 @@ func (ec *executionContext) field_Mutation_googleConnect_args(ctx context.Contex
 		return nil, err
 	}
 	args["fresh"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_incidentTriage_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (monitor.IncidentID, error) {
+			return ec.unmarshalNIncidentID2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "providerID",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["providerID"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "modelID",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["modelID"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "effort",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["effort"] = arg3
 	return args, nil
 }
 
@@ -16396,6 +16547,38 @@ func (ec *executionContext) fieldContext_Incident_baseline(_ context.Context, fi
 	return graphql.NewScalarFieldContext("Incident", field, false, false, "Boolean")
 }
 
+func (ec *executionContext) _Incident_triage(ctx context.Context, field graphql.CollectedField, obj *monitor.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Incident_triage(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Triage, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v monitor.IncidentTriage) graphql.Marshaler {
+			return ec.marshalNIncidentTriage2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentTriage(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Incident_triage(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Incident",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IncidentTriage(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _IncidentCollectionWatchFrame_type(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentCollectionWatchFrame) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -16697,6 +16880,167 @@ func (ec *executionContext) fieldContext_IncidentOccurrenceEventFeedFrame_occurr
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _IncidentTriage_state(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentTriage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentTriage_state(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.State, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v monitor.TriageState) graphql.Marshaler {
+			return ec.marshalNIncidentTriageState2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageState(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentTriage_state(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentTriage", field, false, false, "IncidentTriageState")
+}
+
+func (ec *executionContext) _IncidentTriage_verdict(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentTriage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentTriage_verdict(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IncidentTriage().Verdict(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *monitor.TriageVerdict) graphql.Marshaler {
+			return ec.marshalOIncidentTriageVerdict2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageVerdict(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentTriage_verdict(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentTriage", field, true, true, "IncidentTriageVerdict")
+}
+
+func (ec *executionContext) _IncidentTriage_error(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentTriage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentTriage_error(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IncidentTriage().Error(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *monitor.TriageErrorCode) graphql.Marshaler {
+			return ec.marshalOIncidentTriageError2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageErrorCode(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentTriage_error(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentTriage", field, true, true, "IncidentTriageError")
+}
+
+func (ec *executionContext) _IncidentTriage_report(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentTriage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentTriage_report(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IncidentTriage().Report(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentTriage_report(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentTriage", field, true, true, "String")
+}
+
+func (ec *executionContext) _IncidentTriage_providerID(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentTriage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentTriage_providerID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IncidentTriage().ProviderID(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentTriage_providerID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentTriage", field, true, true, "String")
+}
+
+func (ec *executionContext) _IncidentTriage_modelID(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentTriage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentTriage_modelID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IncidentTriage().ModelID(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentTriage_modelID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentTriage", field, true, true, "String")
+}
+
+func (ec *executionContext) _IncidentTriage_effort(ctx context.Context, field graphql.CollectedField, obj *monitor.IncidentTriage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IncidentTriage_effort(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IncidentTriage().Effort(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IncidentTriage_effort(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IncidentTriage", field, true, true, "String")
 }
 
 func (ec *executionContext) _KubeQueryAction_sql(ctx context.Context, field graphql.CollectedField, obj *tools.KubeQueryAction) (ret graphql.Marshaler) {
@@ -19844,6 +20188,29 @@ func (ec *executionContext) fieldContext_MonitorTarget_unknownSignals(_ context.
 	return fc, nil
 }
 
+func (ec *executionContext) _MonitorTarget_canTriage(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MonitorTarget_canTriage(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CanTriage, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MonitorTarget_canTriage(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MonitorTarget", field, false, false, "Boolean")
+}
+
 func (ec *executionContext) _MonitorTargetCollectionWatchFrame_type(ctx context.Context, field graphql.CollectedField, obj *monitor.MonitorTargetCollectionWatchFrame) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -21147,6 +21514,50 @@ func (ec *executionContext) fieldContext_Mutation_monitorTargetEnabledSet(ctx co
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_monitorTargetEnabledSet_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_incidentTriage(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_incidentTriage(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().IncidentTriage(ctx, fc.Args["id"].(monitor.IncidentID), fc.Args["providerID"].(string), fc.Args["modelID"].(string), fc.Args["effort"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *monitor.Incident) graphql.Marshaler {
+			return ec.marshalNIncident2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncident(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_incidentTriage(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Incident(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_incidentTriage_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -32624,6 +33035,11 @@ func (ec *executionContext) _Incident(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "triage":
+			out.Values[i] = ec._Incident_triage(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -32771,6 +33187,75 @@ func (ec *executionContext) _IncidentOccurrenceEventFeedFrame(ctx context.Contex
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var incidentTriageImplementors = []string{"IncidentTriage"}
+
+func (ec *executionContext) _IncidentTriage(ctx context.Context, sel ast.SelectionSet, obj *monitor.IncidentTriage) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, incidentTriageImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("IncidentTriage")
+		case "state":
+			out.Values[i] = ec._IncidentTriage_state(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "verdict":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IncidentTriage_verdict(ctx, field, obj)
+				})
+		case "error":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IncidentTriage_error(ctx, field, obj)
+				})
+		case "report":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IncidentTriage_report(ctx, field, obj)
+				})
+		case "providerID":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IncidentTriage_providerID(ctx, field, obj)
+				})
+		case "modelID":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IncidentTriage_modelID(ctx, field, obj)
+				})
+		case "effort":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IncidentTriage_effort(ctx, field, obj)
+				})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -34101,6 +34586,11 @@ func (ec *executionContext) _MonitorTarget(ctx context.Context, sel ast.Selectio
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._MonitorTarget_unknownSignals(ctx, field, obj)
 				})
+		case "canTriage":
+			out.Values[i] = ec._MonitorTarget_canTriage(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -34405,6 +34895,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "monitorTargetEnabledSet":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_monitorTargetEnabledSet(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "incidentTriage":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_incidentTriage(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -37751,6 +38248,14 @@ func (ec *executionContext) marshalNGrantDuration2githubᚗcomᚋkubetailᚑorg�
 	return v
 }
 
+func (ec *executionContext) marshalNIncident2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncident(ctx context.Context, sel ast.SelectionSet, v *monitor.Incident) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "Incident!")
+		return graphql.Null
+	}
+	return ec._Incident(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNIncidentCollectionWatchFrame2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentCollectionWatchFrame(ctx context.Context, sel ast.SelectionSet, v *monitor.IncidentCollectionWatchFrame) graphql.Marshaler {
 	if v == nil {
 		graphql.AddInvalidNullError(ctx, "IncidentCollectionWatchFrame!")
@@ -37822,6 +38327,40 @@ func (ec *executionContext) marshalNIncidentOccurrenceID2githubᚗcomᚋkubetail
 	}
 	return res
 }
+
+func (ec *executionContext) marshalNIncidentTriage2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐIncidentTriage(ctx context.Context, sel ast.SelectionSet, v monitor.IncidentTriage) graphql.Marshaler {
+	return ec._IncidentTriage(ctx, sel, &v)
+}
+
+func (ec *executionContext) unmarshalNIncidentTriageState2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageState(ctx context.Context, v any) (monitor.TriageState, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := unmarshalNIncidentTriageState2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageState[tmp]
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNIncidentTriageState2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageState(ctx context.Context, sel ast.SelectionSet, v monitor.TriageState) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(marshalNIncidentTriageState2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageState[v])
+	if res == graphql.Null {
+		graphql.AddInvalidNullFromMarshaler(ctx, "IncidentTriageState!")
+	}
+	return res
+}
+
+var (
+	unmarshalNIncidentTriageState2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageState = map[string]monitor.TriageState{
+		"None":   monitor.TriageStateNone,
+		"Queued": monitor.TriageStateQueued,
+		"Done":   monitor.TriageStateDone,
+		"Failed": monitor.TriageStateFailed,
+	}
+	marshalNIncidentTriageState2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageState = map[monitor.TriageState]string{
+		monitor.TriageStateNone:   "None",
+		monitor.TriageStateQueued: "Queued",
+		monitor.TriageStateDone:   "Done",
+		monitor.TriageStateFailed: "Failed",
+	}
+)
 
 func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
 	res, err := graphql.UnmarshalInt(v)
@@ -39834,6 +40373,80 @@ var (
 		monitor.EndResolved: "Resolved",
 		monitor.EndStopped:  "Stopped",
 		monitor.EndStale:    "Stale",
+	}
+)
+
+func (ec *executionContext) unmarshalOIncidentTriageError2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageErrorCode(ctx context.Context, v any) (*monitor.TriageErrorCode, error) {
+	if v == nil {
+		return nil, nil
+	}
+	tmp, err := graphql.UnmarshalString(v)
+	res := unmarshalOIncidentTriageError2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageErrorCode[tmp]
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOIncidentTriageError2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageErrorCode(ctx context.Context, sel ast.SelectionSet, v *monitor.TriageErrorCode) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(marshalOIncidentTriageError2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageErrorCode[*v])
+	return res
+}
+
+var (
+	unmarshalOIncidentTriageError2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageErrorCode = map[string]monitor.TriageErrorCode{
+		"MonitoringOff":    monitor.TriageCodeMonitoringOff,
+		"ServerChanged":    monitor.TriageCodeServerChanged,
+		"TargetGone":       monitor.TriageCodeTargetGone,
+		"NoSandbox":        monitor.TriageCodeNoSandbox,
+		"ModelUnavailable": monitor.TriageCodeModelUnavailable,
+		"RunFailed":        monitor.TriageCodeRunFailed,
+		"Cancelled":        monitor.TriageCodeCancelled,
+		"Interrupted":      monitor.TriageCodeInterrupted,
+		"Unavailable":      monitor.TriageCodeUnavailable,
+	}
+	marshalOIncidentTriageError2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageErrorCode = map[monitor.TriageErrorCode]string{
+		monitor.TriageCodeMonitoringOff:    "MonitoringOff",
+		monitor.TriageCodeServerChanged:    "ServerChanged",
+		monitor.TriageCodeTargetGone:       "TargetGone",
+		monitor.TriageCodeNoSandbox:        "NoSandbox",
+		monitor.TriageCodeModelUnavailable: "ModelUnavailable",
+		monitor.TriageCodeRunFailed:        "RunFailed",
+		monitor.TriageCodeCancelled:        "Cancelled",
+		monitor.TriageCodeInterrupted:      "Interrupted",
+		monitor.TriageCodeUnavailable:      "Unavailable",
+	}
+)
+
+func (ec *executionContext) unmarshalOIncidentTriageVerdict2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageVerdict(ctx context.Context, v any) (*monitor.TriageVerdict, error) {
+	if v == nil {
+		return nil, nil
+	}
+	tmp, err := graphql.UnmarshalString(v)
+	res := unmarshalOIncidentTriageVerdict2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageVerdict[tmp]
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOIncidentTriageVerdict2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageVerdict(ctx context.Context, sel ast.SelectionSet, v *monitor.TriageVerdict) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(marshalOIncidentTriageVerdict2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageVerdict[*v])
+	return res
+}
+
+var (
+	unmarshalOIncidentTriageVerdict2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageVerdict = map[string]monitor.TriageVerdict{
+		"Attention": monitor.TriageVerdictAttention,
+		"Dismiss":   monitor.TriageVerdictDismiss,
+	}
+	marshalOIncidentTriageVerdict2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋappsᚋdesktopᚋsidecarᚋinternalᚋagentᚋmonitorᚐTriageVerdict = map[monitor.TriageVerdict]string{
+		monitor.TriageVerdictAttention: "Attention",
+		monitor.TriageVerdictDismiss:   "Dismiss",
 	}
 )
 
