@@ -14,13 +14,13 @@
 
 // What monitoring found: every target, every target's incidents and the signals they
 // name, held once for the window so the bell and the Incidents dialog read the same
-// maps, and the occurrence feed of one incident. See docs/read-contracts/README.md,
-// *Collection watch*, *List* and *Event feed*.
+// maps, the occurrence feed of one incident, and the switch on a target. See
+// docs/read-contracts/README.md, *Collection watch*, *List* and *Event feed*.
 //
 // The webview knows an integration in one place, `INTEGRATION_LABEL`: a new value of
 // `MonitorIntegration` fails the build here and nowhere else.
-import { createContext, useContext, useMemo } from 'react';
-import { useQuery } from 'urql';
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery } from 'urql';
 
 import { graphql } from '@/gql';
 import type {
@@ -38,6 +38,7 @@ import { useClusters } from '@/lib/clusters';
 import { collectionWatchReducer } from '@/lib/graphql/collection-watch';
 import { eventFeedReducer } from '@/lib/graphql/event-feed';
 import type { EventFeedHistory } from '@/lib/graphql/event-feed';
+import { refusalOf } from '@/lib/graphql/refusal';
 import { useFoldedSubscription } from '@/lib/graphql/use-folded-subscription';
 
 const MonitorTargetCollectionWatchDocument = graphql(`
@@ -120,6 +121,16 @@ const IncidentOccurrenceEventFeedDocument = graphql(`
   }
 `);
 
+// Answered through `monitorTargetCollectionWatch`, which is what a switch draws.
+const MonitorTargetEnabledSetDocument = graphql(`
+  mutation MonitorTargetEnabledSet($id: MonitorTargetID!, $enabled: Boolean!) {
+    monitorTargetEnabledSet(id: $id, enabled: $enabled) {
+      id
+      enabled
+    }
+  }
+`);
+
 // Each item as its watch delivers it. NonNullable: the item is null only on a Bookmark
 // or a change whose record errored, which the reducers drop.
 export type MonitorTarget = NonNullable<
@@ -195,6 +206,8 @@ type IncidentsContextValue = {
 };
 
 const IncidentsContext = createContext<IncidentsContextValue | null>(null);
+// Apart from the reads, so a press redraws only the switches.
+const EnabledSetContext = createContext<MonitorTargetEnabledSet | null>(null);
 
 export function IncidentsProvider({ children }: { children: React.ReactNode }) {
   const { data: targetWatch } = useFoldedSubscription({ query: MonitorTargetCollectionWatchDocument }, reduceTargets);
@@ -231,7 +244,14 @@ export function IncidentsProvider({ children }: { children: React.ReactNode }) {
     () => ({ targets: incidents ? targets : null, incidents, signals }),
     [targets, incidents, signals],
   );
-  return <IncidentsContext.Provider value={value}>{children}</IncidentsContext.Provider>;
+  // Held here, not in Settings' Monitoring tab, so a switch in flight and its refusal
+  // outlive the tab.
+  const enabledSet = useEnabledSetState();
+  return (
+    <IncidentsContext.Provider value={value}>
+      <EnabledSetContext.Provider value={enabledSet}>{children}</EnabledSetContext.Provider>
+    </IncidentsContext.Provider>
+  );
 }
 
 function useIncidentsContext(): IncidentsContextValue {
@@ -299,6 +319,55 @@ export function useIncidentOccurrenceEventFeed(incidentID: string | undefined): 
   // The accumulator still holds the last incident's history for the render the id flips in.
   const history = data?.incidentID === incidentID ? data : undefined;
   return { occurrences: history?.events ?? NO_OCCURRENCES, snapshotComplete: history?.snapshotComplete ?? false };
+}
+
+export type MonitorTargetEnabledSet = {
+  /** The targets whose switch is in flight, by id. */
+  changing: ReadonlySet<string>;
+  /** Each target's last refused switch, by id, until that target's next press. */
+  errors: ReadonlyMap<string, string>;
+  /** Sends nothing for a target already in flight. */
+  set: (id: string, enabled: boolean) => Promise<void>;
+};
+
+/**
+ * Turns a target's monitoring on or off. The switch draws the watch's `enabled`, which
+ * the target's `Modified` moves, so this holds only what is in flight and what failed.
+ */
+export function useMonitorTargetEnabledSet(): MonitorTargetEnabledSet {
+  const ctx = useContext(EnabledSetContext);
+  if (!ctx) throw new Error('monitoring hooks must be used inside <IncidentsProvider>');
+  return ctx;
+}
+
+function useEnabledSetState(): MonitorTargetEnabledSet {
+  const [, send] = useMutation(MonitorTargetEnabledSetDocument);
+  const [changing, setChanging] = useState<ReadonlySet<string>>(new Set());
+  const [errors, setErrors] = useState<ReadonlyMap<string, string>>(new Map());
+  // Read synchronously: two presses inside one render both see the same `changing`.
+  const inFlight = useRef(new Set<string>());
+
+  const set = useCallback(
+    async (id: string, enabled: boolean) => {
+      if (inFlight.current.has(id)) return;
+      inFlight.current.add(id);
+      setChanging(new Set(inFlight.current));
+      setErrors((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Map(prev);
+        next.delete(id);
+        return next;
+      });
+      const { error } = await send({ id, enabled });
+      inFlight.current.delete(id);
+      setChanging(new Set(inFlight.current));
+      const refusal = refusalOf(error);
+      if (refusal) setErrors((prev) => new Map(prev).set(id, refusal));
+    },
+    [send],
+  );
+
+  return useMemo(() => ({ changing, errors, set }), [changing, errors, set]);
 }
 
 // What a target's line above its incidents says, the first that holds.

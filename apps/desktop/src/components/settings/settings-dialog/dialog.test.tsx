@@ -35,6 +35,7 @@ vi.mock('./clusters', () => ({
 }));
 
 vi.mock('./sandbox', () => ({ SandboxSettings: () => <p>The sandbox</p> }));
+vi.mock('./monitoring', () => ({ MonitoringSettings: () => <p>The monitoring</p> }));
 
 // The Permissions pane draws over these hooks; its own test covers the rest.
 const { sandboxAvailable } = vi.hoisted(() => ({ sandboxAvailable: { current: true } }));
@@ -226,7 +227,7 @@ describe('SettingsDialog', () => {
     await user.click(await screen.findByRole('tab', { name: 'Monitoring' }));
 
     expect(screen.getByRole('heading', { name: 'Monitoring' })).toBeInTheDocument();
-    expect(screen.getByRole('tabpanel')).toHaveTextContent('Coming soon');
+    expect(screen.getByRole('tabpanel')).toHaveTextContent('The monitoring');
   });
 
   // Each row's cache size is a live watch; it must not run behind another tab.
