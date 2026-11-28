@@ -39,9 +39,11 @@ type ResizeHandleProps = {
   onResize: (px: number) => void;
   /** Names the handle for the keyboard and for tests. */
   label: string;
+  /** Moves or widens the strip, for a pane whose divider is wider than the default. */
+  className?: string;
 };
 
-export function ResizeHandle({ edge, bounds, onResize, label }: ResizeHandleProps) {
+export function ResizeHandle({ edge, bounds, onResize, label, className }: ResizeHandleProps) {
   const ref = useRef<HTMLDivElement>(null);
   // The pane as drawn, which can be narrower than the width its caller stores (a cap, or
   // the row's flex shrinking it), and its bounds: what the arrows step within and a screen
@@ -120,6 +122,7 @@ export function ResizeHandle({ edge, bounds, onResize, label }: ResizeHandleProp
       className={cn(
         'absolute inset-y-0 z-20 w-2 cursor-col-resize touch-none outline-none focus-visible:bg-ring',
         edge === 'left' ? 'left-0' : '-right-1',
+        className,
       )}
     />
   );
