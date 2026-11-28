@@ -147,7 +147,7 @@ A reading that names no UID judges nothing. An integration whose targets have no
 | `timeout` | the reading outlived its cadence | set by the loop |
 | `invalid` | the reading broke the core's bounds | set by the core's check |
 
-`Read`'s error carries its code, and one that carries none reads `unavailable`. The monitor writes `unknown_signals` only when it changes, and notifies `KeyMonitorTargets` after the commit. Each fold also writes `last_read_at`, with no notice. Step 2 serves the signals and the state, and step 3a's empty states read them.
+`Read`'s error carries its code, and one that carries none reads `unavailable`. A code outside the core's list, in an error or a reading, reads `invalid`, so every stored code has a value on the wire. The monitor writes `unknown_signals` only when it changes, and notifies `KeyMonitorTargets` after the commit. Each fold also writes `last_read_at`, with no notice. Step 2 serves the signals and the state, and step 3a's empty states read them.
 
 ### The Kubernetes integration
 
@@ -290,7 +290,7 @@ CREATE TABLE monitor_targets (
   enabled         INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
   generation      INTEGER NOT NULL DEFAULT 0,
   current_uid     TEXT,
-  unknown_signals TEXT    NOT NULL DEFAULT '{}' CHECK (json_valid(unknown_signals)),
+  unknown_signals TEXT    NOT NULL DEFAULT '{}' CHECK (json_valid(unknown_signals) AND json_type(unknown_signals) = 'object'),
   last_read_at    INTEGER,
   created_at      INTEGER NOT NULL,
   updated_at      INTEGER NOT NULL,
@@ -348,7 +348,7 @@ CREATE UNIQUE INDEX incident_occurrences_one_open ON incident_occurrences (incid
 
 **`monitor_targets.enabled` defaults to 1 and gates detection.** Its comment in `0001_init.sql`, and the descriptions of `Cluster.monitoringEnabled` and `clusterMonitoringEnabledSet` in `schema.graphqls`, say so.
 
-It does not gate model spending on its own. `chat.RunMonitor` keeps its check in the transaction that inserts the run, so a target with monitoring off takes no run, but from this step every target passes it by default. The check is the caller's to supply: `RunMonitor` takes an admit function and calls it in that transaction, with the id of the run it inserts, and refuses with `ErrMonitoringOff` when the function does. `chat` reads no table of the monitor's. What keeps a run from starting unasked is that `RunMonitor` has no caller: step 4's only caller is the user's press, and step 5 gates unattended runs on the triage setting. A security record says so in this step, and names [the monitoring session record](../../../apps/desktop/docs/security/2026-10-05-the-monitoring-session.md), which describes a run as gated by the switch.
+It does not gate model spending on its own. `chat.RunMonitor` keeps its check in the transaction that inserts the run, so a target with monitoring off takes no run, but from this step every target passes it by default. The check is the caller's to supply: `RunMonitor` takes an admit function and calls it in that transaction after the insert, with the id of the run it inserted, and refuses with `ErrMonitoringOff` when the function does. `chat` reads no table of the monitor's. What keeps a run from starting unasked is that `RunMonitor` has no caller: step 4's only caller is the user's press, and step 5 gates unattended runs on the triage setting. A security record says so in this step, and names [the monitoring session record](../../../apps/desktop/docs/security/2026-10-05-the-monitoring-session.md), which describes a run as gated by the switch.
 
 ## Tasks
 
